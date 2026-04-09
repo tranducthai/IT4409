@@ -26,3 +26,9 @@ If you are developing a production application, we recommend using TypeScript wi
    ```bash
    npm install
    ```
+4. Chạy ứng dụng: Sau khi cài đặt xong, bạn có thể chạy ứng dụng bằng lệnh sau (lưu ý rằng bạn cần phải ở trong thư mục frontend):
+   ```bash
+   npm run dev
+   ```
+   Lệnh này sẽ khởi động máy chủ phát triển và bạn có thể truy cập ứng dụng của mình tại địa chỉ được chỉ định 
+5. Xây dựng ứng dụng: Khi bạn đã hoàn thành việc phát triển và
