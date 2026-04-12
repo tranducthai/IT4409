@@ -1,0 +1,6 @@
+export enum NotificationType {
+    GENERAL = 'GENERAL',
+    ASSIGNMENT = 'ASSIGNMENT',
+    DISCUSSION = 'DISCUSSION',
+    VIDEO_SESSION = 'VIDEO_SESSION',
+}
