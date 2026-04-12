@@ -1,0 +1,124 @@
+import { MigrationInterface, QueryRunner } from "typeorm";
+
+export class InitSchema1775881197833 implements MigrationInterface {
+    name = 'InitSchema1775881197833'
+
+    public async up(queryRunner: QueryRunner): Promise<void> {
+        await queryRunner.query(`CREATE TABLE "student_profiles" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "user_id" uuid NOT NULL, "student_code" character varying NOT NULL, "class_name" character varying NOT NULL, "major" character varying NOT NULL, "course_year" character varying NOT NULL, "phone" character varying, "dob" date, CONSTRAINT "UQ_cef016a0d95e26ae7c0f167ec28" UNIQUE ("user_id"), CONSTRAINT "UQ_95c5c8896e8f4263eabeb9bbb2c" UNIQUE ("student_code"), CONSTRAINT "REL_cef016a0d95e26ae7c0f167ec2" UNIQUE ("user_id"), CONSTRAINT "PK_5ed0a32eeaddfe812fb326177d0" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TABLE "teacher_profiles" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "user_id" uuid NOT NULL, "specialization" character varying NOT NULL, "degree" character varying, "bio" text, CONSTRAINT "UQ_b9627de400103265c502c57b56b" UNIQUE ("user_id"), CONSTRAINT "REL_b9627de400103265c502c57b56" UNIQUE ("user_id"), CONSTRAINT "PK_fdd17d62015e40674217a407484" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TYPE "public"."users_role_enum" AS ENUM('ADMIN', 'TEACHER', 'STUDENT')`);
+        await queryRunner.query(`CREATE TABLE "users" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "full_name" character varying NOT NULL, "email" character varying NOT NULL, "password" character varying NOT NULL, "role" "public"."users_role_enum" NOT NULL, "avatar_url" character varying, "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "UQ_97672ac88f789774dd47f7c8be3" UNIQUE ("email"), CONSTRAINT "PK_a3ffb1c0c8416b9fc6f907b7433" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TYPE "public"."classes_type_enum" AS ENUM('OPEN', 'CLOSED')`);
+        await queryRunner.query(`CREATE TABLE "classes" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "name" character varying NOT NULL, "description" text, "type" "public"."classes_type_enum" NOT NULL, "teacher_id" uuid NOT NULL, "join_code" character varying NOT NULL, "is_active" boolean NOT NULL DEFAULT true, "created_at" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "UQ_14f3ad560188f1babcbd3e746aa" UNIQUE ("join_code"), CONSTRAINT "PK_e207aa15404e9b2ce35910f9f7f" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TABLE "video_sessions" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "class_id" uuid NOT NULL, "host_id" uuid NOT NULL, "title" character varying NOT NULL, "description" text, "room_url" character varying, "started_at" TIMESTAMP, "ended_at" TIMESTAMP, "created_at" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "PK_e60a547367f17bc59dcc2a56a6a" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TYPE "public"."video_participants_role_enum" AS ENUM('HOST', 'PARTICIPANT')`);
+        await queryRunner.query(`CREATE TABLE "video_participants" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "video_session_id" uuid NOT NULL, "user_id" uuid NOT NULL, "role" "public"."video_participants_role_enum" NOT NULL, "joined_at" TIMESTAMP NOT NULL DEFAULT now(), "left_at" TIMESTAMP, CONSTRAINT "PK_7b8f9607ab9caadc273b875431d" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE UNIQUE INDEX "IDX_f88b3feb86c1cc0e75b7db6f7e" ON "video_participants" ("video_session_id", "user_id") `);
+        await queryRunner.query(`CREATE TABLE "content_pages" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "content_id" uuid NOT NULL, "video_url" text, "document_url" text, "quiz_id" uuid, CONSTRAINT "UQ_0a44a892f03e604a3a8cc92e191" UNIQUE ("content_id"), CONSTRAINT "REL_0a44a892f03e604a3a8cc92e19" UNIQUE ("content_id"), CONSTRAINT "PK_5f7201667a2be0ed2f8f9a0876d" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TYPE "public"."contents_type_enum" AS ENUM('VIDEO', 'DOCUMENT', 'QUIZ')`);
+        await queryRunner.query(`CREATE TABLE "contents" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "week_id" uuid NOT NULL, "title" character varying NOT NULL, "type" "public"."contents_type_enum" NOT NULL, "order_index" integer NOT NULL, CONSTRAINT "PK_b7c504072e537532d7080c54fac" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TABLE "weeks" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "class_id" uuid NOT NULL, "title" character varying NOT NULL, "week_number" integer NOT NULL, CONSTRAINT "PK_003488ee2ca80ef0c85a02a8065" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TABLE "assignments" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "class_id" uuid NOT NULL, "created_by" uuid NOT NULL, "title" character varying NOT NULL, "description" text, "due_date" TIMESTAMP, "created_at" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "PK_c54ca359535e0012b04dcbd80ee" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TABLE "assignment_submissions" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "assignment_id" uuid NOT NULL, "student_id" uuid NOT NULL, "content" text, "file_url" character varying, "score" double precision, "feedback" text, "submitted_at" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "PK_0caedc49d0357bedac05ca5a806" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TABLE "sections" ("id" SERIAL NOT NULL, "class_id" uuid NOT NULL, "title" character varying NOT NULL, "order_index" integer NOT NULL, CONSTRAINT "PK_f9749dd3bffd880a497d007e450" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TABLE "quiz_answers" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "attempt_id" uuid NOT NULL, "question_id" uuid NOT NULL, "selected_answer" character varying NOT NULL, "is_correct" boolean NOT NULL, CONSTRAINT "PK_3fefbc8a840a41b6a15a4f9ca5e" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TABLE "questions" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "quiz_id" uuid NOT NULL, "question_text" text NOT NULL, "option_a" text NOT NULL, "option_b" text NOT NULL, "option_c" text NOT NULL, "option_d" text NOT NULL, "correct_answer" character varying NOT NULL, CONSTRAINT "PK_08a6d4b0f49ff300bf3a0ca60ac" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TABLE "quizzes" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "title" character varying NOT NULL, "description" text, "time_limit" integer NOT NULL, "total_questions" integer NOT NULL, "created_by" uuid NOT NULL, "is_random" boolean NOT NULL DEFAULT false, "created_at" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "PK_b24f0f7662cf6b3a0e7dba0a1b4" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TABLE "quiz_attempts" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "quiz_id" uuid NOT NULL, "student_id" uuid NOT NULL, "start_time" TIMESTAMP NOT NULL DEFAULT now(), "end_time" TIMESTAMP, "score" double precision, CONSTRAINT "PK_a84a93fb092359516dc5b325b90" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TYPE "public"."notifications_type_enum" AS ENUM('GENERAL', 'ASSIGNMENT', 'DISCUSSION', 'VIDEO_SESSION')`);
+        await queryRunner.query(`CREATE TABLE "notifications" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "user_id" uuid NOT NULL, "type" "public"."notifications_type_enum" NOT NULL, "title" character varying NOT NULL, "message" text, "is_read" boolean NOT NULL DEFAULT false, "read_at" TIMESTAMP, "created_at" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "PK_6a72c3c0f683f6462415e653c3a" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TABLE "discussions" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "class_id" uuid NOT NULL, "created_by" uuid NOT NULL, "title" character varying NOT NULL, "content" text, "created_at" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "PK_4b3d110d8e5d9077ddc0a0d1b4c" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TABLE "messages" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "discussion_id" uuid NOT NULL, "user_id" uuid NOT NULL, "content" text NOT NULL, "created_at" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "PK_18325f38ae6de43878487eff986" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TABLE "lessons" ("id" SERIAL NOT NULL, "section_id" integer NOT NULL, "title" character varying NOT NULL, "description" text NOT NULL, "order_index" integer NOT NULL, "created_at" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "PK_9b9a8d455cac672d262d7275730" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TYPE "public"."lesson_contents_type_enum" AS ENUM('video', 'file', 'text', 'quiz')`);
+        await queryRunner.query(`CREATE TABLE "lesson_contents" ("id" SERIAL NOT NULL, "lesson_id" integer NOT NULL, "type" "public"."lesson_contents_type_enum" NOT NULL, "title" character varying NOT NULL, "file_url" character varying, "content" text, "duration" integer, "order_index" integer NOT NULL, CONSTRAINT "PK_d1b97652e81fe392bb9465cfb97" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE TYPE "public"."class_members_role_enum" AS ENUM('TEACHER', 'STUDENT')`);
+        await queryRunner.query(`CREATE TYPE "public"."class_members_status_enum" AS ENUM('ACTIVE', 'PENDING', 'REJECTED')`);
+        await queryRunner.query(`CREATE TABLE "class_members" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "class_id" uuid NOT NULL, "user_id" uuid NOT NULL, "role" "public"."class_members_role_enum" NOT NULL, "status" "public"."class_members_status_enum" NOT NULL, "joined_at" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "PK_c06d2c3bc732509dcbbab8d5730" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`CREATE UNIQUE INDEX "IDX_77753c95c843748f20fbd2485c" ON "class_members" ("class_id", "user_id") `);
+        await queryRunner.query(`CREATE TABLE "answers" ("id" SERIAL NOT NULL, "question_id" uuid NOT NULL, "content" text NOT NULL, "is_correct" boolean NOT NULL, CONSTRAINT "PK_9c32cec6c71e06da0254f2226c6" PRIMARY KEY ("id"))`);
+        await queryRunner.query(`ALTER TABLE "student_profiles" ADD CONSTRAINT "FK_cef016a0d95e26ae7c0f167ec28" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "teacher_profiles" ADD CONSTRAINT "FK_b9627de400103265c502c57b56b" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "classes" ADD CONSTRAINT "FK_b34c92e413c4debb6e0f23fed46" FOREIGN KEY ("teacher_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "video_sessions" ADD CONSTRAINT "FK_0f5430290991f4b0cf953e1e219" FOREIGN KEY ("class_id") REFERENCES "classes"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "video_sessions" ADD CONSTRAINT "FK_868696b64c5517fbb5b4cd49210" FOREIGN KEY ("host_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "video_participants" ADD CONSTRAINT "FK_5704a9811ba4e50d85780c27009" FOREIGN KEY ("video_session_id") REFERENCES "video_sessions"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "video_participants" ADD CONSTRAINT "FK_da43ffaf70397201db245e32615" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "content_pages" ADD CONSTRAINT "FK_0a44a892f03e604a3a8cc92e191" FOREIGN KEY ("content_id") REFERENCES "contents"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "contents" ADD CONSTRAINT "FK_52b04cd36442d883a1e8a464bfb" FOREIGN KEY ("week_id") REFERENCES "weeks"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "weeks" ADD CONSTRAINT "FK_ec47f70aa1a080de87f307cff72" FOREIGN KEY ("class_id") REFERENCES "classes"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "assignment_submissions" ADD CONSTRAINT "FK_0c62b946a9e40285ac33fe970bb" FOREIGN KEY ("assignment_id") REFERENCES "assignments"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "sections" ADD CONSTRAINT "FK_27db91d7369af6f181412afa99f" FOREIGN KEY ("class_id") REFERENCES "classes"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "quiz_answers" ADD CONSTRAINT "FK_6fe76f6b4d4953d99e1672d1084" FOREIGN KEY ("attempt_id") REFERENCES "quiz_attempts"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "quiz_answers" ADD CONSTRAINT "FK_fbe5e1758631924a83c73b521d9" FOREIGN KEY ("question_id") REFERENCES "questions"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "questions" ADD CONSTRAINT "FK_46b3c125e02f7242662e4ccb307" FOREIGN KEY ("quiz_id") REFERENCES "quizzes"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "quiz_attempts" ADD CONSTRAINT "FK_a720e260138b64fcff2fca19b2d" FOREIGN KEY ("quiz_id") REFERENCES "quizzes"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "notifications" ADD CONSTRAINT "FK_9a8a82462cab47c73d25f49261f" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "messages" ADD CONSTRAINT "FK_93a8292a019a647f218d0fc26c8" FOREIGN KEY ("discussion_id") REFERENCES "discussions"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "lessons" ADD CONSTRAINT "FK_19261e484ffd22b40ea596ece4d" FOREIGN KEY ("section_id") REFERENCES "sections"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "lesson_contents" ADD CONSTRAINT "FK_118fa95e3bfeb4fc10406f72cf1" FOREIGN KEY ("lesson_id") REFERENCES "lessons"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "class_members" ADD CONSTRAINT "FK_2ace5ca20caf6953506af45c935" FOREIGN KEY ("class_id") REFERENCES "classes"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "class_members" ADD CONSTRAINT "FK_4569afaf85946abfa3c9cbac1a6" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
+        await queryRunner.query(`ALTER TABLE "answers" ADD CONSTRAINT "FK_677120094cf6d3f12df0b9dc5d3" FOREIGN KEY ("question_id") REFERENCES "questions"("id") ON DELETE CASCADE ON UPDATE NO ACTION`);
+    }
+
+    public async down(queryRunner: QueryRunner): Promise<void> {
+        await queryRunner.query(`ALTER TABLE "answers" DROP CONSTRAINT "FK_677120094cf6d3f12df0b9dc5d3"`);
+        await queryRunner.query(`ALTER TABLE "class_members" DROP CONSTRAINT "FK_4569afaf85946abfa3c9cbac1a6"`);
+        await queryRunner.query(`ALTER TABLE "class_members" DROP CONSTRAINT "FK_2ace5ca20caf6953506af45c935"`);
+        await queryRunner.query(`ALTER TABLE "lesson_contents" DROP CONSTRAINT "FK_118fa95e3bfeb4fc10406f72cf1"`);
+        await queryRunner.query(`ALTER TABLE "lessons" DROP CONSTRAINT "FK_19261e484ffd22b40ea596ece4d"`);
+        await queryRunner.query(`ALTER TABLE "messages" DROP CONSTRAINT "FK_93a8292a019a647f218d0fc26c8"`);
+        await queryRunner.query(`ALTER TABLE "notifications" DROP CONSTRAINT "FK_9a8a82462cab47c73d25f49261f"`);
+        await queryRunner.query(`ALTER TABLE "quiz_attempts" DROP CONSTRAINT "FK_a720e260138b64fcff2fca19b2d"`);
+        await queryRunner.query(`ALTER TABLE "questions" DROP CONSTRAINT "FK_46b3c125e02f7242662e4ccb307"`);
+        await queryRunner.query(`ALTER TABLE "quiz_answers" DROP CONSTRAINT "FK_fbe5e1758631924a83c73b521d9"`);
+        await queryRunner.query(`ALTER TABLE "quiz_answers" DROP CONSTRAINT "FK_6fe76f6b4d4953d99e1672d1084"`);
+        await queryRunner.query(`ALTER TABLE "sections" DROP CONSTRAINT "FK_27db91d7369af6f181412afa99f"`);
+        await queryRunner.query(`ALTER TABLE "assignment_submissions" DROP CONSTRAINT "FK_0c62b946a9e40285ac33fe970bb"`);
+        await queryRunner.query(`ALTER TABLE "weeks" DROP CONSTRAINT "FK_ec47f70aa1a080de87f307cff72"`);
+        await queryRunner.query(`ALTER TABLE "contents" DROP CONSTRAINT "FK_52b04cd36442d883a1e8a464bfb"`);
+        await queryRunner.query(`ALTER TABLE "content_pages" DROP CONSTRAINT "FK_0a44a892f03e604a3a8cc92e191"`);
+        await queryRunner.query(`ALTER TABLE "video_participants" DROP CONSTRAINT "FK_da43ffaf70397201db245e32615"`);
+        await queryRunner.query(`ALTER TABLE "video_participants" DROP CONSTRAINT "FK_5704a9811ba4e50d85780c27009"`);
+        await queryRunner.query(`ALTER TABLE "video_sessions" DROP CONSTRAINT "FK_868696b64c5517fbb5b4cd49210"`);
+        await queryRunner.query(`ALTER TABLE "video_sessions" DROP CONSTRAINT "FK_0f5430290991f4b0cf953e1e219"`);
+        await queryRunner.query(`ALTER TABLE "classes" DROP CONSTRAINT "FK_b34c92e413c4debb6e0f23fed46"`);
+        await queryRunner.query(`ALTER TABLE "teacher_profiles" DROP CONSTRAINT "FK_b9627de400103265c502c57b56b"`);
+        await queryRunner.query(`ALTER TABLE "student_profiles" DROP CONSTRAINT "FK_cef016a0d95e26ae7c0f167ec28"`);
+        await queryRunner.query(`DROP TABLE "answers"`);
+        await queryRunner.query(`DROP INDEX "public"."IDX_77753c95c843748f20fbd2485c"`);
+        await queryRunner.query(`DROP TABLE "class_members"`);
+        await queryRunner.query(`DROP TYPE "public"."class_members_status_enum"`);
+        await queryRunner.query(`DROP TYPE "public"."class_members_role_enum"`);
+        await queryRunner.query(`DROP TABLE "lesson_contents"`);
+        await queryRunner.query(`DROP TYPE "public"."lesson_contents_type_enum"`);
+        await queryRunner.query(`DROP TABLE "lessons"`);
+        await queryRunner.query(`DROP TABLE "messages"`);
+        await queryRunner.query(`DROP TABLE "discussions"`);
+        await queryRunner.query(`DROP TABLE "notifications"`);
+        await queryRunner.query(`DROP TYPE "public"."notifications_type_enum"`);
+        await queryRunner.query(`DROP TABLE "quiz_attempts"`);
+        await queryRunner.query(`DROP TABLE "quizzes"`);
+        await queryRunner.query(`DROP TABLE "questions"`);
+        await queryRunner.query(`DROP TABLE "quiz_answers"`);
+        await queryRunner.query(`DROP TABLE "sections"`);
+        await queryRunner.query(`DROP TABLE "assignment_submissions"`);
+        await queryRunner.query(`DROP TABLE "assignments"`);
+        await queryRunner.query(`DROP TABLE "weeks"`);
+        await queryRunner.query(`DROP TABLE "contents"`);
+        await queryRunner.query(`DROP TYPE "public"."contents_type_enum"`);
+        await queryRunner.query(`DROP TABLE "content_pages"`);
+        await queryRunner.query(`DROP INDEX "public"."IDX_f88b3feb86c1cc0e75b7db6f7e"`);
+        await queryRunner.query(`DROP TABLE "video_participants"`);
+        await queryRunner.query(`DROP TYPE "public"."video_participants_role_enum"`);
+        await queryRunner.query(`DROP TABLE "video_sessions"`);
+        await queryRunner.query(`DROP TABLE "classes"`);
+        await queryRunner.query(`DROP TYPE "public"."classes_type_enum"`);
+        await queryRunner.query(`DROP TABLE "users"`);
+        await queryRunner.query(`DROP TYPE "public"."users_role_enum"`);
+        await queryRunner.query(`DROP TABLE "teacher_profiles"`);
+        await queryRunner.query(`DROP TABLE "student_profiles"`);
+    }
+
+}
