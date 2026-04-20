@@ -14,3 +14,21 @@ The React Compiler is not enabled on this template because of its impact on dev 
 ## Expanding the ESLint configuration
 
 If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+
+------------------------------------------------------------
+# Hướng dẫn sử dụng
+1. Cài đặt Node.js: Trước tiên, bạn cần cài đặt Node.js trên máy tính của mình. Bạn có thể tải Node.js từ trang web chính thức: https://nodejs.org/
+2. Di chuyển vào thư mục dự án: Mở terminal và di chuyển vào thư mục chứa mã nguồn của bạn bằng lệnh `cd`. Ví dụ:
+   ```bash
+   cd path/to/your/project
+   ```
+3. Cài đặt các phụ thuộc: Di chuyển vào folder frontend và chạy lệnh sau để cài đặt tất cả các phụ thuộc cần thiết cho dự án của bạn:
+   ```bash
+   npm install
+   ```
+4. Chạy ứng dụng: Sau khi cài đặt xong, bạn có thể chạy ứng dụng bằng lệnh sau (lưu ý rằng bạn cần phải ở trong thư mục frontend):
+   ```bash
+   npm run dev
+   ```
+   Lệnh này sẽ khởi động máy chủ phát triển và bạn có thể truy cập ứng dụng của mình tại địa chỉ được chỉ định 
+5. Xây dựng ứng dụng: Khi bạn đã hoàn thành việc phát triển và
