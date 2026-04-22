@@ -8,17 +8,23 @@ import {
   Patch,
   Post,
 } from '@nestjs/common';
+import { CreateManySectionsDto } from './dtos/create-many-sections.dto';
 import { CreateSectionDto } from './dtos/create-section.dto';
 import { UpdateSectionDto } from './dtos/update-section.dto';
 import { SectionsService } from './sections.service';
 
 @Controller('sections')
 export class SectionsController {
-  constructor(private readonly sectionsService: SectionsService) {}
+  constructor(private readonly sectionsService: SectionsService) { }
 
   @Post()
   create(@Body() dto: CreateSectionDto) {
     return this.sectionsService.create(dto);
+  }
+
+  @Post('bulk')
+  createMany(@Body() dto: CreateManySectionsDto) {
+    return this.sectionsService.createMany(dto);
   }
 
   @Get()

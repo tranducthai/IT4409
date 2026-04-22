@@ -14,6 +14,7 @@ import { AuthService } from './auth.service';
 import { AuthLoginDto } from './dtos/auth-login.dto';
 import { AuthRegisterDto } from './dtos/auth-register.dto';
 import { ChangePasswordDto } from './dtos/change-password.dto';
+import { RefreshTokenDto } from './dtos/refresh-token.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import type { JwtPayload } from './strategies/jwt.strategy';
 
@@ -35,6 +36,11 @@ export class AuthController {
   @Post('login')
   login(@Body() dto: AuthLoginDto) {
     return this.authService.login(dto);
+  }
+
+  @Post('refresh')
+  refresh(@Body() dto: RefreshTokenDto) {
+    return this.authService.refresh(dto.refresh_token);
   }
 
   @UseGuards(JwtAuthGuard)

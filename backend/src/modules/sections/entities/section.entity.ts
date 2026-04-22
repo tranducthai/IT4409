@@ -12,8 +12,8 @@ export class Section {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ type: 'int' })
-  class_id: number;
+  @Column({ type: 'uuid' })
+  class_id: string;
 
   @ManyToOne(() => Class, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'class_id' })

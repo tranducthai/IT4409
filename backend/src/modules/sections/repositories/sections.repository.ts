@@ -8,7 +8,7 @@ export class SectionsRepository {
   constructor(
     @InjectRepository(Section)
     private readonly repo: Repository<Section>,
-  ) {}
+  ) { }
 
   findAll() {
     return this.repo.find();
@@ -19,6 +19,10 @@ export class SectionsRepository {
   }
 
   createOne(data: Partial<Section>) {
+    return this.repo.save(this.repo.create(data));
+  }
+
+  createMany(data: Array<Partial<Section>>) {
     return this.repo.save(this.repo.create(data));
   }
 

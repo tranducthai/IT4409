@@ -6,9 +6,9 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { UserRole } from '../enums/user-role.enum';
-import { StudentProfile } from '../../student-profiles/entities/student-profile.entity';
 import { TeacherProfile } from '../../instructor-profiles/entities/instructor-profile.entity';
+import { StudentProfile } from '../../student-profiles/entities/student-profile.entity';
+import { UserRole } from '../enums/user-role.enum';
 
 @Entity('users')
 export class User {

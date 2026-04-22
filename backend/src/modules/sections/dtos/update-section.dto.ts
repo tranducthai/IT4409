@@ -1,9 +1,9 @@
-import { IsInt, IsOptional, IsString } from 'class-validator';
+import { IsInt, IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class UpdateSectionDto {
   @IsOptional()
-  @IsInt()
-  class_id?: number;
+  @IsUUID()
+  class_id?: string;
 
   @IsOptional()
   @IsString()

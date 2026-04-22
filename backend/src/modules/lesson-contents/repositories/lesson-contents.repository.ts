@@ -8,7 +8,7 @@ export class LessonContentsRepository {
   constructor(
     @InjectRepository(LessonContent)
     private readonly repo: Repository<LessonContent>,
-  ) {}
+  ) { }
 
   findAll() {
     return this.repo.find();
@@ -19,6 +19,10 @@ export class LessonContentsRepository {
   }
 
   createOne(data: Partial<LessonContent>) {
+    return this.repo.save(this.repo.create(data));
+  }
+
+  createMany(data: Array<Partial<LessonContent>>) {
     return this.repo.save(this.repo.create(data));
   }
 

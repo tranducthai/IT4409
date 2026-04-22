@@ -1,14 +1,19 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateLessonDto } from './dtos/create-lesson.dto';
+import { CreateManyLessonsDto } from './dtos/create-many-lessons.dto';
 import { UpdateLessonDto } from './dtos/update-lesson.dto';
 import { LessonsRepository } from './repositories/lessons.repository';
 
 @Injectable()
 export class LessonsService {
-  constructor(private readonly lessonsRepository: LessonsRepository) {}
+  constructor(private readonly lessonsRepository: LessonsRepository) { }
 
   create(dto: CreateLessonDto) {
     return this.lessonsRepository.createOne(dto);
+  }
+
+  createMany(dto: CreateManyLessonsDto) {
+    return this.lessonsRepository.createMany(dto.items);
   }
 
   findAll() {

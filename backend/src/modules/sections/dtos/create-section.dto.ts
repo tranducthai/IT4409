@@ -1,8 +1,8 @@
-import { IsInt, IsString } from 'class-validator';
+import { IsInt, IsString, IsUUID } from 'class-validator';
 
 export class CreateSectionDto {
-  @IsInt()
-  class_id: number;
+  @IsUUID()
+  class_id: string;
 
   @IsString()
   title: string;

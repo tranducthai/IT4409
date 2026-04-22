@@ -9,16 +9,22 @@ import {
   Post,
 } from '@nestjs/common';
 import { CreateLessonDto } from './dtos/create-lesson.dto';
+import { CreateManyLessonsDto } from './dtos/create-many-lessons.dto';
 import { UpdateLessonDto } from './dtos/update-lesson.dto';
 import { LessonsService } from './lessons.service';
 
 @Controller('lessons')
 export class LessonsController {
-  constructor(private readonly lessonsService: LessonsService) {}
+  constructor(private readonly lessonsService: LessonsService) { }
 
   @Post()
   create(@Body() dto: CreateLessonDto) {
     return this.lessonsService.create(dto);
+  }
+
+  @Post('bulk')
+  createMany(@Body() dto: CreateManyLessonsDto) {
+    return this.lessonsService.createMany(dto);
   }
 
   @Get()

@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateLessonContentDto } from './dtos/create-lesson-content.dto';
+import { CreateManyLessonContentsDto } from './dtos/create-many-lesson-contents.dto';
 import { UpdateLessonContentDto } from './dtos/update-lesson-content.dto';
 import { LessonContent } from './entities/lesson-content.entity';
 import { LessonContentType } from './enums/lesson-content-type.enum';
@@ -9,10 +10,15 @@ import { LessonContentsRepository } from './repositories/lesson-contents.reposit
 export class LessonContentsService {
   constructor(
     private readonly lessonContentsRepository: LessonContentsRepository,
-  ) {}
+  ) { }
 
   create(dto: CreateLessonContentDto) {
     return this.lessonContentsRepository.createOne(dto);
+  }
+
+  async createMany(dto: CreateManyLessonContentsDto) {
+    const items = await this.lessonContentsRepository.createMany(dto.items);
+    return items.map((i) => this.toResponse(i));
   }
 
   private toResponse(item: LessonContent) {

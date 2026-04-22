@@ -10,16 +10,22 @@ import {
   Redirect,
 } from '@nestjs/common';
 import { CreateLessonContentDto } from './dtos/create-lesson-content.dto';
+import { CreateManyLessonContentsDto } from './dtos/create-many-lesson-contents.dto';
 import { UpdateLessonContentDto } from './dtos/update-lesson-content.dto';
 import { LessonContentsService } from './lesson-contents.service';
 
 @Controller('lesson-contents')
 export class LessonContentsController {
-  constructor(private readonly lessonContentsService: LessonContentsService) {}
+  constructor(private readonly lessonContentsService: LessonContentsService) { }
 
   @Post()
   create(@Body() dto: CreateLessonContentDto) {
     return this.lessonContentsService.create(dto);
+  }
+
+  @Post('bulk')
+  createMany(@Body() dto: CreateManyLessonContentsDto) {
+    return this.lessonContentsService.createMany(dto);
   }
 
   @Get()
