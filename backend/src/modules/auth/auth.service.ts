@@ -14,7 +14,10 @@ import { SafeUser, UsersService } from '../users/users.service';
 import { AuthLoginDto } from './dtos/auth-login.dto';
 import { AuthRegisterDto } from './dtos/auth-register.dto';
 import { ChangePasswordDto } from './dtos/change-password.dto';
+import { ForgotPasswordDto } from './dtos/forgot-password.dto';
+import { ResetPasswordDto } from './dtos/reset-password.dto';
 import type { JwtPayload } from './strategies/jwt.strategy';
+import { MailService } from './mail.service';
 
 export type AuthTokenResponse = {
   access_token: string;
@@ -32,7 +35,8 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
-  ) { }
+    private readonly mailService: MailService,
+  ) {}
 
   private getExpiresIn(): string {
     return this.configService.get<string>('JWT_EXPIRES_IN', '15m');
@@ -46,6 +50,24 @@ export class AuthService {
     return (
       this.configService.get<string>('JWT_REFRESH_SECRET') ??
       this.configService.getOrThrow<string>('JWT_SECRET')
+    );
+  }
+
+  private getResetSecret(): string {
+    return (
+      this.configService.get<string>('JWT_RESET_SECRET') ??
+      this.configService.getOrThrow<string>('JWT_SECRET')
+    );
+  }
+
+  private getResetExpiresIn(): string {
+    return this.configService.get<string>('JWT_RESET_EXPIRES_IN', '15m');
+  }
+
+  private getAppBaseUrl(): string {
+    return this.configService.get<string>(
+      'APP_BASE_URL',
+      'http://localhost:3000',
     );
   }
 
@@ -144,5 +166,48 @@ export class AuthService {
     });
 
     return { changed: true };
+  }
+
+  async forgotPassword(dto: ForgotPasswordDto) {
+    const user = await this.usersRepository.findByEmail(dto.email);
+    if (!user) return { sent: true };
+
+    const reset_token = await this.jwtService.signAsync(
+      {
+        sub: user.id,
+        email: user.email,
+        role: user.role,
+      },
+      {
+        secret: this.getResetSecret(),
+        expiresIn: this.getResetExpiresIn() as StringValue,
+      },
+    );
+
+    const resetLink = `${this.getAppBaseUrl()}/reset-password?token=${reset_token}`;
+    await this.mailService.sendPasswordReset(
+      user.email,
+      user.full_name,
+      resetLink,
+    );
+
+    return { sent: true };
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    try {
+      const payload = await this.jwtService.verifyAsync<JwtPayload>(dto.token, {
+        secret: this.getResetSecret(),
+      });
+
+      const user = await this.usersRepository.findById(payload.sub);
+      if (!user) throw new UnauthorizedException('Invalid reset token');
+
+      const hashed = await bcrypt.hash(dto.newPassword, 10);
+      await this.usersRepository.updateOne(user.id, { password: hashed });
+      return { changed: true };
+    } catch {
+      throw new UnauthorizedException('Invalid reset token');
+    }
   }
 }
