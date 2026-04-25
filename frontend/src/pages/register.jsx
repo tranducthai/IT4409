@@ -1,108 +1,161 @@
 import { useState } from 'react';
-import viteLogo from '../assets/vite.svg';
-import '../App.css';
+import { Link, useNavigate } from 'react-router-dom';
 
-function Register({ onNavigate }) {
+function Register() {
+  const navigate = useNavigate();
   const [fullName, setFullName] = useState('');
-  const [role, setRole] = useState('student'); // 'student' or 'teacher'
+  const [role, setRole] = useState('student');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleRegister = (e) => {
     e.preventDefault();
     if (password !== confirmPassword) {
-      alert("Mật khẩu nhập lại không khớp!");
+      alert('Mật khẩu nhập lại không khớp!');
       return;
     }
-    
-    console.log("Đăng ký thành công với:", { fullName, role, email, password });
-    alert("Đăng ký tài khoản thành công!");
-    
-    // Nếu đăng kí thành công thì chuyển về trang đăng nhập
-    onNavigate('login');
+
+    setIsSubmitting(true);
+
+    // Placeholder for API integration in the next phase.
+    console.log('Đăng ký thành công với:', { fullName, role, email, password });
+    setTimeout(() => {
+      setIsSubmitting(false);
+      alert('Đăng ký tài khoản thành công!');
+      navigate('/login');
+    }, 400);
   };
 
   return (
-    <div className="layout-container">
-      <header className="topbar">
-        <div className="topbar-brand">
-          <img src={viteLogo} alt="Logo" className="topbar-logo" />
-          <span className="topbar-name">frontend</span>
+    <section className="px-4 py-12 md:py-16">
+      <div className="mx-auto w-full max-w-md rounded-2xl border border-indigo-100 bg-white p-6 shadow-sm md:p-8">
+        <div className="mb-6 text-center">
+          <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500">
+            Daotao.ai
+          </p>
+          <h1 className="mt-2 text-2xl font-bold text-slate-900">
+            Đăng ký tài khoản mới
+          </h1>
+          <p className="mt-1 text-sm text-slate-500">
+            Tạo tài khoản để bắt đầu học ngay hôm nay
+          </p>
         </div>
-      </header>
-      
-      <main className="main-content">
-        <div className="auth-container">
-          <h2 className="auth-title">Đăng ký tài khoản mới</h2>
 
-          <form className="auth-form" onSubmit={handleRegister}>
-            <div className="input-group">
-              <label>Họ và tên</label>
-              <input 
-                type="text" 
-                placeholder="Nhập họ và tên của bạn" 
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)} 
-                required
-              />
-            </div>
-
-            <div className="input-group">
-              <label>Vai trò</label>
-              <select value={role} onChange={(e) => setRole(e.target.value)} required>
-                <option value="student">Sinh viên</option>
-                <option value="teacher">Giảng viên</option>
-              </select>
-            </div>
-
-            <div className="input-group">
-              <label>Email</label>
-              <input 
-                type="email" 
-                placeholder="Ví dụ: example@gmail.com" 
-                value={email}
-                onChange={(e) => setEmail(e.target.value)} 
-                required
-              />
-            </div>
-
-            <div className="input-group">
-              <label>Mật khẩu</label>
-              <input 
-                type="password" 
-                placeholder="••••••••" 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)} 
-                required
-              />
-            </div>
-            
-            <div className="input-group">
-              <label>Nhập lại mật khẩu</label>
-              <input 
-                type="password" 
-                placeholder="••••••••" 
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)} 
-                required
-              />
-            </div>
-            
-            <button type="submit" className="auth-btn" style={{ marginTop: '12px' }}>
-              Đăng ký
-            </button>
-          </form>
-
-          <div className="auth-footer">
-            Đã có tài khoản? 
-            <button type="button" onClick={() => onNavigate('login')}>
-              Đăng nhập
-            </button>
+        <form className="space-y-4" onSubmit={handleRegister}>
+          <div>
+            <label
+              htmlFor="fullName"
+              className="mb-1 block text-sm font-medium text-slate-700"
+            >
+              Họ và tên
+            </label>
+            <input
+              id="fullName"
+              type="text"
+              placeholder="Nhập họ và tên của bạn"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+              required
+            />
           </div>
+
+          <div>
+            <label
+              htmlFor="role"
+              className="mb-1 block text-sm font-medium text-slate-700"
+            >
+              Vai trò
+            </label>
+            <select
+              id="role"
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+              required
+            >
+              <option value="student">Sinh viên</option>
+              <option value="teacher">Giảng viên</option>
+            </select>
+          </div>
+
+          <div>
+            <label
+              htmlFor="email"
+              className="mb-1 block text-sm font-medium text-slate-700"
+            >
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              placeholder="example@gmail.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+              required
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="password"
+              className="mb-1 block text-sm font-medium text-slate-700"
+            >
+              Mật khẩu
+            </label>
+            <input
+              id="password"
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+              required
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="confirmPassword"
+              className="mb-1 block text-sm font-medium text-slate-700"
+            >
+              Nhập lại mật khẩu
+            </label>
+            <input
+              id="confirmPassword"
+              type="password"
+              placeholder="••••••••"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+              required
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {isSubmitting ? 'Đang xử lý...' : 'Đăng ký'}
+          </button>
+        </form>
+
+        <p className="mt-6 text-center text-sm text-slate-600">
+          Đã có tài khoản?{' '}
+          <Link to="/login" className="font-semibold text-indigo-600 hover:text-indigo-700">
+            Đăng nhập
+          </Link>
+        </p>
+
+        <div className="mt-6 border-t border-slate-100 pt-4 text-center text-xs text-slate-400">
+          Việc đăng ký đồng nghĩa bạn chấp nhận chính sách bảo mật của nền tảng.
         </div>
-      </main>
-    </div>
+      </div>
+    </section>
   );
 }
 

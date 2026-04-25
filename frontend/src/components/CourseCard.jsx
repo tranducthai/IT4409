@@ -1,6 +1,11 @@
+import { Link } from 'react-router-dom';
+
 const CourseCard = ({ course }) => {
   return (
-    <div className="bg-white rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-all flex flex-col h-full overflow-hidden">
+    <Link
+      to={`/courses/${course.id}`}
+      className="bg-white rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-all flex flex-col h-full overflow-hidden"
+    >
       <div className="relative h-40 bg-gray-100">
         <img src={course.image} className="w-full h-full object-contain p-4" alt={course.title} />
         <div className="absolute top-2 right-2 bg-blue-900/80 text-white text-[10px] px-2 py-0.5 rounded uppercase font-bold">
@@ -17,7 +22,7 @@ const CourseCard = ({ course }) => {
           <p className="text-gray-400 text-[10px]">Starts: {course.startDate}</p>
         </div>
       )}
-    </div>
+    </Link>
   );
 };
 export default CourseCard;
