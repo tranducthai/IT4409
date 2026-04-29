@@ -1,27 +1,30 @@
-import DashboardCard from '../components/DashboardCard';
-import { courses } from '../data/courses';
+import { mockCurrentUser } from '../mocks/auth/mockSession';
+import {
+  getStudentDashboardData,
+  getTeacherDashboardData,
+} from '../services/dataSource';
+import StudentDashboard from './dashboard/StudentDashboard';
+import TeacherDashboard from './dashboard/TeacherDashboard';
 
 export default function Dashboard() {
-  const hasCourses = courses.length > 0;
+  const role = mockCurrentUser.role;
+  const studentData = getStudentDashboardData(mockCurrentUser.id);
+  const teacherData = getTeacherDashboardData(mockCurrentUser.id);
 
   return (
     <main className="mx-auto w-full max-w-7xl flex-grow px-4 py-10 md:px-8">
-      <div className="mb-8 text-left">
-        <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500">Dashboard</p>
-        <h1 className="mt-2 text-2xl font-bold text-slate-900 md:text-3xl">Khóa học của tôi</h1>
-        <p className="mt-1 text-sm text-slate-500">Theo dõi tiến độ và tiếp tục học các lớp bạn đã tham gia.</p>
+      <div className="mb-4 rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-left text-sm text-indigo-800">
+        Dang o mock session role: <span className="font-bold">{role}</span>.
+        Doi role tai file <span className="font-mono">src/mocks/auth/mockSession.js</span> de test UI theo vai tro.
       </div>
 
-      {hasCourses ? (
-        <div className="max-w-5xl">
-          {courses.map((item) => (
-            <DashboardCard key={item.id} course={item} />
-          ))}
-        </div>
+      {role === 'TEACHER' ? (
+        <TeacherDashboard
+          courses={teacherData.courses}
+          pendingRequests={teacherData.pendingRequests}
+        />
       ) : (
-        <div className="max-w-5xl rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center text-slate-500">
-          Bạn chưa tham gia khóa học nào.
-        </div>
+        <StudentDashboard courses={studentData.courses} />
       )}
     </main>
   );

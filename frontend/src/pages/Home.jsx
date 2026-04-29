@@ -1,7 +1,8 @@
 import CourseCard from '../components/CourseCard';
-import { courses } from '../data/courses';
+import { getHomeCourses } from '../services/dataSource';
 
 export default function Home() {
+  const courses = getHomeCourses();
   const hasCourses = courses.length > 0;
 
   return (
