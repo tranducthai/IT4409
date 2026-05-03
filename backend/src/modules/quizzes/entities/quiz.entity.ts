@@ -2,9 +2,12 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  JoinColumn,
+  ManyToOne,
   OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
+import { Class } from '../../classes/entities/class.entity';
 import { Question } from '../../questions/entities/question.entity';
 import { QuizAttempt } from '../../quiz-attempts/entities/quiz-attempt.entity';
 
@@ -24,6 +27,13 @@ export class Quiz {
 
   @Column({ type: 'int' })
   total_questions: number;
+
+  @Column({ type: 'uuid' })
+  class_id: string;
+
+  @ManyToOne(() => Class, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'class_id' })
+  class: Class;
 
   @Column({ type: 'uuid' })
   created_by: string;

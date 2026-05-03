@@ -16,8 +16,8 @@ import { AuthRegisterDto } from './dtos/auth-register.dto';
 import { ChangePasswordDto } from './dtos/change-password.dto';
 import { ForgotPasswordDto } from './dtos/forgot-password.dto';
 import { ResetPasswordDto } from './dtos/reset-password.dto';
-import type { JwtPayload } from './strategies/jwt.strategy';
 import { MailService } from './mail.service';
+import type { JwtPayload } from './strategies/jwt.strategy';
 
 export type AuthTokenResponse = {
   access_token: string;
@@ -36,7 +36,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly mailService: MailService,
-  ) {}
+  ) { }
 
   private getExpiresIn(): string {
     return this.configService.get<string>('JWT_EXPIRES_IN', '15m');

@@ -11,7 +11,6 @@ import { ContentPagesModule } from './modules/content-pages/content-pages.module
 import { ContentsModule } from './modules/contents/contents.module';
 import { DiscussionsModule } from './modules/discussions/discussions.module';
 import { InstructorProfilesModule } from './modules/instructor-profiles/instructor-profiles.module';
-import { LessonContentsModule } from './modules/lesson-contents/lesson-contents.module';
 import { LessonsModule } from './modules/lessons/lessons.module';
 import { MessagesModule } from './modules/messages/messages.module';
 import { QuizModule } from './modules/quiz/quiz.module';
@@ -67,7 +66,6 @@ import { WeeksModule } from './modules/weeks/weeks.module';
     ClassMembersModule,
     SectionsModule,
     LessonsModule,
-    LessonContentsModule,
     WeeksModule,
     ContentsModule,
     ContentPagesModule,

@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
-import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import type { StringValue } from 'ms';
 import { User } from '../users/entities/user.entity';
@@ -33,4 +33,4 @@ import { JwtStrategy } from './strategies/jwt.strategy';
   providers: [AuthService, UsersService, UsersRepository, JwtStrategy, MailService],
   exports: [AuthService],
 })
-export class AuthModule {}
+export class AuthModule { }

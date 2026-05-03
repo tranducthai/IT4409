@@ -4,7 +4,7 @@ import nodemailer from 'nodemailer';
 
 @Injectable()
 export class MailService {
-  constructor(private readonly configService: ConfigService) {}
+  constructor(private readonly configService: ConfigService) { }
 
   private getTransport() {
     const host = this.configService.get<string>('SMTP_HOST');

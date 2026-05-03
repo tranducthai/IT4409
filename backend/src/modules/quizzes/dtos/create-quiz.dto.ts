@@ -21,7 +21,7 @@ export class CreateQuizDto {
   total_questions: number;
 
   @IsUUID()
-  created_by: string;
+  class_id: string;
 
   @IsOptional()
   @IsBoolean()

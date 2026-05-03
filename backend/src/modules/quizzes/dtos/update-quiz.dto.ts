@@ -25,7 +25,7 @@ export class UpdateQuizDto {
 
   @IsOptional()
   @IsUUID()
-  created_by?: string;
+  class_id?: string;
 
   @IsOptional()
   @IsBoolean()

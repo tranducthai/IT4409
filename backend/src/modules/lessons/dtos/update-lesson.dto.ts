@@ -1,4 +1,5 @@
-import { IsInt, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, IsUUID } from 'class-validator';
+import { LessonContentType } from '../../lesson-contents/enums/lesson-content-type.enum';
 
 export class UpdateLessonDto {
   @IsOptional()
@@ -12,6 +13,26 @@ export class UpdateLessonDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsEnum(LessonContentType)
+  type?: LessonContentType;
+
+  @IsOptional()
+  @IsString()
+  file_url?: string;
+
+  @IsOptional()
+  @IsString()
+  content?: string;
+
+  @IsOptional()
+  @IsInt()
+  duration?: number;
+
+  @IsOptional()
+  @IsUUID()
+  quiz_id?: string;
 
   @IsOptional()
   @IsInt()
