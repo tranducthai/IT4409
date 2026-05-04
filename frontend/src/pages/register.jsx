@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { register as registerAuth } from '../services/api/auth.service';
 
 function Register() {
   const navigate = useNavigate();
@@ -9,23 +10,27 @@ function Register() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleRegister = (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
+    setError('');
+
     if (password !== confirmPassword) {
-      alert('Mật khẩu nhập lại không khớp!');
+      setError('Mật khẩu nhập lại không khớp!');
       return;
     }
 
     setIsSubmitting(true);
 
-    // Placeholder for API integration in the next phase.
-    console.log('Đăng ký thành công với:', { fullName, role, email, password });
-    setTimeout(() => {
+    try {
+      await registerAuth({ name: fullName, email, password, role });
+      navigate('/dashboard');
+    } catch (err) {
+      const message = err?.payload?.message || err?.message || 'Đăng ký thất bại';
+      setError(message);
       setIsSubmitting(false);
-      alert('Đăng ký tài khoản thành công!');
-      navigate('/login');
-    }, 400);
+    }
   };
 
   return (
@@ -43,6 +48,12 @@ function Register() {
           </p>
         </div>
 
+        {error && (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
         <form className="space-y-4" onSubmit={handleRegister}>
           <div>
             <label
@@ -59,6 +70,7 @@ function Register() {
               onChange={(e) => setFullName(e.target.value)}
               className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
               required
+              disabled={isSubmitting}
             />
           </div>
 
@@ -75,6 +87,7 @@ function Register() {
               onChange={(e) => setRole(e.target.value)}
               className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
               required
+              disabled={isSubmitting}
             >
               <option value="student">Sinh viên</option>
               <option value="teacher">Giảng viên</option>
@@ -96,6 +109,7 @@ function Register() {
               onChange={(e) => setEmail(e.target.value)}
               className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
               required
+              disabled={isSubmitting}
             />
           </div>
 
@@ -114,6 +128,7 @@ function Register() {
               onChange={(e) => setPassword(e.target.value)}
               className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
               required
+              disabled={isSubmitting}
             />
           </div>
 
@@ -132,6 +147,7 @@ function Register() {
               onChange={(e) => setConfirmPassword(e.target.value)}
               className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
               required
+              disabled={isSubmitting}
             />
           </div>
 

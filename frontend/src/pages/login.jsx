@@ -1,22 +1,27 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { login as loginAuth } from '../services/api/auth.service';
 
 function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
+    setError('');
     setIsSubmitting(true);
 
-    // Placeholder for API integration in the next phase.
-    console.log('Đang đăng nhập với:', email, password);
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      await loginAuth({ email, password });
       navigate('/dashboard');
-    }, 400);
+    } catch (err) {
+      const message = err?.payload?.message || err?.message || 'Đăng nhập thất bại';
+      setError(message);
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -31,6 +36,12 @@ function Login() {
             Tiếp tục hành trình học tập của bạn
           </p>
         </div>
+
+        {error && (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
 
         <form className="space-y-4" onSubmit={handleLogin}>
           <div>
@@ -48,6 +59,7 @@ function Login() {
               onChange={(e) => setEmail(e.target.value)}
               className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
               required
+              disabled={isSubmitting}
             />
           </div>
 
@@ -66,6 +78,7 @@ function Login() {
               onChange={(e) => setPassword(e.target.value)}
               className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
               required
+              disabled={isSubmitting}
             />
           </div>
 
