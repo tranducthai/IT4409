@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { register as registerAuth } from '../services/api/auth.service';
+import { setAuthTokens } from '../services/api/client';
 
 function Register() {
   const navigate = useNavigate();
@@ -24,7 +25,13 @@ function Register() {
     setIsSubmitting(true);
 
     try {
-      await registerAuth({ name: fullName, email, password, role });
+      const data = await registerAuth({ name: fullName, email, password, role });
+      if (data?.accessToken) {
+        setAuthTokens({
+          accessToken: data.accessToken,
+          refreshToken: data.refreshToken,
+        });
+      }
       navigate('/dashboard');
     } catch (err) {
       const message = err?.payload?.message || err?.message || 'Đăng ký thất bại';

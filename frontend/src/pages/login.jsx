@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { login as loginAuth } from '../services/api/auth.service';
+import { setAuthTokens } from '../services/api/client';
 
 function Login() {
   const navigate = useNavigate();
@@ -15,7 +16,13 @@ function Login() {
     setIsSubmitting(true);
 
     try {
-      await loginAuth({ email, password });
+      const data = await loginAuth({ email, password });
+      if (data?.accessToken) {
+        setAuthTokens({
+          accessToken: data.accessToken,
+          refreshToken: data.refreshToken,
+        });
+      }
       navigate('/dashboard');
     } catch (err) {
       const message = err?.payload?.message || err?.message || 'Đăng nhập thất bại';
