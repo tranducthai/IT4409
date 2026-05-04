@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { mockCurrentUser } from '../mocks/auth/mockSession';
+import { getMockCurrentUser } from '../mocks/auth/mockSession';
 import { getCourseDetailData } from '../services/dataSource';
 
 const statusStyles = {
@@ -25,7 +25,7 @@ const tabOptions = [
 
 export default function CourseDetail() {
   const { courseId } = useParams();
-  const courseData = getCourseDetailData(courseId, mockCurrentUser.id);
+  const courseData = getCourseDetailData(courseId, getMockCurrentUser().id);
   const { course } = courseData;
   const [activeTab, setActiveTab] = useState('lessons');
 

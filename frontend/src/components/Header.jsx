@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { GraduationCap, User, ChevronDown } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
+import { logout as logoutAuth } from '../services/api/auth.service';
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -40,7 +41,14 @@ export default function Header() {
                 <Link to="/dashboard" className="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50" onClick={() => setIsMenuOpen(false)}>Dashboard</Link>
                 <div className="px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 cursor-pointer">Hồ sơ cá nhân</div>
                 <div className="px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 cursor-pointer">Tài khoản</div>
-                <Link to="/" className="block px-4 py-2 text-sm text-red-600 hover:bg-red-50 font-medium border-t mt-1" onClick={() => setIsMenuOpen(false)}>
+                <Link
+                  to="/"
+                  className="block px-4 py-2 text-sm text-red-600 hover:bg-red-50 font-medium border-t mt-1"
+                  onClick={() => {
+                    logoutAuth();
+                    setIsMenuOpen(false);
+                  }}
+                >
                   Đăng xuất
                 </Link>
               </div>
