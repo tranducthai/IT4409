@@ -1,23 +1,35 @@
 import { Phone, Mail, MapPin } from 'lucide-react';
+import graduationCapIcon from '../assets/graduation-cap.svg';
 
 export default function Footer() {
   return (
     <footer className="mt-auto border-t border-slate-200 bg-slate-50 pt-16 pb-12 transition-colors dark:border-slate-800 dark:bg-slate-950">
-      <div className="max-w-7xl mx-auto px-12 grid grid-cols-1 md:grid-cols-3 gap-16">
-        <div className="flex items-center gap-2">
-          <div className="bg-indigo-600 p-2 rounded-lg">
-             <div className="w-6 h-6 border-2 border-white rounded-sm"></div>
+      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-16 px-12 md:grid-cols-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-600 shadow-sm">
+            <img
+              src={graduationCapIcon}
+              alt="7Study"
+              className="h-7 w-7 object-contain brightness-0 invert"
+            />
           </div>
-          <span className="text-xl font-bold text-slate-800 dark:text-slate-100">7Study</span>
+          <div>
+            <span className="block text-xl font-bold text-slate-800 dark:text-slate-100">
+              7Study
+            </span>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Learning space for modern classrooms
+            </p>
+          </div>
         </div>
 
         <div className="space-y-5">
           <h4 className="text-lg font-bold text-slate-800 dark:text-slate-100">Contact Us</h4>
-          <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300"><Phone size={18}/> 024 3869 2242</div>
-          <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300"><Mail size={18}/> contact@soict.hust.edu.vn</div>
+          <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300"><Phone size={18}/> 1900 777 123</div>
+          <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300"><Mail size={18}/> hello@7study.vn</div>
           <div className="flex items-start gap-3 text-slate-600 dark:text-slate-300">
             <MapPin size={20} className="mt-1 shrink-0"/> 
-            <span>EdTech Centre, tầng 9 nhà B1 - Đại học Bách khoa Hà Nội, Số 1 Đại Cồ Việt - Hai Bà Trưng - Hà Nội</span>
+            <span>7Study Campus, Số 1 Đại Cồ Việt, Hai Bà Trưng, Hà Nội</span>
           </div>
         </div>
 
