@@ -1,6 +1,11 @@
 # IT4409 Frontend - Huong Dan Test va Tich Hop API
 
-README nay duoc cap nhat de phuc vu test frontend trong giai doan backend dang phat trien tho. Muc tieu la:
+README nay duoc chia thanh 2 che do:
+
+- Test FE doc lap bang mock data de hoan thien giao dien truoc.
+- Khi backend san sang thi chi can tat mock va tro ve API that.
+
+Muc tieu la:
 
 - Chay duoc frontend nhanh va on dinh.
 - Test UI theo route chinh.
@@ -12,7 +17,7 @@ README nay duoc cap nhat de phuc vu test frontend trong giai doan backend dang p
 - Node.js: khuyen nghi >= 20
 - npm: khuyen nghi >= 10
 
-## 2. Chay backend de mo Swagger UI
+## 2. Neu muon test API that, chay backend de mo Swagger UI
 
 Tu thu muc goc project:
 
@@ -25,6 +30,8 @@ npm run start:dev
 Swagger UI:
 
 http://localhost:3000/api/docs
+
+Neu ban chi muon test giao dien FE, co the bo qua buoc nay va dung mock mode o buoc 3.
 
 ## 3. Tao va cau hinh file .env
 
@@ -48,6 +55,29 @@ Y nghia cac bien:
 - `VITE_USE_MOCK_DATA`: Bat/tat che do mock (`true` hoac `false`).
 - `VITE_MOCK_SESSION_ROLE`: Role gia lap de test UI (`STUDENT`, `TEACHER`, `ADMIN`).
 
+### 3.1 Che do test FE doc lap
+
+De test giao dien khong can BE, dat:
+
+```env
+VITE_USE_MOCK_DATA=true
+VITE_MOCK_SESSION_ROLE=STUDENT
+```
+
+Trong che do nay:
+
+- Login/Register se tra ve mock token va mock user.
+- Dashboard/Course detail se doc theo mock session.
+- Logout se xoa token va mock session.
+
+Neu muon test giao dien vai tro giang vien, doi thanh:
+
+```env
+VITE_MOCK_SESSION_ROLE=TEACHER
+```
+
+Sau khi doi `.env`, restart lai Vite dev server.
+
 ## 4. Chay frontend
 
 Tu thu muc goc project:
@@ -62,6 +92,14 @@ Mo tren trinh duyet:
 
 - http://localhost:5173
 - Neu 5173 dang ban, Vite se tu dong nhay sang cong khac (vd: 5174)
+
+### 4.1 Test nhanh FE doc lap
+
+1. De `VITE_USE_MOCK_DATA=true`.
+2. Chay frontend.
+3. Vao `/login` hoac `/register` va submit nhu mot luong that.
+4. Sau khi thanh cong, vao `/dashboard` de kiem tra UI theo role mock.
+5. Bam mot course card de vao `/courses/:id` va kiem tra tab trong course detail.
 
 ## 5. Route test frontend hien tai
 
@@ -90,7 +128,8 @@ Mo tren trinh duyet:
 
 ### 6.3 Test form auth (UI stage)
 
-- Login/Register submit khong duoc vo app that (neu chua cắm API).
+- Neu dang o mock mode (`VITE_USE_MOCK_DATA=true`), Login/Register se "dang nhap" duoc ma khong can BE.
+- Neu tat mock mode, Login/Register se goi API that va se bao loi neu backend chua chay.
 - Validate co ban (mat khau xac nhan) hoat dong dung.
 
 ### 6.4 Test theo role (mock session)

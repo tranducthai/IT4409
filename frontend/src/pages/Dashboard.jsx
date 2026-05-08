@@ -1,4 +1,4 @@
-import { mockCurrentUser } from '../mocks/auth/mockSession';
+import { getMockCurrentUser } from '../mocks/auth/mockSession';
 import {
   getStudentDashboardData,
   getTeacherDashboardData,
@@ -7,6 +7,7 @@ import StudentDashboard from './dashboard/StudentDashboard';
 import TeacherDashboard from './dashboard/TeacherDashboard';
 
 export default function Dashboard() {
+  const mockCurrentUser = getMockCurrentUser();
   const role = mockCurrentUser.role;
   const studentData = getStudentDashboardData(mockCurrentUser.id);
   const teacherData = getTeacherDashboardData(mockCurrentUser.id);
