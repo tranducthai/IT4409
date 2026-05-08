@@ -49,7 +49,7 @@ function Register() {
       <div className="mx-auto w-full max-w-md rounded-2xl border border-indigo-100 bg-white p-6 shadow-sm md:p-8">
         <div className="mb-6 text-center">
           <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500">
-            Daotao.ai
+            7Study
           </p>
           <h1 className="mt-2 text-2xl font-bold text-slate-900">
             Đăng ký tài khoản mới

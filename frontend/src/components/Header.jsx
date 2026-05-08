@@ -17,7 +17,7 @@ export default function Header() {
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-3 md:px-8">
       <Link to="/" className="flex items-center gap-2" onClick={() => setIsMenuOpen(false)}>
         <GraduationCap className="text-indigo-600" size={28} />
-        <span className="text-xl font-bold text-indigo-900 md:text-2xl">Daotao.ai</span>
+        <span className="text-xl font-bold text-indigo-900 md:text-2xl">7Study</span>
       </Link>
 
       <div className="flex items-center gap-3 md:gap-6">

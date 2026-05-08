@@ -8,7 +8,7 @@ export default function Footer() {
           <div className="bg-indigo-600 p-2 rounded-lg">
              <div className="w-6 h-6 border-2 border-white rounded-sm"></div>
           </div>
-          <span className="text-xl font-bold text-slate-800">Daotao.ai</span>
+          <span className="text-xl font-bold text-slate-800">7Study</span>
         </div>
 
         <div className="space-y-5">
