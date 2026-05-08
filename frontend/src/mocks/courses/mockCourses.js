@@ -102,6 +102,65 @@ export function getMockCourseLessons(courseId) {
     });
 }
 
+export function getMockCourseSections(courseId) {
+  const resolvedCourseId = resolveCourseId(courseId);
+
+  return mockSections
+    .filter((section) => section.class_id === resolvedCourseId)
+    .sort((left, right) => left.order_index - right.order_index)
+    .map((section) => {
+      const lessons = mockLessons
+        .filter((lesson) => lesson.section_id === section.id)
+        .sort((left, right) => left.order_index - right.order_index)
+        .map((lesson) => {
+          const lessonContent = mockLessonContents.filter(
+            (content) => content.lesson_id === lesson.id,
+          );
+
+          const hasVideo = lessonContent.some((item) => item.type === 'Video');
+
+          return {
+            id: lesson.id,
+            title: lesson.title,
+            description: lesson.description,
+            duration: hasVideo ? '45 phut' : '30 phut',
+            contentCount: lessonContent.length,
+            contentTypes: lessonContent.map((item) => item.type),
+            status: lesson.id === 1 ? 'done' : 'in-progress',
+          };
+        });
+
+      return {
+        id: section.id,
+        title: section.title,
+        orderIndex: section.order_index,
+        lessonCount: lessons.length,
+        lessons,
+      };
+    });
+}
+
+export function getMockCourseResources(courseId) {
+  const resolvedCourseId = resolveCourseId(courseId);
+  const wikiItems = getMockCourseWiki(resolvedCourseId);
+  const slideItems = getMockCourseSlides(resolvedCourseId);
+
+  return [
+    {
+      id: 'wiki',
+      title: 'Wiki khoa hoc',
+      description: 'Tai lieu tong hop, dinh nghia va checklist on tap',
+      items: wikiItems,
+    },
+    {
+      id: 'slides',
+      title: 'Slide bai giang',
+      description: 'Tai lieu slide dung cho moi tuan hoc',
+      items: slideItems,
+    },
+  ];
+}
+
 export function getMockCourseDiscussions(courseId) {
   const resolvedCourseId = resolveCourseId(courseId);
   return [
