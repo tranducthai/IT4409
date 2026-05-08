@@ -13,73 +13,76 @@ import {
   RequireGuest,
   RequireRole,
 } from './components/RouteGuards';
+import { ThemeProvider } from './context/ThemeProvider';
 
 function App() {
   return (
-    <Router>
-      <div className="min-h-screen flex flex-col bg-blue-50">
-        <Header />
+    <ThemeProvider>
+      <Router>
+        <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 transition-colors duration-300 dark:bg-slate-950 dark:text-slate-100">
+          <Header />
 
-        <main className="flex-grow">
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route
-              path="/login"
-              element={
-                <RequireGuest>
-                  <Login />
-                </RequireGuest>
-              }
-            />
-            <Route
-              path="/register"
-              element={
-                <RequireGuest>
-                  <Register />
-                </RequireGuest>
-              }
-            />
-            <Route
-              path="/dashboard"
-              element={
-                <RequireAuth>
-                  <DashboardRoute />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/dashboard/student"
-              element={
-                <RequireAuth>
-                  <RequireRole allowedRoles={['STUDENT', 'ADMIN']}>
-                    <Dashboard />
-                  </RequireRole>
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/dashboard/teacher"
-              element={
-                <RequireAuth>
-                  <RequireRole allowedRoles={['TEACHER']} fallbackPath="/dashboard/student">
-                    <Dashboard />
-                  </RequireRole>
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/courses/:courseId"
-              element={
-                <RequireAuth>
-                  <CourseDetail />
-                </RequireAuth>
-              }
-            />
-          </Routes>
-        </main>
-        <Footer />
-      </div>
-    </Router>
+          <main className="flex-grow">
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route
+                path="/login"
+                element={
+                  <RequireGuest>
+                    <Login />
+                  </RequireGuest>
+                }
+              />
+              <Route
+                path="/register"
+                element={
+                  <RequireGuest>
+                    <Register />
+                  </RequireGuest>
+                }
+              />
+              <Route
+                path="/dashboard"
+                element={
+                  <RequireAuth>
+                    <DashboardRoute />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/dashboard/student"
+                element={
+                  <RequireAuth>
+                    <RequireRole allowedRoles={['STUDENT', 'ADMIN']}>
+                      <Dashboard />
+                    </RequireRole>
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/dashboard/teacher"
+                element={
+                  <RequireAuth>
+                    <RequireRole allowedRoles={['TEACHER']} fallbackPath="/dashboard/student">
+                      <Dashboard />
+                    </RequireRole>
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/courses/:courseId"
+                element={
+                  <RequireAuth>
+                    <CourseDetail />
+                  </RequireAuth>
+                }
+              />
+            </Routes>
+          </main>
+          <Footer />
+        </div>
+      </Router>
+    </ThemeProvider>
   );
 }
 
