@@ -6,6 +6,7 @@ import {
     PrimaryGeneratedColumn,
 } from 'typeorm';
 import { Submission } from '../../submissions/entities/submission.entity';
+import { AssignmentAttachment } from './assignment-attachment.entity';
 
 @Entity('assignments')
 export class Assignment {
@@ -32,4 +33,7 @@ export class Assignment {
 
     @OneToMany(() => Submission, (s) => s.assignment)
     submissions: Submission[];
+
+    @OneToMany(() => AssignmentAttachment, (a) => a.assignment)
+    attachments: AssignmentAttachment[];
 }

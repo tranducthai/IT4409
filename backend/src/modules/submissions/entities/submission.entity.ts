@@ -4,9 +4,11 @@ import {
     Entity,
     JoinColumn,
     ManyToOne,
+    OneToMany,
     PrimaryGeneratedColumn,
 } from 'typeorm';
 import { Assignment } from '../../assignments/entities/assignment.entity';
+import { SubmissionFile } from './submission-file.entity';
 
 @Entity('assignment_submissions')
 export class Submission {
@@ -37,4 +39,7 @@ export class Submission {
 
     @CreateDateColumn({ type: 'timestamp' })
     submitted_at: Date;
+
+    @OneToMany(() => SubmissionFile, (f) => f.submission)
+    files: SubmissionFile[];
 }

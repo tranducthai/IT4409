@@ -11,11 +11,28 @@ export class AssignmentsRepository {
     ) { }
 
     findAll() {
-        return this.repo.find();
+        return this.repo.find({ relations: { attachments: true } });
     }
 
     findById(id: string) {
-        return this.repo.findOne({ where: { id } });
+        return this.repo.findOne({
+            where: { id },
+            relations: { attachments: true },
+        });
+    }
+
+    findByIdWithAttachments(id: string) {
+        return this.repo.findOne({
+            where: { id },
+            relations: { attachments: true },
+        });
+    }
+
+    findManyByClassId(class_id: string) {
+        return this.repo.find({
+            where: { class_id },
+            order: { created_at: 'DESC' },
+        });
     }
 
     createOne(data: Partial<Assignment>) {

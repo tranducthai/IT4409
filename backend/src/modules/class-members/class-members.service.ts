@@ -135,4 +135,19 @@ export class ClassMembersService {
 
     return this.classMembersRepository.findPendingRequestsByClassId(classId);
   }
+
+  async ensureActiveStudent(classId: string, studentId: string) {
+    const member = await this.classMembersRepository.findOneByClassAndUser(
+      classId,
+      studentId,
+    );
+    if (!member) throw new NotFoundException('Class membership not found');
+    if (member.role !== ClassMemberRole.Student) {
+      throw new ConflictException('Only students can submit assignments');
+    }
+    if (member.status !== ClassMemberStatus.Active) {
+      throw new ConflictException('Student is not active in this class');
+    }
+    return member;
+  }
 }

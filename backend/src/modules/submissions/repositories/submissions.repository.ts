@@ -18,6 +18,14 @@ export class SubmissionsRepository {
         return this.repo.findOne({ where: { id } });
     }
 
+    findByIdWithFiles(id: string) {
+        return this.repo.findOne({ where: { id }, relations: { files: true } });
+    }
+
+    findManyByAssignmentId(assignment_id: string) {
+        return this.repo.find({ where: { assignment_id }, order: { submitted_at: 'DESC' } });
+    }
+
     createOne(data: Partial<Submission>) {
         return this.repo.save(this.repo.create(data));
     }

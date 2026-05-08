@@ -6,10 +6,6 @@ export class UpdateAssignmentDto {
     class_id?: string;
 
     @IsOptional()
-    @IsUUID()
-    created_by?: string;
-
-    @IsOptional()
     @IsString()
     title?: string;
 
