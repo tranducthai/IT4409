@@ -17,10 +17,9 @@ const statusLabels = {
 
 const tabOptions = [
   { key: 'lessons', label: 'Bài học' },
+  { key: 'resources', label: 'Tài nguyên' },
   { key: 'progress', label: 'Tiến độ' },
   { key: 'discussions', label: 'Thảo luận' },
-  { key: 'wiki', label: 'Wiki' },
-  { key: 'slides', label: 'Slide bài giảng' },
 ];
 
 export default function CourseDetail() {
@@ -29,10 +28,10 @@ export default function CourseDetail() {
   const { course } = courseData;
   const [activeTab, setActiveTab] = useState('lessons');
 
+  const sectionItems = courseData.sections;
   const lessonItems = courseData.lessons;
+  const resourceItems = courseData.resources;
   const discussionItems = courseData.discussions;
-  const wikiItems = courseData.wiki;
-  const slideItems = courseData.slides;
   const progress = courseData.progress;
 
   if (!course) {
@@ -50,6 +49,12 @@ export default function CourseDetail() {
   }
 
   const progressPercent = progress.progressPercent;
+  const totalSections = sectionItems.length;
+  const totalLessons = lessonItems.length;
+  const totalResources = resourceItems.reduce(
+    (sum, group) => sum + group.items.length,
+    0,
+  );
 
   return (
     <main className="mx-auto w-full max-w-7xl flex-grow px-4 py-10 md:px-8">
@@ -79,6 +84,21 @@ export default function CourseDetail() {
               </div>
             </div>
 
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3">
+                <p className="text-xs uppercase tracking-wide text-slate-500">Sections</p>
+                <p className="mt-1 text-lg font-bold text-slate-900">{totalSections}</p>
+              </div>
+              <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3">
+                <p className="text-xs uppercase tracking-wide text-slate-500">Bai hoc</p>
+                <p className="mt-1 text-lg font-bold text-slate-900">{totalLessons}</p>
+              </div>
+              <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3">
+                <p className="text-xs uppercase tracking-wide text-slate-500">Tai nguyen</p>
+                <p className="mt-1 text-lg font-bold text-slate-900">{totalResources}</p>
+              </div>
+            </div>
+
             <div className="mt-5 flex flex-wrap gap-2">
               {tabOptions.map((tab) => (
                 <button
@@ -102,19 +122,71 @@ export default function CourseDetail() {
       {activeTab === 'lessons' && (
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-lg font-bold text-slate-900">Bai hoc</h2>
-          <p className="mt-1 text-sm text-slate-500">Danh sach bai hoc trong khoa hoc</p>
-          <div className="mt-4 space-y-3">
-            {lessonItems.map((lesson) => (
-              <div key={lesson.id} className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-                <div className="flex items-start justify-between gap-3">
+          <p className="mt-1 text-sm text-slate-500">Danh sach bai hoc duoc nhom theo section</p>
+          <div className="mt-4 space-y-4">
+            {sectionItems.map((section) => (
+              <div key={section.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-semibold text-slate-900">{lesson.title}</p>
-                    <p className="mt-1 text-xs text-slate-500">Thoi luong: {lesson.duration}</p>
+                    <h3 className="text-base font-bold text-slate-900">{section.title}</h3>
+                    <p className="mt-1 text-sm text-slate-500">{section.lessonCount} bai hoc</p>
                   </div>
-                  <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusStyles[lesson.status]}`}>
-                    {statusLabels[lesson.status]}
+                  <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700">
+                    Week {section.orderIndex}
                   </span>
                 </div>
+
+                <div className="mt-4 space-y-3">
+                  {section.lessons.map((lesson) => (
+                    <div key={lesson.id} className="rounded-xl border border-white bg-white p-3 shadow-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">{lesson.title}</p>
+                          <p className="mt-1 text-xs text-slate-500">{lesson.description}</p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            Thoi luong: {lesson.duration} · {lesson.contentCount} tai nguyen con
+                          </p>
+                        </div>
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusStyles[lesson.status]}`}>
+                          {statusLabels[lesson.status]}
+                        </span>
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {lesson.contentTypes.map((type) => (
+                          <span
+                            key={`${lesson.id}-${type}`}
+                            className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600"
+                          >
+                            {type}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {activeTab === 'resources' && (
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 className="text-lg font-bold text-slate-900">Tai nguyen hoc tap</h2>
+          <p className="mt-1 text-sm text-slate-500">Tong hop wiki va slide de chuan bi cho API that sau nay</p>
+          <div className="mt-4 space-y-4">
+            {resourceItems.map((group) => (
+              <div key={group.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                <h3 className="text-base font-bold text-slate-900">{group.title}</h3>
+                <p className="mt-1 text-sm text-slate-500">{group.description}</p>
+                <ul className="mt-3 space-y-2 text-sm text-slate-700">
+                  {group.items.map((item) => (
+                    <li key={item} className="rounded-lg border border-white bg-white px-3 py-2 shadow-sm">
+                      {item}
+                    </li>
+                  ))}
+                </ul>
               </div>
             ))}
           </div>
@@ -148,34 +220,6 @@ export default function CourseDetail() {
           <p className="mt-1 text-sm text-slate-500">Cac chu de thao luan gan day</p>
           <ul className="mt-4 space-y-2 text-sm text-slate-700">
             {discussionItems.map((item) => (
-              <li key={item} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
-                {item}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {activeTab === 'wiki' && (
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-bold text-slate-900">Wiki khoa hoc</h2>
-          <p className="mt-1 text-sm text-slate-500">Tai lieu wiki va kien thuc nen</p>
-          <ul className="mt-4 space-y-2 text-sm text-slate-700">
-            {wikiItems.map((item) => (
-              <li key={item} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
-                {item}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {activeTab === 'slides' && (
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-bold text-slate-900">Slide bai giang</h2>
-          <p className="mt-1 text-sm text-slate-500">Danh sach slide theo tuan hoc</p>
-          <ul className="mt-4 space-y-2 text-sm text-slate-700">
-            {slideItems.map((item) => (
               <li key={item} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
                 {item}
               </li>

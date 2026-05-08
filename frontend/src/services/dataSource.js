@@ -2,9 +2,9 @@ import {
   getMockCourseById,
   getMockCourseDiscussions,
   getMockCourseLessons,
+  getMockCourseResources,
+  getMockCourseSections,
   getMockCourseProgress,
-  getMockCourseSlides,
-  getMockCourseWiki,
   getMockStudentCourseCards,
   getMockTeacherCourseCards,
   getMockTeacherPendingRequests,
@@ -33,10 +33,10 @@ export function getTeacherDashboardData(userId) {
 export function getCourseDetailData(courseId, userId) {
   return {
     course: getMockCourseById(courseId),
+    sections: getMockCourseSections(courseId),
     lessons: getMockCourseLessons(courseId),
     discussions: getMockCourseDiscussions(courseId),
-    wiki: getMockCourseWiki(courseId),
-    slides: getMockCourseSlides(courseId),
+    resources: getMockCourseResources(courseId),
     progress: getMockCourseProgress(courseId, userId),
   };
 }
