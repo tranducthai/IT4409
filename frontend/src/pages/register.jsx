@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { register as registerAuth } from '../services/api/auth.service';
 import { setAuthTokens } from '../services/api/client';
-import { setMockCurrentUser } from '../mocks/auth/mockSession';
+import { setCurrentUser } from '../services/api/session';
 
 function Register() {
   const navigate = useNavigate();
@@ -26,9 +26,14 @@ function Register() {
     setIsSubmitting(true);
 
     try {
-      const data = await registerAuth({ name: fullName, email, password, role });
+      const data = await registerAuth({
+        full_name: fullName,
+        email,
+        password,
+        role: role.toUpperCase(),
+      });
       if (data?.user) {
-        setMockCurrentUser(data.user);
+        setCurrentUser(data.user);
       }
       if (data?.accessToken) {
         setAuthTokens({

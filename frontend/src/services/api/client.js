@@ -33,14 +33,17 @@ async function tryRefreshToken() {
   const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refreshToken }),
+    body: JSON.stringify({ refresh_token: refreshToken }),
   });
 
   if (!res.ok) return null;
   const data = await res.json().catch(() => null);
-  if (data?.accessToken) {
-    setAuthTokens({ accessToken: data.accessToken, refreshToken: data.refreshToken ?? refreshToken });
-    return data.accessToken;
+  if (data?.access_token) {
+    setAuthTokens({
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token ?? refreshToken,
+    });
+    return data.access_token;
   }
   return null;
 }
@@ -89,3 +92,4 @@ export async function apiRequest(path, options = {}) {
 }
 
 export { API_BASE_URL };
+

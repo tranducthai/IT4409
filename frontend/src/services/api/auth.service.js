@@ -1,6 +1,6 @@
-import { apiRequest, clearAuthTokens } from './client';
 import { mockUsers } from '../../mocks/auth/mockUsers';
-import { getMockCurrentUser, setMockCurrentUser, clearMockCurrentUser } from '../../mocks/auth/mockSession';
+import { apiRequest, clearAuthTokens } from './client';
+import { clearCurrentUser, getCurrentUser, setCurrentUser } from './session';
 
 const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA !== 'false';
 
@@ -12,7 +12,7 @@ function toMockUser(payload = {}) {
   return {
     ...fallbackUser,
     id: crypto.randomUUID?.() ?? `${Date.now()}`,
-    full_name: payload.name ?? fallbackUser.full_name,
+    full_name: payload.full_name ?? payload.name ?? fallbackUser.full_name,
     email: payload.email ?? fallbackUser.email,
     role,
   };
@@ -27,6 +27,15 @@ function createMockAuthResponse(user) {
   };
 }
 
+function mapBackendAuthResponse(payload) {
+  if (!payload) return null;
+  return {
+    accessToken: payload.access_token ?? payload.accessToken ?? null,
+    refreshToken: payload.refresh_token ?? payload.refreshToken ?? null,
+    user: payload.user ?? null,
+  };
+}
+
 export async function login(credentials) {
   // credentials: { email, password }
   if (USE_MOCK_DATA) {
@@ -34,38 +43,51 @@ export async function login(credentials) {
       (user) => user.email.toLowerCase() === String(credentials.email ?? '').toLowerCase(),
     );
 
-    const user = matchedUser ?? getMockCurrentUser();
+    const user = matchedUser ?? getCurrentUser();
     const response = createMockAuthResponse(user);
-    setMockCurrentUser(user);
+    setCurrentUser(user);
     return response;
   }
 
-  return apiRequest('/auth/login', {
+  const data = await apiRequest('/auth/login', {
     method: 'POST',
     body: JSON.stringify(credentials),
   });
+
+  const normalized = mapBackendAuthResponse(data);
+  if (normalized?.user) setCurrentUser(normalized.user);
+  return normalized;
 }
 
 export async function register(payload) {
-  // payload: { name, email, password }
+  // payload: { full_name, email, password, role }
   if (USE_MOCK_DATA) {
     const user = toMockUser(payload);
     const response = createMockAuthResponse(user);
-    setMockCurrentUser(user);
+    setCurrentUser(user);
     return response;
   }
 
-  return apiRequest('/auth/register', {
+  const normalizedPayload = {
+    full_name: payload.full_name ?? payload.name,
+    email: payload.email,
+    password: payload.password,
+    role: String(payload.role ?? 'STUDENT').toUpperCase(),
+  };
+
+  const data = await apiRequest('/auth/register', {
     method: 'POST',
-    body: JSON.stringify(payload),
+    body: JSON.stringify(normalizedPayload),
   });
+
+  const normalized = mapBackendAuthResponse(data);
+  if (normalized?.user) setCurrentUser(normalized.user);
+  return normalized;
 }
 
 export function logout() {
   clearAuthTokens();
-  if (USE_MOCK_DATA) {
-    clearMockCurrentUser();
-  }
+  clearCurrentUser();
 }
 
 export default { login, register, logout };
