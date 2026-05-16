@@ -18,6 +18,10 @@ export class SectionsRepository {
     return this.repo.findOne({ where: { id } });
   }
 
+  findManyByClassId(class_id: string) {
+    return this.repo.find({ where: { class_id }, order: { order_index: 'ASC' } });
+  }
+
   createOne(data: Partial<Section>) {
     return this.repo.save(this.repo.create(data));
   }

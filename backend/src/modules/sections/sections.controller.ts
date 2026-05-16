@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   ParseIntPipe,
+  ParseUUIDPipe,
   Patch,
   Post,
 } from '@nestjs/common';
@@ -30,6 +31,11 @@ export class SectionsController {
   @Get()
   findAll() {
     return this.sectionsService.findAll();
+  }
+
+  @Get('class/:classId')
+  findByClass(@Param('classId', ParseUUIDPipe) classId: string) {
+    return this.sectionsService.findByClassId(classId);
   }
 
   @Get(':id')

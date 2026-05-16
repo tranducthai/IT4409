@@ -1,8 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class AddAssignmentAttachmentsAndSubmissionFiles1777000000000
-  implements MigrationInterface
-{
+  implements MigrationInterface {
   name = 'AddAssignmentAttachmentsAndSubmissionFiles1777000000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {

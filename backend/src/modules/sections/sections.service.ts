@@ -20,6 +20,10 @@ export class SectionsService {
     return this.sectionsRepository.findAll();
   }
 
+  findByClassId(classId: string) {
+    return this.sectionsRepository.findManyByClassId(classId);
+  }
+
   async findOne(id: number) {
     const item = await this.sectionsRepository.findById(id);
     if (!item) throw new NotFoundException('Section not found');

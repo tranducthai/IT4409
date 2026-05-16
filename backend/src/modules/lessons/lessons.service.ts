@@ -20,6 +20,10 @@ export class LessonsService {
     return this.lessonsRepository.findAll();
   }
 
+  findBySectionId(sectionId: number) {
+    return this.lessonsRepository.findManyBySectionId(sectionId);
+  }
+
   async findOne(id: number) {
     const item = await this.lessonsRepository.findById(id);
     if (!item) throw new NotFoundException('Lesson not found');
