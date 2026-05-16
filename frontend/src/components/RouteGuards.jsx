@@ -1,9 +1,14 @@
 import { Navigate } from 'react-router-dom';
-import { getAccessToken } from '../services/api/client';
-import { getCurrentUser } from '../services/api/session';
+import { clearAuthTokens, getAccessToken } from '../services/api/client';
+import { clearCurrentUser, getCurrentUser } from '../services/api/session';
 
 function isAuthenticated() {
   return Boolean(getAccessToken());
+}
+
+function clearInvalidSession() {
+  clearAuthTokens();
+  clearCurrentUser();
 }
 
 export function RequireAuth({ children }) {
@@ -11,12 +16,22 @@ export function RequireAuth({ children }) {
     return <Navigate to="/login" replace />;
   }
 
+  const user = getCurrentUser();
+  if (!user) {
+    clearInvalidSession();
+    return <Navigate to="/login" replace />;
+  }
+
   return children;
 }
 
 export function RequireGuest({ children }) {
-  if (isAuthenticated()) {
+  if (isAuthenticated() && getCurrentUser()) {
     return <Navigate to="/dashboard" replace />;
+  }
+
+  if (isAuthenticated()) {
+    clearInvalidSession();
   }
 
   return children;
@@ -27,8 +42,13 @@ export function RequireRole({ allowedRoles, children, fallbackPath = '/dashboard
     return <Navigate to="/login" replace />;
   }
 
-  const currentRole = getCurrentUser()?.role;
-  if (!allowedRoles.includes(currentRole)) {
+  const user = getCurrentUser();
+  if (!user) {
+    clearInvalidSession();
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!allowedRoles.includes(user.role)) {
     return <Navigate to={fallbackPath} replace />;
   }
 
@@ -36,9 +56,14 @@ export function RequireRole({ allowedRoles, children, fallbackPath = '/dashboard
 }
 
 export function DashboardRoute() {
-  const currentRole = getCurrentUser()?.role;
+  const user = getCurrentUser();
 
-  if (currentRole === 'TEACHER') {
+  if (!user) {
+    clearInvalidSession();
+    return <Navigate to="/login" replace />;
+  }
+
+  if (user.role === 'TEACHER') {
     return <Navigate to="/dashboard/teacher" replace />;
   }
 
