@@ -291,7 +291,15 @@ npm run build
 
 - Trong terminal dang chay Vite: bam Ctrl + C
 
-## 11. Ghi chu
+## 11. Tai lieu mo rong (docs)
+
+Xem thu muc `frontend/docs/` de biet chi tiet:
+
+- `architecture.md` - Kien truc FE, auth flow, role routing, mock vs real mode
+- `api-contract.md` - Mapping page -> service -> backend endpoint, field contract, request/response mau
+- `runbook.md` - Setup dev, chuyen doi mock/real, debug auth, pre-PR checklist
+- `qa-checklist.md` - Checklist tu kiem tra UI/route/auth/tich hop truoc PR
+
+## 12. Ghi chu
 
 - Trong giai doan dev, FE uu tien theo tien do BE. 
-- Chuc nang nao BE chua on dinh thi FE dung placeholder/mock de test UX.
