@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { Class } from '../classes/entities/class.entity';
+import { ClassesRepository } from '../classes/repositories/classes.repository';
 import { Question } from '../questions/entities/question.entity';
 import { QuestionsController } from '../questions/questions.controller';
 import { QuestionsService } from '../questions/questions.service';
@@ -21,7 +23,7 @@ import { QuizService } from './quiz.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Quiz, Question, QuizAttempt, QuizAnswer]),
+    TypeOrmModule.forFeature([Quiz, Question, QuizAttempt, QuizAnswer, Class]),
   ],
   controllers: [
     // Business quiz-taking endpoints
@@ -36,6 +38,7 @@ import { QuizService } from './quiz.service';
     QuizService,
     QuizzesService,
     QuizzesRepository,
+    ClassesRepository,
     QuestionsService,
     QuestionsRepository,
     QuizAttemptsService,
@@ -44,4 +47,4 @@ import { QuizService } from './quiz.service';
     QuizAnswersRepository,
   ],
 })
-export class QuizModule {}
+export class QuizModule { }

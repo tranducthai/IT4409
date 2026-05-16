@@ -32,6 +32,11 @@ export class LessonsController {
     return this.lessonsService.findAll();
   }
 
+  @Get('section/:sectionId')
+  findBySection(@Param('sectionId', ParseIntPipe) sectionId: number) {
+    return this.lessonsService.findBySectionId(sectionId);
+  }
+
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.lessonsService.findOne(id);
