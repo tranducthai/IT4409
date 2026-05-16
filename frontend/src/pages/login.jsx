@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { login as loginAuth } from '../services/api/auth.service';
 import { setAuthTokens } from '../services/api/client';
-import { setMockCurrentUser } from '../mocks/auth/mockSession';
+import { setCurrentUser } from '../services/api/session';
 
 function Login() {
   const navigate = useNavigate();
@@ -19,7 +19,7 @@ function Login() {
     try {
       const data = await loginAuth({ email, password });
       if (data?.user) {
-        setMockCurrentUser(data.user);
+        setCurrentUser(data.user);
       }
       if (data?.accessToken) {
         setAuthTokens({

@@ -1,6 +1,6 @@
 import { Navigate } from 'react-router-dom';
 import { getAccessToken } from '../services/api/client';
-import { getMockCurrentUser } from '../mocks/auth/mockSession';
+import { getCurrentUser } from '../services/api/session';
 
 function isAuthenticated() {
   return Boolean(getAccessToken());
@@ -27,7 +27,7 @@ export function RequireRole({ allowedRoles, children, fallbackPath = '/dashboard
     return <Navigate to="/login" replace />;
   }
 
-  const currentRole = getMockCurrentUser().role;
+  const currentRole = getCurrentUser()?.role;
   if (!allowedRoles.includes(currentRole)) {
     return <Navigate to={fallbackPath} replace />;
   }
@@ -36,7 +36,7 @@ export function RequireRole({ allowedRoles, children, fallbackPath = '/dashboard
 }
 
 export function DashboardRoute() {
-  const currentRole = getMockCurrentUser().role;
+  const currentRole = getCurrentUser()?.role;
 
   if (currentRole === 'TEACHER') {
     return <Navigate to="/dashboard/teacher" replace />;
