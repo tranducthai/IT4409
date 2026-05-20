@@ -96,12 +96,41 @@ function normalizeCourse(course) {
   };
 }
 
+function getAssignmentStatus(assignment) {
+  if (!assignment.due_date) return 'no-due';
+
+  const dueDate = new Date(assignment.due_date);
+  if (Number.isNaN(dueDate.getTime())) return 'no-due';
+
+  return dueDate < new Date() ? 'overdue' : 'open';
+}
+
+function normalizeAssignment(assignment) {
+  return {
+    id: assignment.id,
+    classId: assignment.class_id,
+    title: assignment.title,
+    description: assignment.description ?? '',
+    dueDate: assignment.due_date ?? null,
+    createdAt: assignment.created_at ?? null,
+    status: getAssignmentStatus(assignment),
+    attachments: (assignment.attachments ?? []).map((attachment) => ({
+      id: attachment.id,
+      fileUrl: attachment.file_url,
+      originalName: attachment.original_name ?? attachment.file_name ?? 'File dinh kem',
+      mimeType: attachment.mime_type,
+      size: attachment.size,
+    })),
+  };
+}
+
 export async function getCourseDetailFromApi(courseId) {
-  const [course, rawSections, allContents, quizzes] = await Promise.all([
+  const [course, rawSections, allContents, quizzes, assignments] = await Promise.all([
     apiRequest(`/classes/${courseId}`),
     apiRequest(`/sections/class/${courseId}`),
     apiRequest('/lesson-contents'),
     apiRequest(`/quizzes/class/${courseId}`).catch(() => []),
+    apiRequest(`/assignments/class/${courseId}`).catch(() => []),
   ]);
 
   const lessonsBySection = await Promise.all(
@@ -154,6 +183,7 @@ export async function getCourseDetailFromApi(courseId) {
     discussions: [],
     resources: buildResourceGroups(sections, quizzes ?? [], courseId),
     quizzes: quizzes ?? [],
+    assignments: (assignments ?? []).map(normalizeAssignment),
     progress: {
       progressPercent: 0,
       completed: 0,

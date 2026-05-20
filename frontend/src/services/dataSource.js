@@ -1,6 +1,7 @@
 import {
   getMockCourseById,
   getMockCourseDiscussions,
+  getMockCourseAssignments,
   getMockCourseLessons,
   getMockCourseResources,
   getMockCourseSections,
@@ -39,6 +40,7 @@ export function getCourseDetailData(courseId, userId) {
     discussions: getMockCourseDiscussions(courseId),
     resources: getMockCourseResources(courseId),
     quizzes: getMockCourseQuizzes(courseId),
+    assignments: getMockCourseAssignments(courseId),
     progress: getMockCourseProgress(courseId, userId),
   };
 }

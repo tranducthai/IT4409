@@ -9,6 +9,48 @@ import {
 
 const defaultCourseImage = 'https://via.placeholder.com/400x225';
 
+const mockAssignments = [
+  {
+    id: 'a57b6f3d-63d4-49a7-a5c7-2a6f30000001',
+    class_id: '1f6b8a4d-c1d4-4f79-90a9-24d8b4f00001',
+    created_by: '8b2ca5d8-9f69-4c8f-b1ef-183b6a10a222',
+    title: 'BTVN 01 - Viet lexer don gian',
+    description: 'Cai dat lexer nhan dien identifier, number va keyword co ban.',
+    due_date: '2026-05-28T16:59:59.000Z',
+    created_at: '2026-05-10T08:00:00.000Z',
+    attachments: [
+      {
+        id: 'f9ec9814-0d2d-41b4-b1e2-1d4900000001',
+        file_url: 'https://example.com/assignments/lexer-btvn.pdf',
+        original_name: 'lexer-btvn.pdf',
+        file_name: 'lexer-btvn.pdf',
+        mime_type: 'application/pdf',
+        size: 256000,
+      },
+    ],
+  },
+  {
+    id: 'a57b6f3d-63d4-49a7-a5c7-2a6f30000002',
+    class_id: '1f6b8a4d-c1d4-4f79-90a9-24d8b4f00001',
+    created_by: '8b2ca5d8-9f69-4c8f-b1ef-183b6a10a222',
+    title: 'BTVN 02 - Regex va DFA',
+    description: 'Ve DFA tu cac bieu thuc chinh quy trong de bai.',
+    due_date: '2026-06-04T16:59:59.000Z',
+    created_at: '2026-05-14T08:00:00.000Z',
+    attachments: [],
+  },
+  {
+    id: 'a57b6f3d-63d4-49a7-a5c7-2a6f30000003',
+    class_id: '1f6b8a4d-c1d4-4f79-90a9-24d8b4f00002',
+    created_by: '8b2ca5d8-9f69-4c8f-b1ef-183b6a10a222',
+    title: 'BTVN 01 - Kieu du lieu va bien',
+    description: 'Hoan thanh cac bai tap ve khai bao bien va ep kieu trong C.',
+    due_date: '2026-05-30T16:59:59.000Z',
+    created_at: '2026-05-12T08:00:00.000Z',
+    attachments: [],
+  },
+];
+
 export const mockCourseCards = mockClasses.map((item) => ({
   id: item.id,
   title: item.name,
@@ -84,6 +126,34 @@ function normalizeLessonContent(content, courseId) {
     orderIndex: content.order_index,
     quizId: matchedQuiz?.id ?? null,
     quizUrl: matchedQuiz ? `/courses/${courseId}/quizzes/${matchedQuiz.id}` : null,
+  };
+}
+
+function getAssignmentStatus(assignment) {
+  if (!assignment.due_date) return 'no-due';
+
+  const dueDate = new Date(assignment.due_date);
+  if (Number.isNaN(dueDate.getTime())) return 'no-due';
+
+  return dueDate < new Date() ? 'overdue' : 'open';
+}
+
+function normalizeAssignment(assignment) {
+  return {
+    id: assignment.id,
+    classId: assignment.class_id,
+    title: assignment.title,
+    description: assignment.description ?? '',
+    dueDate: assignment.due_date ?? null,
+    createdAt: assignment.created_at ?? null,
+    status: getAssignmentStatus(assignment),
+    attachments: (assignment.attachments ?? []).map((attachment) => ({
+      id: attachment.id,
+      fileUrl: attachment.file_url,
+      originalName: attachment.original_name ?? attachment.file_name ?? 'File dinh kem',
+      mimeType: attachment.mime_type,
+      size: attachment.size,
+    })),
   };
 }
 
@@ -259,6 +329,13 @@ export function getMockCourseSlides(courseId) {
 export function getMockCourseQuizzes(courseId) {
   const resolvedCourseId = resolveCourseId(courseId);
   return mockQuizzes.filter((quiz) => quiz.class_id === resolvedCourseId);
+}
+
+export function getMockCourseAssignments(courseId) {
+  const resolvedCourseId = resolveCourseId(courseId);
+  return mockAssignments
+    .filter((assignment) => assignment.class_id === resolvedCourseId)
+    .map(normalizeAssignment);
 }
 
 export function getMockCourseProgress(courseId, userId) {

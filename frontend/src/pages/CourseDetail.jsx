@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import {
+  CalendarClock,
   ClipboardList,
   ExternalLink,
   File,
   FileText,
+  Paperclip,
   Video,
 } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
@@ -28,6 +30,7 @@ const statusLabels = {
 
 const tabOptions = [
   { key: 'lessons', label: 'Bài học' },
+  { key: 'assignments', label: 'BTVN' },
   { key: 'resources', label: 'Tài nguyên' },
   { key: 'progress', label: 'Tiến độ' },
   { key: 'discussions', label: 'Thảo luận' },
@@ -60,6 +63,36 @@ const resourceTypeMeta = {
     badgeClass: 'bg-amber-100 text-amber-700 dark:bg-amber-400/10 dark:text-amber-200',
   },
 };
+
+const assignmentStatusMeta = {
+  open: {
+    label: 'Dang mo',
+    className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200',
+  },
+  overdue: {
+    label: 'Qua han',
+    className: 'bg-rose-100 text-rose-700 dark:bg-rose-400/10 dark:text-rose-200',
+  },
+  'no-due': {
+    label: 'Chua dat han',
+    className: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
+  },
+};
+
+function formatDueDate(value) {
+  if (!value) return 'Chua dat han nop';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Chua dat han nop';
+
+  return new Intl.DateTimeFormat('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+}
 
 function ResourceCard({ resource, compact = false }) {
   if (typeof resource === 'string') {
@@ -143,6 +176,60 @@ function ResourceCard({ resource, compact = false }) {
   );
 }
 
+function AssignmentCard({ assignment }) {
+  const statusMeta =
+    assignmentStatusMeta[assignment.status] ?? assignmentStatusMeta['no-due'];
+  const attachments = assignment.attachments ?? [];
+
+  return (
+    <article className="rounded-xl border border-slate-100 bg-slate-50 p-4 text-left transition-colors dark:border-slate-800 dark:bg-slate-950">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
+            {assignment.title}
+          </p>
+          {assignment.description && (
+            <p className="mt-2 text-sm leading-5 text-slate-600 dark:text-slate-300">
+              {assignment.description}
+            </p>
+          )}
+        </div>
+        <span className={`flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${statusMeta.className}`}>
+          {statusMeta.label}
+        </span>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+        <span className="inline-flex items-center gap-1">
+          <CalendarClock className="h-3.5 w-3.5" />
+          Han nop: {formatDueDate(assignment.dueDate)}
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <Paperclip className="h-3.5 w-3.5" />
+          {attachments.length} file
+        </span>
+      </div>
+
+      {attachments.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {attachments.map((attachment) => (
+            <a
+              key={attachment.id}
+              href={attachment.fileUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-700 hover:border-indigo-200 hover:text-indigo-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+            >
+              {attachment.originalName}
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          ))}
+        </div>
+      )}
+    </article>
+  );
+}
+
 export default function CourseDetail() {
   const { courseId } = useParams();
   const currentUser = getCurrentUser();
@@ -192,6 +279,7 @@ export default function CourseDetail() {
   const sectionItems = courseData?.sections ?? [];
   const lessonItems = courseData?.lessons ?? [];
   const resourceItems = courseData?.resources ?? [];
+  const assignmentItems = courseData?.assignments ?? [];
   const discussionItems = courseData?.discussions ?? [];
   const progress = courseData?.progress ?? {
     progressPercent: 0,
@@ -245,6 +333,7 @@ export default function CourseDetail() {
     (sum, group) => sum + group.items.length,
     0,
   );
+  const totalAssignments = assignmentItems.length;
 
   return (
     <main className="mx-auto w-full max-w-7xl flex-grow px-4 py-10 transition-colors md:px-8">
@@ -274,7 +363,7 @@ export default function CourseDetail() {
               </div>
             </div>
 
-            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            <div className="mt-5 grid gap-3 sm:grid-cols-4">
               <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3 transition-colors dark:border-slate-800 dark:bg-slate-950">
                 <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Sections</p>
                 <p className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100">{totalSections}</p>
@@ -286,6 +375,10 @@ export default function CourseDetail() {
               <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3 transition-colors dark:border-slate-800 dark:bg-slate-950">
                 <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Tai nguyen</p>
                 <p className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100">{totalResources}</p>
+              </div>
+              <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3 transition-colors dark:border-slate-800 dark:bg-slate-950">
+                <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">BTVN</p>
+                <p className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100">{totalAssignments}</p>
               </div>
             </div>
 
@@ -369,6 +462,37 @@ export default function CourseDetail() {
               </div>
             ))}
           </div>
+        </section>
+      )}
+
+      {activeTab === 'assignments' && (
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900 dark:text-slate-100">
+                <ClipboardList className="h-5 w-5 text-indigo-600 dark:text-indigo-300" />
+                BTVN
+              </h2>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                Bai tap ve nha cua lop hien tai
+              </p>
+            </div>
+            <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-400/10 dark:text-indigo-200">
+              {totalAssignments} bai
+            </span>
+          </div>
+
+          {assignmentItems.length > 0 ? (
+            <div className="mt-4 grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
+              {assignmentItems.map((assignment) => (
+                <AssignmentCard key={assignment.id} assignment={assignment} />
+              ))}
+            </div>
+          ) : (
+            <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500 transition-colors dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
+              Chua co BTVN nao cho lop nay.
+            </div>
+          )}
         </section>
       )}
 

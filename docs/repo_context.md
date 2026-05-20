@@ -6,8 +6,8 @@ Generated on 2026-05-20 for quick handover before new tasks.
 
 - Working directory: `/home/khanhson2005/projects/IT4409`
 - Current branch: `fix/frontend-audit-v2`
-- Worktree was clean at analysis time.
-- Latest local/remote HEAD: `3a907cb feat(frontend): add dev mode banner and normalize class data`
+- Worktree was clean at analysis time before Feat 2 work.
+- Latest completed frontend work: Feat 2 adds a BTVN tab/card to course detail and loads assignments in real API mode.
 - Existing handover doc: `docs/new-task-snapshot-frontend-fix.md`
 - Frontend audit docs mentioned in that handover are not present on this branch under `frontend/docs/`.
 
@@ -215,7 +215,8 @@ Local storage keys:
 - `frontend/src/services/dataSource.js` is mock-centric and exports `USE_MOCK_DATA`.
 - `frontend/src/services/api/classes.service.js` contains real API wrappers for class/member operations.
 - `Dashboard.jsx` chooses mock vs real for student/teacher class lists.
-- `CourseDetail.jsx` still uses `getCourseDetailData()` from mock data only in this snapshot.
+- `CourseDetail.jsx` supports mock data and real API loading through `getCourseDetailFromApi()`.
+- Course detail real API loading currently uses classes, sections, lessons, all lesson contents filtered client-side, quizzes by class, and assignments by class.
 
 ### Important Frontend Files
 
@@ -228,7 +229,8 @@ Local storage keys:
 ### Frontend Notes and Risks
 
 - Mock mode being the default can hide backend integration problems.
-- `CourseDetail.jsx` is still mock-only and has no real API loading/error path.
+- `CourseDetail.jsx` has real API loading/error handling and renders lesson resources plus a BTVN tab between `Bài học` and `Tài nguyên`.
+- Course detail assignment attachments may show `0 file` in real API mode because backend `AssignmentsRepository.findManyByClassId()` does not currently include the `attachments` relation.
 - `Dashboard.jsx` has real API integration for class lists and teacher actions, but uses compact mapping; verify field/enum contracts before extending.
 - `TeacherDashboard.jsx` uses raw UUID inputs for adding students; usable for testing, not polished UX.
 - Some Vietnamese UI text is ASCII-only/without accents in current files; preserve style unless changing copy intentionally.

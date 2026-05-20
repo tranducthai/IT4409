@@ -65,3 +65,32 @@ Review notes:
 
 - Quiz resource links point to `/courses/:courseId/quizzes/:quizId`, but that route/page is intentionally not implemented until Feat 6.
 - Backend has no `GET /lesson-contents/lesson/:lessonId`, so the frontend currently loads all lesson contents and filters client-side for the selected course.
+
+## Feat 2 - Course Detail BTVN Card
+
+Status: reviewed and complete.
+
+Changed files:
+
+- `frontend/src/pages/CourseDetail.jsx`
+- `frontend/src/services/api/course-detail.service.js`
+- `frontend/src/services/dataSource.js`
+- `frontend/src/mocks/courses/mockCourses.js`
+
+What changed:
+
+- Added a BTVN summary count to the course detail header metrics.
+- Added a BTVN tab/card in the concrete course detail page, placed between `Bài học` and `Tài nguyên`.
+- Real API mode now loads assignments from `GET /assignments/class/:classId`.
+- Assignment data is normalized with due date, status, and optional attachments.
+- Mock course detail data now includes BTVN examples for existing mock classes.
+
+Validation:
+
+- `cd frontend && npm run lint`: passed.
+- `cd frontend && npm run build`: passed.
+
+Review notes:
+
+- The BTVN card links attachment files when `attachments` are present.
+- Backend `findManyByClassId` currently does not include attachment relations, so real API cards may show `0 file` until that backend query is expanded.
