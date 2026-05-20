@@ -27,11 +27,11 @@ export default function Header() {
             type="button"
             onClick={toggleTheme}
             className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-            aria-label="Toggle dark mode"
+            aria-label="Chuyển chế độ giao diện"
             title={theme === 'dark' ? 'Chuyển sang chế độ sáng' : 'Chuyển sang chế độ tối'}
           >
             {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-            <span className="hidden sm:inline">{theme === 'dark' ? 'Light' : 'Dark'}</span>
+            <span className="hidden sm:inline">{theme === 'dark' ? 'Sáng' : 'Tối'}</span>
           </button>
 
           {isLearningArea ? (
@@ -51,7 +51,7 @@ export default function Header() {
               {isMenuOpen && (
                 <div className="absolute right-0 top-12 z-50 w-56 rounded-lg border border-slate-200 bg-white py-2 shadow-xl transition-colors dark:border-slate-700 dark:bg-slate-900">
                   <div className="cursor-pointer px-4 py-2 text-sm text-slate-700 hover:bg-indigo-50 dark:text-slate-200 dark:hover:bg-slate-800">Tiếp tục khóa học gần nhất</div>
-                  <Link to="/dashboard" className="block px-4 py-2 text-sm text-slate-700 hover:bg-indigo-50 dark:text-slate-200 dark:hover:bg-slate-800" onClick={() => setIsMenuOpen(false)}>Dashboard</Link>
+                  <Link to="/dashboard" className="block px-4 py-2 text-sm text-slate-700 hover:bg-indigo-50 dark:text-slate-200 dark:hover:bg-slate-800" onClick={() => setIsMenuOpen(false)}>Bảng điều khiển</Link>
                   <div className="cursor-pointer px-4 py-2 text-sm text-slate-700 hover:bg-indigo-50 dark:text-slate-200 dark:hover:bg-slate-800">Hồ sơ cá nhân</div>
                   <div className="cursor-pointer px-4 py-2 text-sm text-slate-700 hover:bg-indigo-50 dark:text-slate-200 dark:hover:bg-slate-800">Tài khoản</div>
                   <Link

@@ -14,8 +14,8 @@ const mockAssignments = [
     id: 'a57b6f3d-63d4-49a7-a5c7-2a6f30000001',
     class_id: '1f6b8a4d-c1d4-4f79-90a9-24d8b4f00001',
     created_by: '8b2ca5d8-9f69-4c8f-b1ef-183b6a10a222',
-    title: 'BTVN 01 - Viet lexer don gian',
-    description: 'Cai dat lexer nhan dien identifier, number va keyword co ban.',
+    title: 'BTVN 01 - Viết lexer đơn giản',
+    description: 'Cài đặt lexer nhận diện identifier, number và keyword cơ bản.',
     due_date: '2026-05-28T16:59:59.000Z',
     created_at: '2026-05-10T08:00:00.000Z',
     attachments: [
@@ -33,8 +33,8 @@ const mockAssignments = [
     id: 'a57b6f3d-63d4-49a7-a5c7-2a6f30000002',
     class_id: '1f6b8a4d-c1d4-4f79-90a9-24d8b4f00001',
     created_by: '8b2ca5d8-9f69-4c8f-b1ef-183b6a10a222',
-    title: 'BTVN 02 - Regex va DFA',
-    description: 'Ve DFA tu cac bieu thuc chinh quy trong de bai.',
+    title: 'BTVN 02 - Regex và DFA',
+    description: 'Vẽ DFA từ các biểu thức chính quy trong đề bài.',
     due_date: '2026-06-04T16:59:59.000Z',
     created_at: '2026-05-14T08:00:00.000Z',
     attachments: [],
@@ -43,8 +43,8 @@ const mockAssignments = [
     id: 'a57b6f3d-63d4-49a7-a5c7-2a6f30000003',
     class_id: '1f6b8a4d-c1d4-4f79-90a9-24d8b4f00002',
     created_by: '8b2ca5d8-9f69-4c8f-b1ef-183b6a10a222',
-    title: 'BTVN 01 - Kieu du lieu va bien',
-    description: 'Hoan thanh cac bai tap ve khai bao bien va ep kieu trong C.',
+    title: 'BTVN 01 - Kiểu dữ liệu và biến',
+    description: 'Hoàn thành các bài tập về khai báo biến và ép kiểu trong C.',
     due_date: '2026-05-30T16:59:59.000Z',
     created_at: '2026-05-12T08:00:00.000Z',
     attachments: [],
@@ -150,7 +150,7 @@ function normalizeAssignment(assignment) {
     attachments: (assignment.attachments ?? []).map((attachment) => ({
       id: attachment.id,
       fileUrl: attachment.file_url,
-      originalName: attachment.original_name ?? attachment.file_name ?? 'File dinh kem',
+      originalName: attachment.original_name ?? attachment.file_name ?? 'File đính kèm',
       mimeType: attachment.mime_type,
       size: attachment.size,
     })),
@@ -213,7 +213,7 @@ export function getMockCourseLessons(courseId) {
       return {
         id: lesson.id,
         title: lesson.title,
-        duration: hasVideo ? '45 phut' : '30 phut',
+        duration: hasVideo ? '45 phút' : '30 phút',
         status: lesson.id === 1 ? 'done' : 'in-progress',
       };
     });
@@ -243,7 +243,7 @@ export function getMockCourseSections(courseId) {
             id: lesson.id,
             title: lesson.title,
             description: lesson.description,
-            duration: hasVideo ? '45 phut' : '30 phut',
+            duration: hasVideo ? '45 phút' : '30 phút',
             contentCount: contents.length,
             contentTypes: contents.map((item) => item.displayType),
             contents,
@@ -280,20 +280,20 @@ export function getMockCourseResources(courseId) {
     displayType: 'quiz',
     quizId: quiz.id,
     quizUrl: `/courses/${resolvedCourseId}/quizzes/${quiz.id}`,
-    meta: `${quiz.total_questions} cau hoi · ${quiz.time_limit} phut`,
+    meta: `${quiz.total_questions} câu hỏi · ${quiz.time_limit} phút`,
   }));
 
   return [
     {
       id: 'lesson-resources',
-      title: 'Tai nguyen theo bai hoc',
-      description: 'Text, PDF, file, video va quiz gan voi tung bai hoc',
+      title: 'Tài nguyên theo bài học',
+      description: 'Văn bản, PDF, tệp, video và quiz gắn với từng bài học',
       items: lessonResources,
     },
     {
       id: 'class-quizzes',
-      title: 'Quiz cua lop',
-      description: 'Danh sach quiz cua khoa hoc',
+      title: 'Quiz của lớp',
+      description: 'Danh sách quiz của khóa học',
       items: quizItems,
     },
   ];
@@ -302,18 +302,18 @@ export function getMockCourseResources(courseId) {
 export function getMockCourseDiscussions(courseId) {
   const resolvedCourseId = resolveCourseId(courseId);
   return [
-    `Q&A tuan dau cho lop ${resolvedCourseId.slice(-4)}`,
-    'Thao luan nhom ve bai tap lon',
-    'Giai dap van de trien khai assignment',
+    `Q&A tuần đầu cho lớp ${resolvedCourseId.slice(-4)}`,
+    'Thảo luận nhóm về bài tập lớn',
+    'Giải đáp vấn đề triển khai assignment',
   ];
 }
 
 export function getMockCourseWiki(courseId) {
   const resolvedCourseId = resolveCourseId(courseId);
   return [
-    `Tong hop thuat ngu cua khoa hoc ${resolvedCourseId.slice(-4)}`,
-    'So do tong quan noi dung hoc phan',
-    'Checklist on tap truoc quiz',
+    `Tổng hợp thuật ngữ của khóa học ${resolvedCourseId.slice(-4)}`,
+    'Sơ đồ tổng quan nội dung học phần',
+    'Checklist ôn tập trước quiz',
   ];
 }
 

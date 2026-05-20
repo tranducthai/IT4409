@@ -19,7 +19,7 @@ const CourseCard = ({ course }) => {
       </div>
       {course.startDate && (
         <div className="px-4 pb-4">
-          <p className="text-[10px] text-gray-400 dark:text-slate-500">Starts: {course.startDate}</p>
+          <p className="text-[10px] text-gray-400 dark:text-slate-500">Bắt đầu: {course.startDate}</p>
         </div>
       )}
     </Link>

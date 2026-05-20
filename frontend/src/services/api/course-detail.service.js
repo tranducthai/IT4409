@@ -65,20 +65,20 @@ function buildResourceGroups(sections, quizzes, classId) {
     displayType: 'quiz',
     quizId: quiz.id,
     quizUrl: `/courses/${classId}/quizzes/${quiz.id}`,
-    meta: `${quiz.total_questions} cau hoi · ${quiz.time_limit} phut`,
+    meta: `${quiz.total_questions} câu hỏi · ${quiz.time_limit} phút`,
   }));
 
   return [
     {
       id: 'lesson-resources',
-      title: 'Tai nguyen theo bai hoc',
-      description: 'Text, PDF, file, video va quiz gan voi tung bai hoc',
+      title: 'Tài nguyên theo bài học',
+      description: 'Văn bản, PDF, tệp, video và quiz gắn với từng bài học',
       items: lessonResources,
     },
     {
       id: 'class-quizzes',
-      title: 'Quiz cua lop',
-      description: 'Danh sach quiz lay theo class tu API',
+      title: 'Quiz của lớp',
+      description: 'Danh sách quiz lấy theo class từ API',
       items: quizResources,
     },
   ];
@@ -89,7 +89,7 @@ function normalizeCourse(course) {
     id: course.id,
     title: course.name ?? course.title,
     code: course.join_code ?? course.code ?? course.id?.slice(-6),
-    category: course.type ?? 'Course',
+    category: course.type ?? 'Khóa học',
     image: course.avatar_url ?? course.image ?? defaultCourseImage,
     description: course.description ?? '',
     startDate: course.created_at?.slice?.(0, 10) ?? '',
@@ -117,7 +117,7 @@ function normalizeAssignment(assignment) {
     attachments: (assignment.attachments ?? []).map((attachment) => ({
       id: attachment.id,
       fileUrl: attachment.file_url,
-      originalName: attachment.original_name ?? attachment.file_name ?? 'File dinh kem',
+      originalName: attachment.original_name ?? attachment.file_name ?? 'File đính kèm',
       mimeType: attachment.mime_type,
       size: attachment.size,
     })),
@@ -157,7 +157,7 @@ export async function getCourseDetailFromApi(courseId) {
         id: lesson.id,
         title: lesson.title,
         description: lesson.description,
-        duration: lesson.duration ? `${lesson.duration} phut` : 'Chua cap nhat',
+        duration: lesson.duration ? `${lesson.duration} phút` : 'Chưa cập nhật',
         contentCount: contents.length,
         contentTypes: contents.map((item) => item.displayType),
         contents,

@@ -101,7 +101,7 @@ import {
           id: cls.id,
           title: cls.name,
           code: cls.join_code,
-          category: cls.type ?? 'Course',
+          category: cls.type ?? 'Khóa học',
           image: cls.avatar_url ?? 'https://via.placeholder.com/400x225',
         }));
 
@@ -110,7 +110,7 @@ import {
         }
       } catch (err) {
         if (isMounted) {
-          setStudentError(err?.message || 'Khong tai duoc danh sach lop.');
+          setStudentError(err?.message || 'Không tải được danh sách lớp.');
           setStudentCourses([]);
         }
       } finally {
@@ -148,7 +148,7 @@ import {
       setTeacherCourses(normalizedCourses);
       setTeacherPending(normalizedPending);
     } catch (err) {
-      setTeacherError(err?.message || 'Khong tai duoc danh sach lop.');
+      setTeacherError(err?.message || 'Không tải được danh sách lớp.');
       setTeacherCourses([]);
       setTeacherPending([]);
     } finally {
@@ -212,7 +212,7 @@ import {
   return (
     <main className="mx-auto w-full max-w-7xl flex-grow px-4 py-10 md:px-8">
       <div className="mb-4 rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-left text-sm text-indigo-800">
-        Vai tro hien tai: <span className="font-bold">{role}</span>.
+        Vai trò hiện tại: <span className="font-bold">{role}</span>.
       </div>
 
       {role === 'TEACHER' ? (

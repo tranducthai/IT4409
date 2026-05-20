@@ -7,13 +7,13 @@ export default function StudentDashboard({ courses, isLoading = false, error = '
     <>
       <div className="mb-8 text-left">
         <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500 dark:text-indigo-300">
-          Student Dashboard
+          Bảng điều khiển sinh viên
         </p>
         <h1 className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100 md:text-3xl">
-          Khoa hoc cua toi
+          Khóa học của tôi
         </h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Theo doi tien do va tiep tuc hoc cac lop ban da tham gia.
+          Theo dõi tiến độ và tiếp tục học các lớp bạn đã tham gia.
         </p>
       </div>
 
@@ -25,7 +25,7 @@ export default function StudentDashboard({ courses, isLoading = false, error = '
 
       {isLoading ? (
         <div className="max-w-5xl rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center text-slate-500 transition-colors dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
-          Dang tai danh sach lop...
+          Đang tải danh sách lớp...
         </div>
       ) : hasCourses ? (
         <div className="max-w-5xl">
@@ -35,7 +35,7 @@ export default function StudentDashboard({ courses, isLoading = false, error = '
         </div>
       ) : (
         <div className="max-w-5xl rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center text-slate-500 transition-colors dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
-          Ban chua tham gia khoa hoc nao.
+          Bạn chưa tham gia khóa học nào.
         </div>
       )}
     </>

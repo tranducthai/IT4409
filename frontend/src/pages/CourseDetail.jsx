@@ -38,7 +38,7 @@ const tabOptions = [
 
 const resourceTypeMeta = {
   text: {
-    label: 'Text',
+    label: 'Văn bản',
     icon: FileText,
     badgeClass: 'bg-sky-100 text-sky-700 dark:bg-sky-400/10 dark:text-sky-200',
   },
@@ -48,7 +48,7 @@ const resourceTypeMeta = {
     badgeClass: 'bg-rose-100 text-rose-700 dark:bg-rose-400/10 dark:text-rose-200',
   },
   file: {
-    label: 'File',
+    label: 'Tệp',
     icon: File,
     badgeClass: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200',
   },
@@ -66,24 +66,24 @@ const resourceTypeMeta = {
 
 const assignmentStatusMeta = {
   open: {
-    label: 'Dang mo',
+    label: 'Đang mở',
     className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200',
   },
   overdue: {
-    label: 'Qua han',
+    label: 'Quá hạn',
     className: 'bg-rose-100 text-rose-700 dark:bg-rose-400/10 dark:text-rose-200',
   },
   'no-due': {
-    label: 'Chua dat han',
+    label: 'Chưa đặt hạn',
     className: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
   },
 };
 
 function formatDueDate(value) {
-  if (!value) return 'Chua dat han nop';
+  if (!value) return 'Chưa đặt hạn nộp';
 
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Chua dat han nop';
+  if (Number.isNaN(date.getTime())) return 'Chưa đặt hạn nộp';
 
   return new Intl.DateTimeFormat('vi-VN', {
     day: '2-digit',
@@ -152,7 +152,7 @@ function ResourceCard({ resource, compact = false }) {
               to={actionUrl}
               className="inline-flex h-8 flex-shrink-0 items-center gap-1 rounded-lg bg-indigo-600 px-2.5 text-xs font-semibold text-white"
             >
-              Mo
+              Mở
               <ExternalLink className="h-3.5 w-3.5" />
             </Link>
           ) : (
@@ -162,13 +162,13 @@ function ResourceCard({ resource, compact = false }) {
               rel="noreferrer"
               className="inline-flex h-8 flex-shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2.5 text-xs font-semibold text-slate-700 hover:border-indigo-200 hover:text-indigo-700 dark:border-slate-700 dark:text-slate-200"
             >
-              Mo
+              Mở
               <ExternalLink className="h-3.5 w-3.5" />
             </a>
           )
         ) : (
           <span className="flex-shrink-0 rounded-lg border border-dashed border-slate-200 px-2.5 py-2 text-xs text-slate-400 dark:border-slate-700">
-            Chua co link
+            Chưa có liên kết
           </span>
         )}
       </div>
@@ -202,11 +202,11 @@ function AssignmentCard({ assignment }) {
       <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
         <span className="inline-flex items-center gap-1">
           <CalendarClock className="h-3.5 w-3.5" />
-          Han nop: {formatDueDate(assignment.dueDate)}
+          Hạn nộp: {formatDueDate(assignment.dueDate)}
         </span>
         <span className="inline-flex items-center gap-1">
           <Paperclip className="h-3.5 w-3.5" />
-          {attachments.length} file
+          {attachments.length} tệp
         </span>
       </div>
 
@@ -261,7 +261,7 @@ export default function CourseDetail() {
       } catch (err) {
         if (isMounted) {
           setCourseData(null);
-          setError(err?.message || 'Khong tai duoc chi tiet khoa hoc.');
+          setError(err?.message || 'Không tải được chi tiết khóa học.');
         }
       } finally {
         if (isMounted) setIsLoading(false);
@@ -292,7 +292,7 @@ export default function CourseDetail() {
     return (
       <main className="mx-auto w-full max-w-5xl flex-grow px-4 py-12 md:px-8">
         <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center text-slate-500 transition-colors dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
-          Dang tai chi tiet khoa hoc...
+          Đang tải chi tiết khóa học...
         </div>
       </main>
     );
@@ -302,10 +302,10 @@ export default function CourseDetail() {
     return (
       <main className="mx-auto w-full max-w-5xl flex-grow px-4 py-12 md:px-8">
         <div className="rounded-2xl border border-rose-200 bg-rose-50 px-6 py-14 text-center text-rose-700 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-200">
-          <h1 className="text-2xl font-bold">Khong tai duoc khoa hoc</h1>
+          <h1 className="text-2xl font-bold">Không tải được khóa học</h1>
           <p className="mt-2 text-sm">{error}</p>
           <Link to="/dashboard" className="mt-6 inline-block rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">
-            Quay lai dashboard
+            Quay lại bảng điều khiển
           </Link>
         </div>
       </main>
@@ -319,7 +319,7 @@ export default function CourseDetail() {
           <h1 className="text-2xl font-bold text-slate-900">Không tìm thấy khóa học</h1>
           <p className="mt-2 text-sm text-slate-500">Khóa học bạn truy cập không tồn tại trong danh sách mock hiện tại.</p>
           <Link to="/dashboard" className="mt-6 inline-block rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">
-            Quay lại dashboard
+            Quay lại bảng điều khiển
           </Link>
         </div>
       </main>
@@ -350,7 +350,7 @@ export default function CourseDetail() {
             </p>
             <h1 className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100 md:text-3xl">{course.title}</h1>
             <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-              {course.description || 'Tong quan noi dung, tai nguyen va tien do cua khoa hoc.'}
+              {course.description || 'Tổng quan nội dung, tài nguyên và tiến độ của khóa học.'}
             </p>
 
             <div className="mt-5">
@@ -365,15 +365,15 @@ export default function CourseDetail() {
 
             <div className="mt-5 grid gap-3 sm:grid-cols-4">
               <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3 transition-colors dark:border-slate-800 dark:bg-slate-950">
-                <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Sections</p>
+                <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Phần</p>
                 <p className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100">{totalSections}</p>
               </div>
               <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3 transition-colors dark:border-slate-800 dark:bg-slate-950">
-                <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Bai hoc</p>
+                <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Bài học</p>
                 <p className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100">{totalLessons}</p>
               </div>
               <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3 transition-colors dark:border-slate-800 dark:bg-slate-950">
-                <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Tai nguyen</p>
+                <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Tài nguyên</p>
                 <p className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100">{totalResources}</p>
               </div>
               <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3 transition-colors dark:border-slate-800 dark:bg-slate-950">
@@ -404,18 +404,18 @@ export default function CourseDetail() {
 
       {activeTab === 'lessons' && (
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Bai hoc</h2>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Danh sach bai hoc duoc nhom theo section</p>
+          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Bài học</h2>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Danh sách bài học được nhóm theo phần</p>
           <div className="mt-4 space-y-4">
             {sectionItems.map((section) => (
               <div key={section.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 transition-colors dark:border-slate-800 dark:bg-slate-950">
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">{section.title}</h3>
-                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{section.lessonCount} bai hoc</p>
+                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{section.lessonCount} bài học</p>
                   </div>
                   <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-400/10 dark:text-indigo-200">
-                    Week {section.orderIndex}
+                    Tuần {section.orderIndex}
                   </span>
                 </div>
 
@@ -427,7 +427,7 @@ export default function CourseDetail() {
                           <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{lesson.title}</p>
                           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{lesson.description}</p>
                           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                            Thoi luong: {lesson.duration} · {lesson.contentCount} tai nguyen con
+                            Thời lượng: {lesson.duration} · {lesson.contentCount} tài nguyên con
                           </p>
                         </div>
                         <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusStyles[lesson.status]}`}>
@@ -474,11 +474,11 @@ export default function CourseDetail() {
                 BTVN
               </h2>
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                Bai tap ve nha cua lop hien tai
+                Bài tập về nhà của lớp hiện tại
               </p>
             </div>
             <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-400/10 dark:text-indigo-200">
-              {totalAssignments} bai
+              {totalAssignments} bài
             </span>
           </div>
 
@@ -490,7 +490,7 @@ export default function CourseDetail() {
             </div>
           ) : (
             <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500 transition-colors dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
-              Chua co BTVN nao cho lop nay.
+              Chưa có BTVN nào cho lớp này.
             </div>
           )}
         </section>
@@ -498,8 +498,8 @@ export default function CourseDetail() {
 
       {activeTab === 'resources' && (
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Tai nguyen hoc tap</h2>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Tong hop wiki va slide de chuan bi cho API that sau nay</p>
+          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Tài nguyên học tập</h2>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Tổng hợp wiki và slide để chuẩn bị cho API thật sau này</p>
           <div className="mt-4 space-y-4">
             {resourceItems.map((group) => (
               <div key={group.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-4 transition-colors dark:border-slate-800 dark:bg-slate-950">
@@ -520,20 +520,20 @@ export default function CourseDetail() {
 
       {activeTab === 'progress' && (
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Theo doi tien do</h2>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Tong quan qua trinh hoc tap</p>
+          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Theo dõi tiến độ</h2>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Tổng quan quá trình học tập</p>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
             <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-center transition-colors dark:border-emerald-400/30 dark:bg-emerald-400/10">
               <p className="text-xl font-bold text-emerald-700 dark:text-emerald-200">{progress.completed}</p>
-              <p className="text-xs text-emerald-700 dark:text-emerald-200">Da hoan thanh</p>
+              <p className="text-xs text-emerald-700 dark:text-emerald-200">Đã hoàn thành</p>
             </div>
             <div className="rounded-xl border border-amber-100 bg-amber-50 p-3 text-center transition-colors dark:border-amber-400/30 dark:bg-amber-400/10">
               <p className="text-xl font-bold text-amber-700 dark:text-amber-200">{progress.inProgress}</p>
-              <p className="text-xs text-amber-700 dark:text-amber-200">Dang hoc</p>
+              <p className="text-xs text-amber-700 dark:text-amber-200">Đang học</p>
             </div>
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-center transition-colors dark:border-slate-800 dark:bg-slate-950">
               <p className="text-xl font-bold text-slate-700 dark:text-slate-200">{progress.todo}</p>
-              <p className="text-xs text-slate-600 dark:text-slate-400">Chua hoc</p>
+              <p className="text-xs text-slate-600 dark:text-slate-400">Chưa học</p>
             </div>
           </div>
         </section>
@@ -541,8 +541,8 @@ export default function CourseDetail() {
 
       {activeTab === 'discussions' && (
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Thao luan</h2>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Cac chu de thao luan gan day</p>
+          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Thảo luận</h2>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Các chủ đề thảo luận gần đây</p>
           <ul className="mt-4 space-y-2 text-sm text-slate-700 dark:text-slate-300">
             {discussionItems.length > 0 ? (
               discussionItems.map((item) => (
@@ -552,7 +552,7 @@ export default function CourseDetail() {
               ))
             ) : (
               <li className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-6 text-center text-slate-500 transition-colors dark:border-slate-800 dark:bg-slate-950">
-                Chua co thao luan nao.
+                Chưa có thảo luận nào.
               </li>
             )}
           </ul>

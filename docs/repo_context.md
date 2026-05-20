@@ -7,7 +7,7 @@ Generated on 2026-05-20 for quick handover before new tasks.
 - Working directory: `/home/khanhson2005/projects/IT4409`
 - Current branch: `fix/frontend-audit-v2`
 - Worktree was clean at analysis time before Feat 2 work.
-- Latest completed frontend work: Feat 2 adds a BTVN tab/card to course detail and loads assignments in real API mode.
+- Latest completed frontend work: Feat 9 syncs visible Vietnamese frontend copy with proper diacritics.
 - Existing handover doc: `docs/new-task-snapshot-frontend-fix.md`
 - Frontend audit docs mentioned in that handover are not present on this branch under `frontend/docs/`.
 
@@ -233,7 +233,7 @@ Local storage keys:
 - Course detail assignment attachments may show `0 file` in real API mode because backend `AssignmentsRepository.findManyByClassId()` does not currently include the `attachments` relation.
 - `Dashboard.jsx` has real API integration for class lists and teacher actions, but uses compact mapping; verify field/enum contracts before extending.
 - `TeacherDashboard.jsx` uses raw UUID inputs for adding students; usable for testing, not polished UX.
-- Some Vietnamese UI text is ASCII-only/without accents in current files; preserve style unless changing copy intentionally.
+- Visible Vietnamese UI copy has been synced with proper diacritics across the frontend as of Feat 9.
 
 ## Existing Docs
 
