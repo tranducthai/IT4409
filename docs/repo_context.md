@@ -7,8 +7,8 @@ Generated on 2026-05-20 for quick handover before new tasks.
 - Working directory: `/home/khanhson2005/projects/IT4409`
 - Current branch: `fix/frontend-audit-v2`
 - Worktree was clean at analysis time before Feat 2 work.
-- Latest completed frontend work: Feat 9 syncs visible Vietnamese frontend copy with proper diacritics.
-- Recommended next frontend work: Feat 4, stabilize concrete course detail failures with loading/error/empty states.
+- Latest completed frontend work: Feat 4 hardens concrete course detail loading/error/empty states and partial API failures.
+- Recommended next frontend work: Feat 3, move "add student" into each concrete class card.
 - Existing handover doc: `docs/new-task-snapshot-frontend-fix.md`
 - Frontend audit docs mentioned in that handover are not present on this branch under `frontend/docs/`.
 
@@ -147,6 +147,7 @@ Several IDs are UUIDs, but `sections`, `lessons`, `lesson_contents`, and `answer
 - `ClassesController` generic CRUD is not guarded in the current snapshot.
 - `ClassMembersController` has protected role-aware routes, but generic CRUD is not guarded.
 - Teacher dashboard frontend currently sends `teacher_id` in create class payload; backend `ClassesService` accepts DTO and does not derive teacher from JWT.
+- Backend `npm run build` and `npm run test` pass after declared dependencies are installed locally, but `npm run test:e2e` currently times out while the default e2e test initializes the full `AppModule`.
 - Frontend `.env.example` defaults to `http://localhost:3000/api`, while backend code defaults to port `3001` if `PORT` is not set.
 - Some modules/entities exist but are not imported through `AppModule`; check imports before assuming endpoints are live.
 
@@ -218,6 +219,7 @@ Local storage keys:
 - `Dashboard.jsx` chooses mock vs real for student/teacher class lists.
 - `CourseDetail.jsx` supports mock data and real API loading through `getCourseDetailFromApi()`.
 - Course detail real API loading currently uses classes, sections, lessons, all lesson contents filtered client-side, quizzes by class, and assignments by class.
+- In real API mode, the class detail request is required; sections, lessons, lesson contents, quizzes, and assignments now load as partial data with warnings and empty states when those endpoints fail.
 
 ### Important Frontend Files
 
@@ -230,12 +232,12 @@ Local storage keys:
 ### Frontend Notes and Risks
 
 - Mock mode being the default can hide backend integration problems.
-- `CourseDetail.jsx` has real API loading/error handling and renders lesson resources plus a BTVN tab between `Bài học` and `Tài nguyên`.
+- `CourseDetail.jsx` has real API loading/error handling, partial API failure warnings, tab empty states, and renders lesson resources plus a BTVN tab between `Bài học` and `Tài nguyên`.
 - Course detail assignment attachments may show `0 file` in real API mode because backend `AssignmentsRepository.findManyByClassId()` does not currently include the `attachments` relation.
 - `Dashboard.jsx` has real API integration for class lists and teacher actions, but uses compact mapping; verify field/enum contracts before extending.
 - `TeacherDashboard.jsx` uses raw UUID inputs for adding students; usable for testing, not polished UX.
 - Visible Vietnamese UI copy has been synced with proper diacritics across the frontend as of Feat 9.
-- Recommended remaining priority after Feat 9: Feat 4, Feat 3, Feat 6, Feat 5, Feat 8, Feat 7.
+- Recommended remaining priority after Feat 4: Feat 3, Feat 6, Feat 5, Feat 8, Feat 7.
 
 ## Existing Docs
 

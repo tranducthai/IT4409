@@ -11,7 +11,7 @@ Implement one feature at a time, then stop for review. Do not continue to the ne
 - [x] Feat 1. Course detail resource formats per lesson: text, PDF/file, video, quiz.
 - [x] Feat 2. Add BTVN card in the concrete course view.
 - [ ] Feat 3. Move "add student" into each concrete class card.
-- [ ] Feat 4. Stabilize concrete course detail failures with loading/error/empty states.
+- [x] Feat 4. Stabilize concrete course detail failures with loading/error/empty states.
 - [ ] Feat 5. Add teacher UI for creating quiz and load quiz list from DB.
 - [ ] Feat 6. Make quiz click open a separate route/page.
 - [ ] Feat 7. Add ADMIN/root role permission flow.
@@ -23,7 +23,7 @@ Implement one feature at a time, then stop for review. Do not continue to the ne
 - [x] Feat 1. Text, PDF, quiz: dinh dang tai nguyen cho tung bai hoc trong trang cu the khoa hoc.
 - [x] Feat 2. Them the BTVN trong trang cu the khoa hoc.
 - [ ] Feat 3. Dua thao tac them sinh vien vao dung the/lop cu the.
-- [ ] Feat 4. Sua loi trang cu the khoa hoc thinh thoang bi loi.
+- [x] Feat 4. Sua loi trang cu the khoa hoc thinh thoang bi loi.
 - [ ] Feat 5. Them giao dien tao quiz va lay danh sach quiz tu DB.
 - [ ] Feat 6. Bam vao quiz se mo page rieng, khong dung single-page tab.
 - [ ] Feat 7. Tao role ADMIN/root co quyen quan tri.
@@ -32,44 +32,18 @@ Implement one feature at a time, then stop for review. Do not continue to the ne
 
 ## Recommended Remaining Priority
 
-1. Feat 4. Stabilize concrete course detail failures with loading/error/empty states.
-2. Feat 3. Move "add student" into each concrete class card.
-3. Feat 6. Make quiz click open a separate route/page.
-4. Feat 5. Add teacher UI for creating quiz and load quiz list from DB.
-5. Feat 8. Finish account management card UI.
-6. Feat 7. Add ADMIN/root role permission flow.
+1. Feat 3. Move "add student" into each concrete class card.
+2. Feat 6. Make quiz click open a separate route/page.
+3. Feat 5. Add teacher UI for creating quiz and load quiz list from DB.
+4. Feat 8. Finish account management card UI.
+5. Feat 7. Add ADMIN/root role permission flow.
 
 Rationale:
 
-- Feat 4 should be next because course detail is already the shared surface for Feat 1, Feat 2, Feat 5, and Feat 6. Hardening loading/error/empty states and API failure behavior first reduces regressions before adding quiz routes and quiz authoring UI.
-- Feat 3 is a smaller dashboard UX change and can follow once course detail is stable.
+- Feat 3 is a smaller dashboard UX change and can follow now that course detail is stable.
 - Feat 6 should come before Feat 5 because quiz resource links already point to `/courses/:courseId/quizzes/:quizId`, but that page is not implemented yet.
 - Feat 5 is larger and likely to touch backend/API contracts.
 - Feat 7 should be later because ADMIN/root permission flow has broader auth, route guard, and role implications.
-
-## Prompt For Next Feature
-
-```text
-Đọc context repo tại docs/repo_context.md và docs/frontend_feature_progress.md.
-Dùng workflow agents/skills/it4409-repo-workflow/SKILL.md nếu cần.
-Repo hiện ở branch fix/frontend-audit-v2.
-
-Feat 1 đã commit c7f78ad.
-Feat 2 đã commit b159dd2.
-Feat 9 đã commit 294ef68.
-Trong docs/frontend_feature_progress.md, Feat 1, Feat 2 và Feat 9 đã được tick hoàn thành.
-Theo priority hiện tại, bỏ qua Feat 3 và Feat 5-8, làm Feat 4: Stabilize concrete course detail failures with loading/error/empty states.
-
-Rule:
-- Chỉ làm đúng Feat 4.
-- Không làm thêm feature khác.
-- Preserve behavior hiện có; chỉ harden course detail loading/error/empty states và API failure handling.
-- Không implement quiz page, quiz creation UI, ADMIN flow, account management, hoặc move add-student UI.
-- Giữ tiếng Việt UI có dấu.
-- Cập nhật các file context liên quan sau khi làm xong.
-- Chạy validation frontend: cd frontend && npm run lint && npm run build.
-- Làm xong dừng để tôi review.
-```
 
 ## Feat 1 - Course Detail Lesson Resources
 
@@ -135,6 +109,39 @@ Review notes:
 
 - The BTVN card links attachment files when `attachments` are present.
 - Backend `findManyByClassId` currently does not include attachment relations, so real API cards may show `0 file` until that backend query is expanded.
+
+## Feat 4 - Course Detail Loading/Error/Empty States
+
+Status: ready for review.
+
+Changed files:
+
+- `frontend/src/pages/CourseDetail.jsx`
+- `frontend/src/services/api/course-detail.service.js`
+- `docs/repo_context.md`
+- `docs/new-task-snapshot-frontend-fix.md`
+- `docs/frontend_feature_progress.md`
+
+What changed:
+
+- Kept class detail loading as the required API call; if the class itself fails, the page still shows the existing full error state with a retry action.
+- Made sections, lessons, lesson contents, quizzes, and BTVN load as partial data so one failing endpoint no longer crashes the whole course detail page.
+- Added a visible Vietnamese warning banner with retry when partial course data fails to load.
+- Added empty states for courses with no sections, sections with no lessons, and resource groups with no items.
+- Hardened API normalization for missing/null arrays, missing titles, missing progress values, and optional assignment data.
+
+Validation:
+
+- `cd frontend && npm run lint && npm run build`: passed.
+- `cd frontend && VITE_USE_MOCK_DATA=false npm run build`: passed.
+- `cd backend && npm run build`: passed after installing the missing declared backend dependencies in local `node_modules`.
+- `cd backend && npm run test`: passed.
+- `cd backend && npm run test:e2e`: failed because the existing e2e test initializes the full `AppModule` and times out during setup; rerunning with network access still timed out. This is a backend test setup issue, not caused by the Feat 4 frontend changes.
+
+Review notes:
+
+- No quiz page, quiz creation UI, ADMIN flow, account management, or add-student UI changes were made.
+- Quiz resource links still point to the future Feat 6 route and remain intentionally unimplemented.
 
 ## Feat 9 - Vietnamese Copy With Diacritics
 

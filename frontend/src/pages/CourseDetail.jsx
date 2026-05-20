@@ -239,6 +239,7 @@ export default function CourseDetail() {
   const [isLoading, setIsLoading] = useState(!USE_MOCK_DATA);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('lessons');
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
@@ -273,7 +274,7 @@ export default function CourseDetail() {
     return () => {
       isMounted = false;
     };
-  }, [courseId, currentUser?.id]);
+  }, [courseId, currentUser?.id, reloadToken]);
 
   const { course } = courseData ?? {};
   const sectionItems = courseData?.sections ?? [];
@@ -281,12 +282,14 @@ export default function CourseDetail() {
   const resourceItems = courseData?.resources ?? [];
   const assignmentItems = courseData?.assignments ?? [];
   const discussionItems = courseData?.discussions ?? [];
+  const warningItems = courseData?.warnings ?? [];
   const progress = courseData?.progress ?? {
     progressPercent: 0,
     completed: 0,
     inProgress: 0,
     todo: 0,
   };
+  const handleRetry = () => setReloadToken((value) => value + 1);
 
   if (isLoading) {
     return (
@@ -304,9 +307,18 @@ export default function CourseDetail() {
         <div className="rounded-2xl border border-rose-200 bg-rose-50 px-6 py-14 text-center text-rose-700 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-200">
           <h1 className="text-2xl font-bold">Không tải được khóa học</h1>
           <p className="mt-2 text-sm">{error}</p>
-          <Link to="/dashboard" className="mt-6 inline-block rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">
-            Quay lại bảng điều khiển
-          </Link>
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
+            <button
+              type="button"
+              onClick={handleRetry}
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white"
+            >
+              Tải lại
+            </button>
+            <Link to="/dashboard" className="inline-block rounded-lg border border-rose-200 bg-white px-4 py-2 text-sm font-semibold text-rose-700 dark:border-rose-400/30 dark:bg-slate-950 dark:text-rose-200">
+              Quay lại bảng điều khiển
+            </Link>
+          </div>
         </div>
       </main>
     );
@@ -326,14 +338,17 @@ export default function CourseDetail() {
     );
   }
 
-  const progressPercent = progress.progressPercent;
   const totalSections = sectionItems.length;
   const totalLessons = lessonItems.length;
   const totalResources = resourceItems.reduce(
-    (sum, group) => sum + group.items.length,
+    (sum, group) => sum + (group.items?.length ?? 0),
     0,
   );
   const totalAssignments = assignmentItems.length;
+  const progressPercent = Math.min(
+    100,
+    Math.max(0, Number(progress.progressPercent) || 0),
+  );
 
   return (
     <main className="mx-auto w-full max-w-7xl flex-grow px-4 py-10 transition-colors md:px-8">
@@ -402,66 +417,96 @@ export default function CourseDetail() {
         </div>
       </div>
 
+      {warningItems.length > 0 && (
+        <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 transition-colors dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-100">
+          <p className="font-semibold">Một số dữ liệu của khóa học chưa tải được.</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            {warningItems.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            onClick={handleRetry}
+            className="mt-3 rounded-lg bg-amber-600 px-3 py-2 text-xs font-semibold text-white"
+          >
+            Tải lại dữ liệu
+          </button>
+        </div>
+      )}
+
       {activeTab === 'lessons' && (
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
           <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Bài học</h2>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Danh sách bài học được nhóm theo phần</p>
-          <div className="mt-4 space-y-4">
-            {sectionItems.map((section) => (
-              <div key={section.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 transition-colors dark:border-slate-800 dark:bg-slate-950">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">{section.title}</h3>
-                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{section.lessonCount} bài học</p>
-                  </div>
-                  <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-400/10 dark:text-indigo-200">
-                    Tuần {section.orderIndex}
-                  </span>
-                </div>
-
-                <div className="mt-4 space-y-3">
-                  {section.lessons.map((lesson) => (
-                    <div key={lesson.id} className="rounded-xl border border-white bg-white p-3 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{lesson.title}</p>
-                          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{lesson.description}</p>
-                          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                            Thời lượng: {lesson.duration} · {lesson.contentCount} tài nguyên con
-                          </p>
-                        </div>
-                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusStyles[lesson.status]}`}>
-                          {statusLabels[lesson.status]}
-                        </span>
-                      </div>
-
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {lesson.contentTypes.map((type) => (
-                          <span
-                            key={`${lesson.id}-${type}`}
-                            className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300"
-                          >
-                            {type}
-                          </span>
-                        ))}
-                      </div>
-
-                      {lesson.contents?.length > 0 && (
-                        <div className="mt-3 grid gap-2 lg:grid-cols-2">
-                          {lesson.contents.map((content) => (
-                            <ResourceCard
-                              key={`${lesson.id}-${content.id}`}
-                              resource={content}
-                            />
-                          ))}
-                        </div>
-                      )}
+          {sectionItems.length > 0 ? (
+            <div className="mt-4 space-y-4">
+              {sectionItems.map((section) => (
+                <div key={section.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 transition-colors dark:border-slate-800 dark:bg-slate-950">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">{section.title}</h3>
+                      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{section.lessonCount} bài học</p>
                     </div>
-                  ))}
+                    <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-400/10 dark:text-indigo-200">
+                      Tuần {section.orderIndex}
+                    </span>
+                  </div>
+
+                  {section.lessons?.length > 0 ? (
+                    <div className="mt-4 space-y-3">
+                      {section.lessons.map((lesson) => (
+                        <div key={lesson.id} className="rounded-xl border border-white bg-white p-3 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{lesson.title}</p>
+                              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{lesson.description}</p>
+                              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                Thời lượng: {lesson.duration} · {lesson.contentCount} tài nguyên con
+                              </p>
+                            </div>
+                            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusStyles[lesson.status]}`}>
+                              {statusLabels[lesson.status]}
+                            </span>
+                          </div>
+
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {(lesson.contentTypes ?? []).map((type) => (
+                              <span
+                                key={`${lesson.id}-${type}`}
+                                className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                              >
+                                {type}
+                              </span>
+                            ))}
+                          </div>
+
+                          {lesson.contents?.length > 0 && (
+                            <div className="mt-3 grid gap-2 lg:grid-cols-2">
+                              {lesson.contents.map((content) => (
+                                <ResourceCard
+                                  key={`${lesson.id}-${content.id}`}
+                                  resource={content}
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-500 transition-colors dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+                      Phần này chưa có bài học nào.
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500 transition-colors dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
+              Khóa học này chưa có phần hoặc bài học nào.
+            </div>
+          )}
         </section>
       )}
 
@@ -500,21 +545,33 @@ export default function CourseDetail() {
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
           <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Tài nguyên học tập</h2>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Tổng hợp wiki và slide để chuẩn bị cho API thật sau này</p>
-          <div className="mt-4 space-y-4">
-            {resourceItems.map((group) => (
-              <div key={group.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-4 transition-colors dark:border-slate-800 dark:bg-slate-950">
-                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">{group.title}</h3>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{group.description}</p>
-                <ul className="mt-3 space-y-2 text-sm text-slate-700 dark:text-slate-300">
-                  {group.items.map((item) => (
-                    <li key={typeof item === 'string' ? item : `${group.id}-${item.id}`}>
-                      <ResourceCard resource={item} compact />
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
+          {resourceItems.length > 0 ? (
+            <div className="mt-4 space-y-4">
+              {resourceItems.map((group) => (
+                <div key={group.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-4 transition-colors dark:border-slate-800 dark:bg-slate-950">
+                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">{group.title}</h3>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{group.description}</p>
+                  {group.items?.length > 0 ? (
+                    <ul className="mt-3 space-y-2 text-sm text-slate-700 dark:text-slate-300">
+                      {group.items.map((item) => (
+                        <li key={typeof item === 'string' ? item : `${group.id}-${item.id}`}>
+                          <ResourceCard resource={item} compact />
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="mt-3 rounded-xl border border-dashed border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-500 transition-colors dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+                      Chưa có tài nguyên trong nhóm này.
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500 transition-colors dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
+              Khóa học này chưa có tài nguyên học tập nào.
+            </div>
+          )}
         </section>
       )}
 

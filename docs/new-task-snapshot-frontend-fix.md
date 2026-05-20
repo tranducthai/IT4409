@@ -357,24 +357,24 @@ Potential fix:
 - If authenticated but no user, clear auth state and redirect `/login`.
 - Or add loading/hydration later.
 
-### 7. CourseDetail still mock-only
+### 7. CourseDetail real API path hardened
 
-`CourseDetail.jsx` uses:
+`CourseDetail.jsx` now supports both mock mode and real API mode through:
 
 ```js
-getCourseDetailData(courseId, getCurrentUser()?.id)
+getCourseDetailFromApi(courseId)
 ```
 
-Risk:
+Current behavior:
 
-- No real API mode path.
-- Good UI scaffold, not integration-ready.
+- `GET /classes/:id` is the required course detail call.
+- Sections, lessons, lesson contents, quizzes, and assignments load as partial data.
+- Partial endpoint failures show a Vietnamese warning banner and empty states instead of crashing the whole page.
 
-Potential next task:
+Remaining risk:
 
-- Create `course-detail.service.js`.
-- Add real fetch flow guarded by `USE_MOCK_DATA`.
-- Add loading/error states.
+- Quiz resource links still target the future `/courses/:courseId/quizzes/:quizId` page, which is intentionally not implemented until the quiz page feature.
+- Assignment attachments may still show `0 file` until the backend class assignment query includes attachment relations.
 
 ### 8. Teacher dashboard form contract loose
 
