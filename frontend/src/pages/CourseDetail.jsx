@@ -1,7 +1,18 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import {
+  ClipboardList,
+  ExternalLink,
+  File,
+  FileText,
+  Video,
+} from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { getCurrentUser } from '../services/api/session';
-import { getCourseDetailData } from '../services/dataSource';
+import {
+  getCourseDetailData,
+  getCourseDetailFromApi,
+  USE_MOCK_DATA,
+} from '../services/dataSource';
 
 const statusStyles = {
   done: 'bg-emerald-100 text-emerald-700',
@@ -22,17 +33,196 @@ const tabOptions = [
   { key: 'discussions', label: 'Thảo luận' },
 ];
 
+const resourceTypeMeta = {
+  text: {
+    label: 'Text',
+    icon: FileText,
+    badgeClass: 'bg-sky-100 text-sky-700 dark:bg-sky-400/10 dark:text-sky-200',
+  },
+  pdf: {
+    label: 'PDF',
+    icon: File,
+    badgeClass: 'bg-rose-100 text-rose-700 dark:bg-rose-400/10 dark:text-rose-200',
+  },
+  file: {
+    label: 'File',
+    icon: File,
+    badgeClass: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200',
+  },
+  video: {
+    label: 'Video',
+    icon: Video,
+    badgeClass: 'bg-violet-100 text-violet-700 dark:bg-violet-400/10 dark:text-violet-200',
+  },
+  quiz: {
+    label: 'Quiz',
+    icon: ClipboardList,
+    badgeClass: 'bg-amber-100 text-amber-700 dark:bg-amber-400/10 dark:text-amber-200',
+  },
+};
+
+function ResourceCard({ resource, compact = false }) {
+  if (typeof resource === 'string') {
+    return (
+      <div className="rounded-lg border border-white bg-white px-3 py-2 text-sm shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
+        {resource}
+      </div>
+    );
+  }
+
+  const type = resource.displayType ?? resource.type ?? 'file';
+  const meta = resourceTypeMeta[type] ?? resourceTypeMeta.file;
+  const Icon = meta.icon;
+  const actionUrl =
+    type === 'quiz'
+      ? resource.quizUrl
+      : resource.fileUrl ?? resource.openUrl ?? resource.url;
+
+  return (
+    <div className="rounded-xl border border-slate-100 bg-white p-3 text-left shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold ${meta.badgeClass}`}>
+              <Icon className="h-3.5 w-3.5" />
+              {meta.label}
+            </span>
+            {resource.meta && (
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                {resource.meta}
+              </span>
+            )}
+          </div>
+          <p className="mt-2 break-words text-sm font-semibold text-slate-900 dark:text-slate-100">
+            {resource.title}
+          </p>
+          {resource.lessonTitle && (
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              {resource.sectionTitle} · {resource.lessonTitle}
+            </p>
+          )}
+          {resource.content && type === 'text' && (
+            <p className="mt-2 text-xs leading-5 text-slate-600 dark:text-slate-300">
+              {resource.content}
+            </p>
+          )}
+          {resource.description && compact && (
+            <p className="mt-2 text-xs leading-5 text-slate-600 dark:text-slate-300">
+              {resource.description}
+            </p>
+          )}
+        </div>
+
+        {actionUrl ? (
+          type === 'quiz' ? (
+            <Link
+              to={actionUrl}
+              className="inline-flex h-8 flex-shrink-0 items-center gap-1 rounded-lg bg-indigo-600 px-2.5 text-xs font-semibold text-white"
+            >
+              Mo
+              <ExternalLink className="h-3.5 w-3.5" />
+            </Link>
+          ) : (
+            <a
+              href={actionUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-8 flex-shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2.5 text-xs font-semibold text-slate-700 hover:border-indigo-200 hover:text-indigo-700 dark:border-slate-700 dark:text-slate-200"
+            >
+              Mo
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          )
+        ) : (
+          <span className="flex-shrink-0 rounded-lg border border-dashed border-slate-200 px-2.5 py-2 text-xs text-slate-400 dark:border-slate-700">
+            Chua co link
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function CourseDetail() {
   const { courseId } = useParams();
-  const courseData = getCourseDetailData(courseId, getCurrentUser()?.id);
-  const { course } = courseData;
+  const currentUser = getCurrentUser();
+  const [courseData, setCourseData] = useState(() =>
+    USE_MOCK_DATA ? getCourseDetailData(courseId, currentUser?.id) : null,
+  );
+  const [isLoading, setIsLoading] = useState(!USE_MOCK_DATA);
+  const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('lessons');
 
-  const sectionItems = courseData.sections;
-  const lessonItems = courseData.lessons;
-  const resourceItems = courseData.resources;
-  const discussionItems = courseData.discussions;
-  const progress = courseData.progress;
+  useEffect(() => {
+    let isMounted = true;
+
+    if (USE_MOCK_DATA) {
+      setCourseData(getCourseDetailData(courseId, currentUser?.id));
+      setIsLoading(false);
+      setError('');
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    const loadCourseDetail = async () => {
+      setIsLoading(true);
+      setError('');
+      try {
+        const data = await getCourseDetailFromApi(courseId);
+        if (isMounted) setCourseData(data);
+      } catch (err) {
+        if (isMounted) {
+          setCourseData(null);
+          setError(err?.message || 'Khong tai duoc chi tiet khoa hoc.');
+        }
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+
+    void loadCourseDetail();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [courseId, currentUser?.id]);
+
+  const { course } = courseData ?? {};
+  const sectionItems = courseData?.sections ?? [];
+  const lessonItems = courseData?.lessons ?? [];
+  const resourceItems = courseData?.resources ?? [];
+  const discussionItems = courseData?.discussions ?? [];
+  const progress = courseData?.progress ?? {
+    progressPercent: 0,
+    completed: 0,
+    inProgress: 0,
+    todo: 0,
+  };
+
+  if (isLoading) {
+    return (
+      <main className="mx-auto w-full max-w-5xl flex-grow px-4 py-12 md:px-8">
+        <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center text-slate-500 transition-colors dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
+          Dang tai chi tiet khoa hoc...
+        </div>
+      </main>
+    );
+  }
+
+  if (error) {
+    return (
+      <main className="mx-auto w-full max-w-5xl flex-grow px-4 py-12 md:px-8">
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-6 py-14 text-center text-rose-700 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-200">
+          <h1 className="text-2xl font-bold">Khong tai duoc khoa hoc</h1>
+          <p className="mt-2 text-sm">{error}</p>
+          <Link to="/dashboard" className="mt-6 inline-block rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">
+            Quay lai dashboard
+          </Link>
+        </div>
+      </main>
+    );
+  }
 
   if (!course) {
     return (
@@ -71,7 +261,7 @@ export default function CourseDetail() {
             </p>
             <h1 className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100 md:text-3xl">{course.title}</h1>
             <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-              Trang chi tiet khoa hoc dang dung mock data theo schema backend de test giao dien truoc khi cắm API that.
+              {course.description || 'Tong quan noi dung, tai nguyen va tien do cua khoa hoc.'}
             </p>
 
             <div className="mt-5">
@@ -140,7 +330,7 @@ export default function CourseDetail() {
                   {section.lessons.map((lesson) => (
                     <div key={lesson.id} className="rounded-xl border border-white bg-white p-3 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
                       <div className="flex items-start justify-between gap-3">
-                        <div>
+                        <div className="min-w-0">
                           <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{lesson.title}</p>
                           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{lesson.description}</p>
                           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
@@ -162,6 +352,17 @@ export default function CourseDetail() {
                           </span>
                         ))}
                       </div>
+
+                      {lesson.contents?.length > 0 && (
+                        <div className="mt-3 grid gap-2 lg:grid-cols-2">
+                          {lesson.contents.map((content) => (
+                            <ResourceCard
+                              key={`${lesson.id}-${content.id}`}
+                              resource={content}
+                            />
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -182,8 +383,8 @@ export default function CourseDetail() {
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{group.description}</p>
                 <ul className="mt-3 space-y-2 text-sm text-slate-700 dark:text-slate-300">
                   {group.items.map((item) => (
-                    <li key={item} className="rounded-lg border border-white bg-white px-3 py-2 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
-                      {item}
+                    <li key={typeof item === 'string' ? item : `${group.id}-${item.id}`}>
+                      <ResourceCard resource={item} compact />
                     </li>
                   ))}
                 </ul>
@@ -219,11 +420,17 @@ export default function CourseDetail() {
           <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Thao luan</h2>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Cac chu de thao luan gan day</p>
           <ul className="mt-4 space-y-2 text-sm text-slate-700 dark:text-slate-300">
-            {discussionItems.map((item) => (
-              <li key={item} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 transition-colors dark:border-slate-800 dark:bg-slate-950">
-                {item}
+            {discussionItems.length > 0 ? (
+              discussionItems.map((item) => (
+                <li key={item} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 transition-colors dark:border-slate-800 dark:bg-slate-950">
+                  {item}
+                </li>
+              ))
+            ) : (
+              <li className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-6 text-center text-slate-500 transition-colors dark:border-slate-800 dark:bg-slate-950">
+                Chua co thao luan nao.
               </li>
-            ))}
+            )}
           </ul>
         </section>
       )}

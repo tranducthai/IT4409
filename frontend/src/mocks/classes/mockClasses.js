@@ -101,7 +101,7 @@ export const mockLessonContents = [
   {
     id: 1,
     lesson_id: 1,
-    type: 'Video',
+    type: 'video',
     title: 'Video bai giang 1',
     file_url: 'https://example.com/video-1',
     content: null,
@@ -111,7 +111,7 @@ export const mockLessonContents = [
   {
     id: 2,
     lesson_id: 1,
-    type: 'Text',
+    type: 'text',
     title: 'Tom tat bai hoc',
     file_url: null,
     content: 'Noi dung tom tat...',
@@ -121,11 +121,35 @@ export const mockLessonContents = [
   {
     id: 3,
     lesson_id: 2,
-    type: 'File',
-    title: 'Slide lexical analysis',
+    type: 'file',
+    title: 'PDF slide lexical analysis',
     file_url: 'https://example.com/slides-lexical.pdf',
     content: null,
     duration: null,
     order_index: 1,
+  },
+  {
+    id: 4,
+    lesson_id: 2,
+    type: 'quiz',
+    title: 'Quiz lexical analysis',
+    file_url: null,
+    content: '9c4f1d8d-66a4-4bb2-b312-2b9d60000001',
+    duration: 15,
+    order_index: 2,
+  },
+];
+
+export const mockQuizzes = [
+  {
+    id: '9c4f1d8d-66a4-4bb2-b312-2b9d60000001',
+    title: 'Quiz lexical analysis',
+    description: 'Kiem tra nhanh ve token, regex va scanner',
+    time_limit: 15,
+    total_questions: 10,
+    class_id: '1f6b8a4d-c1d4-4f79-90a9-24d8b4f00001',
+    created_by: '8b2ca5d8-9f69-4c8f-b1ef-183b6a10a222',
+    is_random: false,
+    created_at: '2026-04-22T09:00:00.000Z',
   },
 ];

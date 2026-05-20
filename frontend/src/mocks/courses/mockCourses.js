@@ -3,6 +3,7 @@ import {
   mockClassMembers,
   mockLessonContents,
   mockLessons,
+  mockQuizzes,
   mockSections,
 } from '../classes/mockClasses';
 
@@ -40,6 +41,50 @@ function resolveCourse(courseRef) {
 function resolveCourseId(courseRef) {
   const course = resolveCourse(courseRef);
   return course?.id ?? String(courseRef);
+}
+
+function normalizeContentType(type) {
+  return String(type ?? '').trim().toLowerCase();
+}
+
+function getDisplayType(content) {
+  const type = normalizeContentType(content.type);
+  const url = String(content.file_url ?? '').toLowerCase();
+  const title = String(content.title ?? '').toLowerCase();
+
+  if (type === 'file' && (url.endsWith('.pdf') || title.includes('pdf'))) {
+    return 'pdf';
+  }
+
+  return type || 'file';
+}
+
+function normalizeLessonContent(content, courseId) {
+  const displayType = getDisplayType(content);
+  const matchedQuiz =
+    displayType === 'quiz'
+      ? mockQuizzes.find(
+          (quiz) =>
+            quiz.id === content.content ||
+            quiz.id === content.file_url ||
+            quiz.title.toLowerCase() === content.title.toLowerCase(),
+        )
+      : null;
+
+  return {
+    id: content.id,
+    lessonId: content.lesson_id,
+    type: normalizeContentType(content.type),
+    displayType,
+    title: content.title,
+    content: content.content,
+    fileUrl: content.file_url,
+    openUrl: `/api/lesson-contents/${content.id}/open`,
+    duration: content.duration,
+    orderIndex: content.order_index,
+    quizId: matchedQuiz?.id ?? null,
+    quizUrl: matchedQuiz ? `/courses/${courseId}/quizzes/${matchedQuiz.id}` : null,
+  };
 }
 
 export function getMockStudentCourseCards(userId) {
@@ -92,7 +137,9 @@ export function getMockCourseLessons(courseId) {
         (content) => content.lesson_id === lesson.id,
       );
 
-      const hasVideo = lessonContent.some((item) => item.type === 'Video');
+      const hasVideo = lessonContent.some(
+        (item) => normalizeContentType(item.type) === 'video',
+      );
       return {
         id: lesson.id,
         title: lesson.title,
@@ -117,15 +164,19 @@ export function getMockCourseSections(courseId) {
             (content) => content.lesson_id === lesson.id,
           );
 
-          const hasVideo = lessonContent.some((item) => item.type === 'Video');
+          const contents = lessonContent
+            .map((content) => normalizeLessonContent(content, resolvedCourseId))
+            .sort((left, right) => left.orderIndex - right.orderIndex);
+          const hasVideo = contents.some((item) => item.type === 'video');
 
           return {
             id: lesson.id,
             title: lesson.title,
             description: lesson.description,
             duration: hasVideo ? '45 phut' : '30 phut',
-            contentCount: lessonContent.length,
-            contentTypes: lessonContent.map((item) => item.type),
+            contentCount: contents.length,
+            contentTypes: contents.map((item) => item.displayType),
+            contents,
             status: lesson.id === 1 ? 'done' : 'in-progress',
           };
         });
@@ -142,21 +193,38 @@ export function getMockCourseSections(courseId) {
 
 export function getMockCourseResources(courseId) {
   const resolvedCourseId = resolveCourseId(courseId);
-  const wikiItems = getMockCourseWiki(resolvedCourseId);
-  const slideItems = getMockCourseSlides(resolvedCourseId);
+  const lessonResources = getMockCourseSections(resolvedCourseId).flatMap(
+    (section) =>
+      section.lessons.flatMap((lesson) =>
+        lesson.contents.map((content) => ({
+          ...content,
+          sectionTitle: section.title,
+          lessonTitle: lesson.title,
+        })),
+      ),
+  );
+  const quizItems = getMockCourseQuizzes(resolvedCourseId).map((quiz) => ({
+    id: quiz.id,
+    title: quiz.title,
+    description: quiz.description,
+    displayType: 'quiz',
+    quizId: quiz.id,
+    quizUrl: `/courses/${resolvedCourseId}/quizzes/${quiz.id}`,
+    meta: `${quiz.total_questions} cau hoi · ${quiz.time_limit} phut`,
+  }));
 
   return [
     {
-      id: 'wiki',
-      title: 'Wiki khoa hoc',
-      description: 'Tai lieu tong hop, dinh nghia va checklist on tap',
-      items: wikiItems,
+      id: 'lesson-resources',
+      title: 'Tai nguyen theo bai hoc',
+      description: 'Text, PDF, file, video va quiz gan voi tung bai hoc',
+      items: lessonResources,
     },
     {
-      id: 'slides',
-      title: 'Slide bai giang',
-      description: 'Tai lieu slide dung cho moi tuan hoc',
-      items: slideItems,
+      id: 'class-quizzes',
+      title: 'Quiz cua lop',
+      description: 'Danh sach quiz cua khoa hoc',
+      items: quizItems,
     },
   ];
 }
@@ -186,6 +254,11 @@ export function getMockCourseSlides(courseId) {
     'Slide week 2 - Core concepts',
     'Slide week 3 - Practice session',
   ];
+}
+
+export function getMockCourseQuizzes(courseId) {
+  const resolvedCourseId = resolveCourseId(courseId);
+  return mockQuizzes.filter((quiz) => quiz.class_id === resolvedCourseId);
 }
 
 export function getMockCourseProgress(courseId, userId) {
