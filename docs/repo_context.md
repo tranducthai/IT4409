@@ -8,6 +8,7 @@ Generated on 2026-05-20 for quick handover before new tasks.
 - Current branch: `fix/frontend-audit-v2`
 - Worktree was clean at analysis time before Feat 2 work.
 - Latest completed frontend work: Feat 9 syncs visible Vietnamese frontend copy with proper diacritics.
+- Recommended next frontend work: Feat 4, stabilize concrete course detail failures with loading/error/empty states.
 - Existing handover doc: `docs/new-task-snapshot-frontend-fix.md`
 - Frontend audit docs mentioned in that handover are not present on this branch under `frontend/docs/`.
 
@@ -234,6 +235,7 @@ Local storage keys:
 - `Dashboard.jsx` has real API integration for class lists and teacher actions, but uses compact mapping; verify field/enum contracts before extending.
 - `TeacherDashboard.jsx` uses raw UUID inputs for adding students; usable for testing, not polished UX.
 - Visible Vietnamese UI copy has been synced with proper diacritics across the frontend as of Feat 9.
+- Recommended remaining priority after Feat 9: Feat 4, Feat 3, Feat 6, Feat 5, Feat 8, Feat 7.
 
 ## Existing Docs
 
