@@ -1,14 +1,14 @@
 import { Navigate } from 'react-router-dom';
-import { clearAuthTokens, getAccessToken } from '../services/api/client';
-import { clearCurrentUser, getCurrentUser } from '../services/api/session';
+import { getAccessToken } from '../services/api/client';
+import { clearAuthState } from '../services/api/authState';
+import { getCurrentUser } from '../services/api/session';
 
 function isAuthenticated() {
   return Boolean(getAccessToken());
 }
 
 function clearInvalidSession() {
-  clearAuthTokens();
-  clearCurrentUser();
+  clearAuthState();
 }
 
 export function RequireAuth({ children }) {

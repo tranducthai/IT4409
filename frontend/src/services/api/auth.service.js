@@ -1,6 +1,7 @@
 import { mockUsers } from '../../mocks/auth/mockUsers';
-import { apiRequest, clearAuthTokens } from './client';
-import { clearCurrentUser, getCurrentUser, setCurrentUser } from './session';
+import { apiRequest } from './client';
+import { clearAuthState } from './authState';
+import { getCurrentUser, setCurrentUser } from './session';
 
 const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA !== 'false';
 
@@ -86,8 +87,7 @@ export async function register(payload) {
 }
 
 export function logout() {
-  clearAuthTokens();
-  clearCurrentUser();
+  clearAuthState();
 }
 
 export default { login, register, logout };

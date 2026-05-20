@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import './App.css';
 import Header from './components/Header';
 import Footer from './components/Footer';
+import DevModeBanner from './components/DevModeBanner';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import CourseDetail from './pages/CourseDetail';
@@ -21,6 +22,7 @@ function App() {
       <Router>
         <div className="min-h-screen flex flex-col bg-slate-50 text-slate-900 transition-colors duration-300 dark:bg-slate-950 dark:text-slate-100">
           <Header />
+          <DevModeBanner />
 
           <main className="flex-grow">
             <Routes>

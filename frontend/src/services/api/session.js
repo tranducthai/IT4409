@@ -1,10 +1,10 @@
 import { clearMockCurrentUser, getMockCurrentUser, setMockCurrentUser } from '../../mocks/auth/mockSession';
+import { authStorageKeys } from './authState';
 
 const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA !== 'false';
-const SESSION_KEY = 'it4409_current_user';
 
 function readStoredUser() {
-  const rawUser = localStorage.getItem(SESSION_KEY);
+  const rawUser = localStorage.getItem(authStorageKeys.currentUser);
   if (!rawUser) return null;
 
   try {
@@ -25,7 +25,7 @@ export function setCurrentUser(user) {
     setMockCurrentUser(user);
     return;
   }
-  localStorage.setItem(SESSION_KEY, JSON.stringify(user));
+  localStorage.setItem(authStorageKeys.currentUser, JSON.stringify(user));
 }
 
 export function clearCurrentUser() {
@@ -33,5 +33,5 @@ export function clearCurrentUser() {
     clearMockCurrentUser();
     return;
   }
-  localStorage.removeItem(SESSION_KEY);
+  localStorage.removeItem(authStorageKeys.currentUser);
 }
