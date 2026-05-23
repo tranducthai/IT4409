@@ -1,14 +1,6 @@
-import { IsOptional, IsString, IsUUID } from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
 
 export class UpdateDiscussionDto {
-    @IsOptional()
-    @IsUUID()
-    class_id?: string;
-
-    @IsOptional()
-    @IsUUID()
-    created_by?: string;
-
     @IsOptional()
     @IsString()
     title?: string;

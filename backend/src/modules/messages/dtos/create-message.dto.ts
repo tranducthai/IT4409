@@ -4,9 +4,6 @@ export class CreateMessageDto {
     @IsUUID()
     discussion_id: string;
 
-    @IsUUID()
-    user_id: string;
-
     @IsString()
     content: string;
 }
