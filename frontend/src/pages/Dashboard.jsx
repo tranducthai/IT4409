@@ -16,6 +16,7 @@ import {
     getTeacherDashboardData,
     USE_MOCK_DATA,
 } from '../services/dataSource';
+import AccountManagementCard from '../components/AccountManagementCard';
  import StudentDashboard from './dashboard/StudentDashboard';
  import TeacherDashboard from './dashboard/TeacherDashboard';
  
@@ -214,6 +215,8 @@ import {
       <div className="mb-4 rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-left text-sm text-indigo-800">
         Vai trò hiện tại: <span className="font-bold">{role}</span>.
       </div>
+
+      <AccountManagementCard user={currentUser} />
 
       {role === 'TEACHER' ? (
         <TeacherDashboard

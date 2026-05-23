@@ -15,7 +15,7 @@ Implement one feature at a time, then stop for review. Do not continue to the ne
 - [x] Feat 5. Add teacher UI for creating quiz and load quiz list from DB.
 - [x] Feat 6. Make quiz click open a separate route/page.
 - [ ] Feat 7. Add ADMIN/root role permission flow.
-- [ ] Feat 8. Finish account management card UI.
+- [x] Feat 8. Finish account management card UI.
 - [x] Feat 9. Sync Vietnamese copy with proper diacritics across the whole web UI.
 
 ## Feature Plan - Vietnamese Source
@@ -27,17 +27,47 @@ Implement one feature at a time, then stop for review. Do not continue to the ne
 - [x] Feat 5. Them giao dien tao quiz va lay danh sach quiz tu DB.
 - [x] Feat 6. Bam vao quiz se mo page rieng, khong dung single-page tab.
 - [ ] Feat 7. Tao role ADMIN/root co quyen quan tri.
-- [ ] Feat 8. Code tiep giao dien the quan ly tai khoan.
+- [x] Feat 8. Code tiep giao dien the quan ly tai khoan.
 - [x] Feat 9. Dong bo tieng Viet co dau tren toan web.
 
 ## Recommended Remaining Priority
 
-1. Feat 8. Finish account management card UI.
-2. Feat 7. Add ADMIN/root role permission flow.
+1. Feat 7. Add ADMIN/root role permission flow.
 
 Rationale:
 
 - Feat 7 should be later because ADMIN/root permission flow has broader auth, route guard, and role implications.
+
+## Feat 8 - Account Management Card UI
+
+Status: ready for review.
+
+Changed files:
+
+- `frontend/src/components/AccountManagementCard.jsx`
+- `frontend/src/pages/Dashboard.jsx`
+- `frontend/src/services/api/auth.service.js`
+- `docs/repo_context.md`
+- `docs/frontend_feature_progress.md`
+
+What changed:
+
+- Added a shared account management card to the authenticated dashboard.
+- The card displays current user name, email, role, and user ID.
+- Added a password change form using the existing guarded `PATCH /auth/change-password` endpoint in real API mode.
+- Mock mode returns a local success state for password changes so the UI works in default dev mode.
+
+Validation:
+
+- `cd frontend && npm run lint && npm run build`: passed.
+- `cd frontend && VITE_USE_MOCK_DATA=false npm run build`: passed.
+- `cd frontend && npm run dev -- --host 127.0.0.1 --port 5173`: started successfully with elevated local server permission; smoke requests to `/dashboard/student` and `/dashboard/teacher` returned `200 OK`.
+- `cd backend && npm run build`: passed.
+- `cd backend && npm run test`: passed.
+
+Review notes:
+
+- No ADMIN/root permission flow, user CRUD management, or profile update API was added.
 
 ## Feat 1 - Course Detail Lesson Resources
 

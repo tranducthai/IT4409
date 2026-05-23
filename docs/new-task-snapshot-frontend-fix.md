@@ -400,7 +400,8 @@ Risk:
 - Backend enum/field mismatch.
 - `teacher_id` may be derived from token, not accepted in body.
 - Empty `avatar_url` should maybe be null.
-- Add-student still requires a raw student user ID; no student search or account management UI exists yet.
+- Add-student still requires a raw student user ID; no student search UI exists yet.
+- Account management card UI now exists on the authenticated dashboard and supports password change through `PATCH /auth/change-password`.
 
 Potential fix:
 

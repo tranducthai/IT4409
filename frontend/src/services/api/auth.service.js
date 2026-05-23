@@ -86,8 +86,22 @@ export async function register(payload) {
   return normalized;
 }
 
+export async function changePassword(payload) {
+  if (USE_MOCK_DATA) {
+    return { changed: true };
+  }
+
+  return apiRequest('/auth/change-password', {
+    method: 'PATCH',
+    body: JSON.stringify({
+      oldPassword: payload.oldPassword,
+      newPassword: payload.newPassword,
+    }),
+  });
+}
+
 export function logout() {
   clearAuthState();
 }
 
-export default { login, register, logout };
+export default { login, register, changePassword, logout };
