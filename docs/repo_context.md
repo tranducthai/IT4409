@@ -7,8 +7,8 @@ Generated on 2026-05-20 for quick handover before new tasks.
 - Working directory: `/home/khanhson2005/projects/IT4409`
 - Current branch: `fix/frontend-audit-v2`
 - Worktree was clean at analysis time before Feat 2 work.
-- Latest completed frontend work: Feat 6 adds a separate quiz detail route/page for existing quiz links.
-- Recommended next frontend work: Feat 5, add teacher UI for creating quiz and load quiz list from DB.
+- Latest completed frontend work: Feat 5 adds teacher quiz creation UI and keeps class quiz lists loaded from DB/API.
+- Recommended next frontend work: Feat 8, finish account management card UI.
 - Existing handover doc: `docs/new-task-snapshot-frontend-fix.md`
 - Frontend audit docs mentioned in that handover are not present on this branch under `frontend/docs/`.
 
@@ -217,6 +217,7 @@ Local storage keys:
 
 - `frontend/src/services/dataSource.js` is mock-centric and exports `USE_MOCK_DATA`.
 - `frontend/src/services/api/classes.service.js` contains real API wrappers for class/member operations.
+- `frontend/src/services/api/quizzes.service.js` contains the real API wrapper for teacher quiz creation.
 - `Dashboard.jsx` chooses mock vs real for student/teacher class lists.
 - `CourseDetail.jsx` supports mock data and real API loading through `getCourseDetailFromApi()`.
 - Course detail real API loading currently uses classes, sections, lessons, all lesson contents filtered client-side, quizzes by class, and assignments by class.
@@ -234,12 +235,13 @@ Local storage keys:
 
 - Mock mode being the default can hide backend integration problems.
 - `CourseDetail.jsx` has real API loading/error handling, partial API failure warnings, tab empty states, and renders lesson resources plus a BTVN tab between `Bài học` and `Tài nguyên`.
+- In the course detail `Tài nguyên` tab, teachers can create quiz metadata through `POST /quizzes`; the class quiz list is loaded from `GET /quizzes/class/:classId`.
 - `QuizDetail.jsx` renders the separate quiz page from `/courses/:courseId/quizzes/:quizId`; real mode loads `GET /quiz/:quizId`, while mock mode uses local sample questions.
 - Course detail assignment attachments may show `0 file` in real API mode because backend `AssignmentsRepository.findManyByClassId()` does not currently include the `attachments` relation.
 - `Dashboard.jsx` has real API integration for class lists and teacher actions, but uses compact mapping; verify field/enum contracts before extending.
 - `TeacherDashboard.jsx` now places the raw student UUID add form inside each teacher class card; usable for testing, not polished student search UX.
 - Visible Vietnamese UI copy has been synced with proper diacritics across the frontend as of Feat 9.
-- Recommended remaining priority after Feat 6: Feat 5, Feat 8, Feat 7.
+- Recommended remaining priority after Feat 5: Feat 8, Feat 7.
 
 ## Existing Docs
 

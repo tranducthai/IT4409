@@ -370,11 +370,14 @@ Current behavior:
 - `GET /classes/:id` is the required course detail call.
 - Sections, lessons, lesson contents, quizzes, and assignments load as partial data.
 - Partial endpoint failures show a Vietnamese warning banner and empty states instead of crashing the whole page.
+- Teachers can create quiz metadata in the `Tài nguyên` tab through `POST /quizzes`.
+- The class quiz list is loaded from `GET /quizzes/class/:classId` and links to the separate quiz page.
 
 Remaining risk:
 
 - Quiz resource links now target the implemented `/courses/:courseId/quizzes/:quizId` page.
 - The quiz page displays quiz details/questions only; taking/submitting attempts is not implemented in the frontend yet.
+- Creating quiz questions is not implemented in the frontend yet.
 - Assignment attachments may still show `0 file` until the backend class assignment query includes attachment relations.
 
 ### 8. Teacher dashboard form contract partially normalized

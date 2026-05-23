@@ -72,6 +72,26 @@ const mockQuizQuestions = [
   },
 ];
 
+const mockCreatedQuizzesStorageKey = 'it4409_mock_created_quizzes';
+
+function getStoredMockQuizzes() {
+  try {
+    const raw = localStorage.getItem(mockCreatedQuizzesStorageKey);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function setStoredMockQuizzes(items) {
+  try {
+    localStorage.setItem(mockCreatedQuizzesStorageKey, JSON.stringify(items));
+  } catch {
+    // Storage can be unavailable in private contexts; the live page state still updates.
+  }
+}
+
 export const mockCourseCards = mockClasses.map((item) => ({
   id: item.id,
   title: item.name,
@@ -349,7 +369,19 @@ export function getMockCourseSlides(courseId) {
 
 export function getMockCourseQuizzes(courseId) {
   const resolvedCourseId = resolveCourseId(courseId);
-  return mockQuizzes.filter((quiz) => quiz.class_id === resolvedCourseId);
+  return [...getStoredMockQuizzes(), ...mockQuizzes].filter(
+    (quiz) => quiz.class_id === resolvedCourseId,
+  );
+}
+
+export function addMockCourseQuiz(quiz) {
+  const stored = getStoredMockQuizzes();
+  const next = [
+    quiz,
+    ...stored.filter((item) => item.id !== quiz.id),
+  ];
+  setStoredMockQuizzes(next);
+  return quiz;
 }
 
 export function getMockQuizDetail(courseId, quizId) {

@@ -1,4 +1,5 @@
 import {
+  addMockCourseQuiz,
   getMockCourseById,
   getMockCourseDiscussions,
   getMockCourseAssignments,
@@ -50,5 +51,10 @@ export function getQuizDetailData(courseId, quizId) {
   return getMockQuizDetail(courseId, quizId);
 }
 
+export function createMockQuiz(quiz) {
+  return addMockCourseQuiz(quiz);
+}
+
 export { getCourseDetailFromApi } from './api/course-detail.service';
 export { getQuizDetailFromApi } from './api/quiz-detail.service';
+export { createQuiz } from './api/quizzes.service';

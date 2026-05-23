@@ -12,7 +12,7 @@ Implement one feature at a time, then stop for review. Do not continue to the ne
 - [x] Feat 2. Add BTVN card in the concrete course view.
 - [x] Feat 3. Move "add student" into each concrete class card.
 - [x] Feat 4. Stabilize concrete course detail failures with loading/error/empty states.
-- [ ] Feat 5. Add teacher UI for creating quiz and load quiz list from DB.
+- [x] Feat 5. Add teacher UI for creating quiz and load quiz list from DB.
 - [x] Feat 6. Make quiz click open a separate route/page.
 - [ ] Feat 7. Add ADMIN/root role permission flow.
 - [ ] Feat 8. Finish account management card UI.
@@ -24,7 +24,7 @@ Implement one feature at a time, then stop for review. Do not continue to the ne
 - [x] Feat 2. Them the BTVN trong trang cu the khoa hoc.
 - [x] Feat 3. Dua thao tac them sinh vien vao dung the/lop cu the.
 - [x] Feat 4. Sua loi trang cu the khoa hoc thinh thoang bi loi.
-- [ ] Feat 5. Them giao dien tao quiz va lay danh sach quiz tu DB.
+- [x] Feat 5. Them giao dien tao quiz va lay danh sach quiz tu DB.
 - [x] Feat 6. Bam vao quiz se mo page rieng, khong dung single-page tab.
 - [ ] Feat 7. Tao role ADMIN/root co quyen quan tri.
 - [ ] Feat 8. Code tiep giao dien the quan ly tai khoan.
@@ -32,13 +32,11 @@ Implement one feature at a time, then stop for review. Do not continue to the ne
 
 ## Recommended Remaining Priority
 
-1. Feat 5. Add teacher UI for creating quiz and load quiz list from DB.
-2. Feat 8. Finish account management card UI.
-3. Feat 7. Add ADMIN/root role permission flow.
+1. Feat 8. Finish account management card UI.
+2. Feat 7. Add ADMIN/root role permission flow.
 
 Rationale:
 
-- Feat 5 is larger and likely to touch backend/API contracts.
 - Feat 7 should be later because ADMIN/root permission flow has broader auth, route guard, and role implications.
 
 ## Feat 1 - Course Detail Lesson Resources
@@ -171,6 +169,41 @@ Review notes:
 
 - No quiz creation UI, submit attempt flow, ADMIN flow, account management, or backend API change was made.
 - The page shows quiz details/questions only; taking/submitting a quiz remains outside this feature.
+
+## Feat 5 - Teacher Quiz Creation And DB Quiz List
+
+Status: ready for review.
+
+Changed files:
+
+- `frontend/src/pages/CourseDetail.jsx`
+- `frontend/src/services/api/quizzes.service.js`
+- `frontend/src/services/dataSource.js`
+- `frontend/src/mocks/courses/mockCourses.js`
+- `docs/repo_context.md`
+- `docs/new-task-snapshot-frontend-fix.md`
+- `docs/frontend_feature_progress.md`
+
+What changed:
+
+- Added a teacher-only quiz creation form in the course detail `Tài nguyên` tab.
+- Real API mode creates quiz metadata through `POST /quizzes` and refreshes the course detail data afterward.
+- Real API mode keeps loading the class quiz list from `GET /quizzes/class/:classId`.
+- Mock mode persists newly created quiz metadata in mock local storage so the quiz list and separate quiz page can resolve created mock quizzes.
+- Created quizzes appear in the `Quiz của lớp` resource group and link to `/courses/:courseId/quizzes/:quizId`.
+
+Validation:
+
+- `cd frontend && npm run lint && npm run build`: passed.
+- `cd frontend && VITE_USE_MOCK_DATA=false npm run build`: passed.
+- `cd frontend && npm run dev -- --host 127.0.0.1 --port 5173`: started successfully with elevated local server permission; smoke requests to `/courses/:courseId` and `/courses/:courseId/quizzes/:quizId` returned `200 OK`.
+- `cd backend && npm run build`: passed.
+- `cd backend && npm run test`: passed.
+
+Review notes:
+
+- This creates quiz metadata only: title, description, time limit, total question count, and random flag.
+- Question authoring, quiz attempt start/submit, ADMIN flow, and account management remain outside this feature.
 
 ## Feat 4 - Course Detail Loading/Error/Empty States
 

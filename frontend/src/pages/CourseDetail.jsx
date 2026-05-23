@@ -11,6 +11,8 @@ import {
 import { Link, useParams } from 'react-router-dom';
 import { getCurrentUser } from '../services/api/session';
 import {
+  createMockQuiz,
+  createQuiz,
   getCourseDetailData,
   getCourseDetailFromApi,
   USE_MOCK_DATA,
@@ -79,6 +81,14 @@ const assignmentStatusMeta = {
   },
 };
 
+const initialQuizForm = {
+  title: '',
+  description: '',
+  timeLimit: 15,
+  totalQuestions: 10,
+  isRandom: false,
+};
+
 function formatDueDate(value) {
   if (!value) return 'Chưa đặt hạn nộp';
 
@@ -92,6 +102,55 @@ function formatDueDate(value) {
     hour: '2-digit',
     minute: '2-digit',
   }).format(date);
+}
+
+function createQuizResource(quiz, courseId) {
+  return {
+    id: quiz.id,
+    title: quiz.title ?? 'Quiz chưa có tiêu đề',
+    description: quiz.description ?? '',
+    displayType: 'quiz',
+    quizId: quiz.id,
+    quizUrl: `/courses/${courseId}/quizzes/${quiz.id}`,
+    meta: `${quiz.total_questions ?? quiz.totalQuestions ?? 0} câu hỏi · ${quiz.time_limit ?? quiz.timeLimit ?? 0} phút`,
+  };
+}
+
+function appendQuizToCourseData(data, quiz, courseId) {
+  if (!data) return data;
+
+  const normalizedQuiz = {
+    ...quiz,
+    class_id: quiz.class_id ?? courseId,
+    total_questions: quiz.total_questions ?? quiz.totalQuestions ?? 0,
+    time_limit: quiz.time_limit ?? quiz.timeLimit ?? 0,
+  };
+  const quizResource = createQuizResource(normalizedQuiz, courseId);
+  const resources = (data.resources ?? []).map((group) =>
+    group.id === 'class-quizzes'
+      ? {
+          ...group,
+          items: [quizResource, ...(group.items ?? [])],
+        }
+      : group,
+  );
+  const hasQuizGroup = resources.some((group) => group.id === 'class-quizzes');
+
+  return {
+    ...data,
+    quizzes: [normalizedQuiz, ...(data.quizzes ?? [])],
+    resources: hasQuizGroup
+      ? resources
+      : [
+          ...(data.resources ?? []),
+          {
+            id: 'class-quizzes',
+            title: 'Quiz của lớp',
+            description: 'Danh sách quiz lấy theo class từ API',
+            items: [quizResource],
+          },
+        ],
+  };
 }
 
 function ResourceCard({ resource, compact = false }) {
@@ -240,6 +299,10 @@ export default function CourseDetail() {
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('lessons');
   const [reloadToken, setReloadToken] = useState(0);
+  const [quizForm, setQuizForm] = useState(initialQuizForm);
+  const [quizFormError, setQuizFormError] = useState('');
+  const [quizFormSuccess, setQuizFormSuccess] = useState('');
+  const [isCreatingQuiz, setIsCreatingQuiz] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -290,6 +353,63 @@ export default function CourseDetail() {
     todo: 0,
   };
   const handleRetry = () => setReloadToken((value) => value + 1);
+  const canManageQuizzes = currentUser?.role === 'TEACHER';
+
+  const handleQuizFormChange = (field, value) => {
+    setQuizForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleCreateQuiz = async (event) => {
+    event.preventDefault();
+    setQuizFormError('');
+    setQuizFormSuccess('');
+
+    const title = quizForm.title.trim();
+    if (!title) {
+      setQuizFormError('Vui lòng nhập tiêu đề quiz.');
+      return;
+    }
+
+    const timeLimit = Math.max(1, Number(quizForm.timeLimit) || 1);
+    const totalQuestions = Math.max(0, Number(quizForm.totalQuestions) || 0);
+    const payload = {
+      title,
+      description: quizForm.description.trim() || undefined,
+      time_limit: timeLimit,
+      total_questions: totalQuestions,
+      class_id: courseId,
+      is_random: Boolean(quizForm.isRandom),
+    };
+
+    setIsCreatingQuiz(true);
+    try {
+      if (USE_MOCK_DATA) {
+        const mockQuiz = {
+          id:
+            globalThis.crypto?.randomUUID?.() ??
+            `mock-quiz-${Date.now()}`,
+          ...payload,
+          created_by: currentUser?.id,
+          created_at: new Date().toISOString(),
+        };
+        createMockQuiz(mockQuiz);
+        setCourseData((prev) => appendQuizToCourseData(prev, mockQuiz, courseId));
+      } else {
+        await createQuiz(payload);
+        setReloadToken((value) => value + 1);
+      }
+
+      setQuizForm(initialQuizForm);
+      setQuizFormSuccess('Đã tạo quiz mới.');
+    } catch (err) {
+      setQuizFormError(err?.message || 'Không tạo được quiz.');
+    } finally {
+      setIsCreatingQuiz(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -544,7 +664,88 @@ export default function CourseDetail() {
       {activeTab === 'resources' && (
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
           <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Tài nguyên học tập</h2>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Tổng hợp wiki và slide để chuẩn bị cho API thật sau này</p>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Tổng hợp tài nguyên, quiz và nội dung học tập của lớp</p>
+          {canManageQuizzes && (
+            <form
+              className="mt-4 rounded-2xl border border-indigo-100 bg-indigo-50 p-4 text-left transition-colors dark:border-indigo-400/30 dark:bg-indigo-400/10"
+              onSubmit={handleCreateQuiz}
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                    Tạo quiz mới
+                  </h3>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                    Quiz sẽ được gắn trực tiếp với lớp hiện tại.
+                  </p>
+                </div>
+                <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-indigo-700 dark:bg-slate-950 dark:text-indigo-200">
+                  Giảng viên
+                </span>
+              </div>
+
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                <input
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  placeholder="Tiêu đề quiz"
+                  value={quizForm.title}
+                  onChange={(event) => handleQuizFormChange('title', event.target.value)}
+                  required
+                />
+                <input
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  min="1"
+                  placeholder="Thời lượng phút"
+                  type="number"
+                  value={quizForm.timeLimit}
+                  onChange={(event) => handleQuizFormChange('timeLimit', event.target.value)}
+                  required
+                />
+                <input
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  min="0"
+                  placeholder="Số câu hỏi"
+                  type="number"
+                  value={quizForm.totalQuestions}
+                  onChange={(event) => handleQuizFormChange('totalQuestions', event.target.value)}
+                  required
+                />
+                <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
+                  <input
+                    type="checkbox"
+                    checked={quizForm.isRandom}
+                    onChange={(event) => handleQuizFormChange('isRandom', event.target.checked)}
+                  />
+                  Trộn thứ tự câu hỏi
+                </label>
+                <textarea
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 md:col-span-2"
+                  placeholder="Mô tả quiz"
+                  value={quizForm.description}
+                  onChange={(event) => handleQuizFormChange('description', event.target.value)}
+                />
+              </div>
+
+              {quizFormError && (
+                <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-200">
+                  {quizFormError}
+                </div>
+              )}
+              {quizFormSuccess && (
+                <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-200">
+                  {quizFormSuccess}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={isCreatingQuiz}
+                className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+              >
+                {isCreatingQuiz ? 'Đang tạo...' : 'Tạo quiz'}
+              </button>
+            </form>
+          )}
           {resourceItems.length > 0 ? (
             <div className="mt-4 space-y-4">
               {resourceItems.map((group) => (
