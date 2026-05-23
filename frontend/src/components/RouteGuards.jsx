@@ -48,7 +48,9 @@ export function RequireRole({ allowedRoles, children, fallbackPath = '/dashboard
     return <Navigate to="/login" replace />;
   }
 
-  if (!allowedRoles.includes(user.role)) {
+  const role = String(user.role ?? '').toUpperCase();
+
+  if (!allowedRoles.includes(role)) {
     return <Navigate to={fallbackPath} replace />;
   }
 
@@ -63,8 +65,14 @@ export function DashboardRoute() {
     return <Navigate to="/login" replace />;
   }
 
-  if (user.role === 'TEACHER') {
+  const role = String(user.role ?? '').toUpperCase();
+
+  if (role === 'TEACHER') {
     return <Navigate to="/dashboard/teacher" replace />;
+  }
+
+  if (role === 'ADMIN') {
+    return <Navigate to="/dashboard/admin" replace />;
   }
 
   return <Navigate to="/dashboard/student" replace />;

@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { GraduationCap, User, ChevronDown, Moon, Sun } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { logout as logoutAuth } from '../services/api/auth.service';
+import { getCurrentUser } from '../services/api/session';
 import { useTheme } from '../context/theme';
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
+  const currentRole = String(getCurrentUser()?.role ?? '').toUpperCase();
 
   const isDashboard = location.pathname.startsWith('/dashboard');
   const isCoursePage = location.pathname.startsWith('/courses/');
@@ -36,7 +38,9 @@ export default function Header() {
 
           {isLearningArea ? (
             <div className="relative flex items-center gap-3 md:gap-6">
-              <span className="hidden font-medium text-slate-700 dark:text-slate-300 md:inline">Khóa học của tôi</span>
+              <span className="hidden font-medium text-slate-700 dark:text-slate-300 md:inline">
+                {currentRole === 'ADMIN' ? 'Quản trị' : 'Khóa học của tôi'}
+              </span>
 
               <div
                 className="flex cursor-pointer items-center gap-1"

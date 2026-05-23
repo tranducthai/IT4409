@@ -14,7 +14,7 @@ Implement one feature at a time, then stop for review. Do not continue to the ne
 - [x] Feat 4. Stabilize concrete course detail failures with loading/error/empty states.
 - [x] Feat 5. Add teacher UI for creating quiz and load quiz list from DB.
 - [x] Feat 6. Make quiz click open a separate route/page.
-- [ ] Feat 7. Add ADMIN/root role permission flow.
+- [x] Feat 7. Add ADMIN/root role permission flow.
 - [x] Feat 8. Finish account management card UI.
 - [x] Feat 9. Sync Vietnamese copy with proper diacritics across the whole web UI.
 
@@ -26,17 +26,49 @@ Implement one feature at a time, then stop for review. Do not continue to the ne
 - [x] Feat 4. Sua loi trang cu the khoa hoc thinh thoang bi loi.
 - [x] Feat 5. Them giao dien tao quiz va lay danh sach quiz tu DB.
 - [x] Feat 6. Bam vao quiz se mo page rieng, khong dung single-page tab.
-- [ ] Feat 7. Tao role ADMIN/root co quyen quan tri.
+- [x] Feat 7. Tao role ADMIN/root co quyen quan tri.
 - [x] Feat 8. Code tiep giao dien the quan ly tai khoan.
 - [x] Feat 9. Dong bo tieng Viet co dau tren toan web.
 
 ## Recommended Remaining Priority
 
-1. Feat 7. Add ADMIN/root role permission flow.
+All listed frontend features are complete. Next frontend work should be review, bug fixing, or backend integration hardening.
 
-Rationale:
+## Feat 7 - ADMIN/Root Permission Flow
 
-- Feat 7 should be later because ADMIN/root permission flow has broader auth, route guard, and role implications.
+Status: ready for review.
+
+Changed files:
+
+- `frontend/src/App.jsx`
+- `frontend/src/components/Header.jsx`
+- `frontend/src/components/RouteGuards.jsx`
+- `frontend/src/pages/Dashboard.jsx`
+- `frontend/src/pages/dashboard/AdminDashboard.jsx`
+- `docs/repo_context.md`
+- `docs/new-task-snapshot-frontend-fix.md`
+- `docs/frontend_feature_progress.md`
+
+What changed:
+
+- Added authenticated `/dashboard/admin` route guarded for `ADMIN`.
+- Updated dashboard role redirect so ADMIN users land on the admin dashboard from `/dashboard`.
+- Normalized route guard role checks to uppercase so lowercase/mixed-case persisted roles do not misroute.
+- Added an admin dashboard view that keeps ADMIN users out of student/teacher dashboard surfaces.
+- Updated the learning-area header label to show `Quản trị` for ADMIN.
+
+Validation:
+
+- `cd frontend && npm run lint && npm run build`: passed.
+- `cd frontend && VITE_USE_MOCK_DATA=false npm run build`: passed.
+- `cd backend && npm run build`: passed.
+- `cd backend && npm run test`: passed.
+- `cd frontend && npm run dev -- --host 127.0.0.1 --port 5173`: started successfully with elevated local server permission; smoke requests to `/dashboard/admin` and `/dashboard` returned `200 OK`.
+
+Review notes:
+
+- No ADMIN user CRUD, account management expansion, backend role seeding, or backend API change was added.
+- Student and teacher dashboard routes remain role-specific; ADMIN now has its own dashboard route.
 
 ## Feat 8 - Account Management Card UI
 

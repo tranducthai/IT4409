@@ -7,8 +7,8 @@ Generated on 2026-05-20 for quick handover before new tasks.
 - Working directory: `/home/khanhson2005/projects/IT4409`
 - Current branch: `fix/frontend-audit-v2`
 - Worktree was clean at analysis time before Feat 2 work.
-- Latest completed frontend work: Feat 8 adds a shared account management card to authenticated dashboards.
-- Recommended next frontend work: Feat 7, add ADMIN/root role permission flow.
+- Latest completed frontend work: Feat 7 adds an ADMIN/root dashboard route and role guard flow.
+- Recommended next frontend work: all listed frontend features are complete; continue with review, bug fixing, or backend integration hardening.
 - Existing handover doc: `docs/new-task-snapshot-frontend-fix.md`
 - Frontend audit docs mentioned in that handover are not present on this branch under `frontend/docs/`.
 
@@ -186,7 +186,8 @@ From `frontend/src/App.jsx`:
 - `/login`: guest only
 - `/register`: guest only
 - `/dashboard`: authenticated role redirect
-- `/dashboard/student`: authenticated, `STUDENT` or `ADMIN`
+- `/dashboard/admin`: authenticated, `ADMIN`
+- `/dashboard/student`: authenticated, `STUDENT`
 - `/dashboard/teacher`: authenticated, `TEACHER`
 - `/courses/:courseId`: authenticated course detail
 - `/courses/:courseId/quizzes/:quizId`: authenticated quiz detail
@@ -231,7 +232,7 @@ Local storage keys:
 - Account UI: `components/AccountManagementCard.jsx`
 - Cards: `CourseCard.jsx`, `DashboardCard.jsx`
 - Pages: `Home.jsx`, `login.jsx`, `register.jsx`, `Dashboard.jsx`, `CourseDetail.jsx`
-- Role views: `pages/dashboard/StudentDashboard.jsx`, `pages/dashboard/TeacherDashboard.jsx`
+- Role views: `pages/dashboard/StudentDashboard.jsx`, `pages/dashboard/TeacherDashboard.jsx`, `pages/dashboard/AdminDashboard.jsx`
 - Theme: `context/ThemeProvider.jsx`, `context/theme.js`
 
 ### Frontend Notes and Risks
@@ -243,9 +244,10 @@ Local storage keys:
 - Course detail assignment attachments may show `0 file` in real API mode because backend `AssignmentsRepository.findManyByClassId()` does not currently include the `attachments` relation.
 - `Dashboard.jsx` has real API integration for class lists and teacher actions, but uses compact mapping; verify field/enum contracts before extending.
 - `TeacherDashboard.jsx` now places the raw student UUID add form inside each teacher class card; usable for testing, not polished student search UX.
-- `AccountManagementCard.jsx` is rendered on the authenticated dashboard for all roles and supports password change without adding ADMIN/root management.
+- `/dashboard` redirects ADMIN users to `/dashboard/admin`; student and teacher dashboard routes are guarded by their own roles.
+- `AccountManagementCard.jsx` is rendered on the authenticated dashboard for all roles and supports password change without adding ADMIN/root user management.
 - Visible Vietnamese UI copy has been synced with proper diacritics across the frontend as of Feat 9.
-- Recommended remaining priority after Feat 8: Feat 7.
+- Recommended remaining priority after Feat 7: none; all listed frontend features are complete.
 
 ## Existing Docs
 

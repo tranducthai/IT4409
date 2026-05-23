@@ -17,6 +17,7 @@ import {
     USE_MOCK_DATA,
 } from '../services/dataSource';
 import AccountManagementCard from '../components/AccountManagementCard';
+import AdminDashboard from './dashboard/AdminDashboard';
  import StudentDashboard from './dashboard/StudentDashboard';
  import TeacherDashboard from './dashboard/TeacherDashboard';
  
@@ -218,7 +219,9 @@ import AccountManagementCard from '../components/AccountManagementCard';
 
       <AccountManagementCard user={currentUser} />
 
-      {role === 'TEACHER' ? (
+      {role === 'ADMIN' ? (
+        <AdminDashboard user={currentUser} />
+      ) : role === 'TEACHER' ? (
         <TeacherDashboard
           courses={teacherCourses}
           pendingRequests={teacherPending}

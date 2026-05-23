@@ -53,10 +53,20 @@ function App() {
                 }
               />
               <Route
+                path="/dashboard/admin"
+                element={
+                  <RequireAuth>
+                    <RequireRole allowedRoles={['ADMIN']}>
+                      <Dashboard />
+                    </RequireRole>
+                  </RequireAuth>
+                }
+              />
+              <Route
                 path="/dashboard/student"
                 element={
                   <RequireAuth>
-                    <RequireRole allowedRoles={['STUDENT', 'ADMIN']}>
+                    <RequireRole allowedRoles={['STUDENT']} fallbackPath="/dashboard/admin">
                       <Dashboard />
                     </RequireRole>
                   </RequireAuth>
@@ -66,7 +76,7 @@ function App() {
                 path="/dashboard/teacher"
                 element={
                   <RequireAuth>
-                    <RequireRole allowedRoles={['TEACHER']} fallbackPath="/dashboard/student">
+                    <RequireRole allowedRoles={['TEACHER']} fallbackPath="/dashboard/admin">
                       <Dashboard />
                     </RequireRole>
                   </RequireAuth>

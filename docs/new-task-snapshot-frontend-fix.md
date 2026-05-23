@@ -194,9 +194,11 @@ From `frontend/src/App.jsx`:
 | `/login` | guest only | `Login` |
 | `/register` | guest only | `Register` |
 | `/dashboard` | authenticated | `DashboardRoute` |
-| `/dashboard/student` | authenticated + role STUDENT/ADMIN | `Dashboard` |
+| `/dashboard/admin` | authenticated + role ADMIN | `Dashboard` |
+| `/dashboard/student` | authenticated + role STUDENT | `Dashboard` |
 | `/dashboard/teacher` | authenticated + role TEACHER | `Dashboard` |
 | `/courses/:courseId` | authenticated | `CourseDetail` |
+| `/courses/:courseId/quizzes/:quizId` | authenticated | `QuizDetail` |
 
 ## Known FE issues / risks to fix later
 
@@ -341,21 +343,23 @@ full_name: payload.full_name ?? payload.name ?? fallbackUser.full_name
 `RouteGuards.jsx`:
 
 ```js
-const currentRole = getCurrentUser()?.role;
-if (!allowedRoles.includes(currentRole)) {
+const role = String(user.role ?? '').toUpperCase();
+if (!allowedRoles.includes(role)) {
   return <Navigate to={fallbackPath} replace />;
 }
 ```
 
 Risk:
 
-- Authenticated token + missing user sends to fallback.
+- Authenticated token + missing user sends to login.
+- Authenticated user with missing/unknown role still sends to fallback.
 - Could loop or land in wrong dashboard.
 
 Potential fix:
 
-- If authenticated but no user, clear auth state and redirect `/login`.
-- Or add loading/hydration later.
+- Clear stale auth state when an authenticated route has no valid current user.
+- Add `/auth/me` hydration for real mode before redirecting.
+- Add an explicit unknown-role state instead of always falling back.
 
 ### 7. CourseDetail real API path hardened
 
@@ -380,7 +384,16 @@ Remaining risk:
 - Creating quiz questions is not implemented in the frontend yet.
 - Assignment attachments may still show `0 file` until the backend class assignment query includes attachment relations.
 
-### 8. Teacher dashboard form contract partially normalized
+### 8. ADMIN/root dashboard route exists
+
+Current behavior:
+
+- `/dashboard` redirects ADMIN users to `/dashboard/admin`.
+- `/dashboard/admin` is guarded by `RequireRole allowedRoles={['ADMIN']}`.
+- `/dashboard/student` and `/dashboard/teacher` are guarded by their own roles only.
+- `AdminDashboard.jsx` renders the admin landing surface without adding backend user CRUD or role-management APIs.
+
+### 9. Teacher dashboard form contract partially normalized
 
 `TeacherDashboard.jsx` sends raw payloads:
 
