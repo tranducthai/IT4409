@@ -391,7 +391,8 @@ Current behavior:
 - `/dashboard` redirects ADMIN users to `/dashboard/admin`.
 - `/dashboard/admin` is guarded by `RequireRole allowedRoles={['ADMIN']}`.
 - `/dashboard/student` and `/dashboard/teacher` are guarded by their own roles only.
-- `AdminDashboard.jsx` renders the admin landing surface without adding backend user CRUD or role-management APIs.
+- `AdminDashboard.jsx` renders a backend-ready admin console shell with KPI cards, management module cards, an admin table frame, and an audit-log empty state.
+- Admin controls intentionally stay disabled/waiting until backend user CRUD, class statistics, role-management, and audit-log APIs exist.
 
 ### 9. Teacher dashboard form contract partially normalized
 

@@ -55,6 +55,7 @@ What changed:
 - Updated dashboard role redirect so ADMIN users land on the admin dashboard from `/dashboard`.
 - Normalized route guard role checks to uppercase so lowercase/mixed-case persisted roles do not misroute.
 - Added an admin dashboard view that keeps ADMIN users out of student/teacher dashboard surfaces.
+- Polished the admin dashboard into a backend-ready console shell with KPI cards, module cards, an admin table frame, and an audit-log empty state.
 - Updated the learning-area header label to show `Quản trị` for ADMIN.
 
 Validation:
@@ -69,6 +70,7 @@ Review notes:
 
 - No ADMIN user CRUD, account management expansion, backend role seeding, or backend API change was added.
 - Student and teacher dashboard routes remain role-specific; ADMIN now has its own dashboard route.
+- Admin management controls intentionally show waiting/disabled states until backend admin endpoints are available.
 
 ## Feat 8 - Account Management Card UI
 

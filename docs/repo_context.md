@@ -245,6 +245,7 @@ Local storage keys:
 - `Dashboard.jsx` has real API integration for class lists and teacher actions, but uses compact mapping; verify field/enum contracts before extending.
 - `TeacherDashboard.jsx` now places the raw student UUID add form inside each teacher class card; usable for testing, not polished student search UX.
 - `/dashboard` redirects ADMIN users to `/dashboard/admin`; student and teacher dashboard routes are guarded by their own roles.
+- `AdminDashboard.jsx` is a distinct backend-ready admin console shell with KPI cards, management module cards, an admin table frame, and an audit-log empty state; it does not call new admin APIs yet.
 - `AccountManagementCard.jsx` is rendered on the authenticated dashboard for all roles and supports password change without adding ADMIN/root user management.
 - Visible Vietnamese UI copy has been synced with proper diacritics across the frontend as of Feat 9.
 - Recommended remaining priority after Feat 7: none; all listed frontend features are complete.
