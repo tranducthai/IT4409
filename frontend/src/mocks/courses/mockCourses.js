@@ -51,6 +51,27 @@ const mockAssignments = [
   },
 ];
 
+const mockQuizQuestions = [
+  {
+    id: '0bd63d6f-8284-4f2d-9f4e-6c0600000001',
+    quiz_id: '9c4f1d8d-66a4-4bb2-b312-2b9d60000001',
+    question_text: 'Token nào thường được scanner nhận diện trước khi parser xử lý?',
+    option_a: 'Identifier',
+    option_b: 'AST',
+    option_c: 'Bytecode',
+    option_d: 'Symbol table',
+  },
+  {
+    id: '0bd63d6f-8284-4f2d-9f4e-6c0600000002',
+    quiz_id: '9c4f1d8d-66a4-4bb2-b312-2b9d60000001',
+    question_text: 'Biểu thức chính quy thường được dùng trong pha nào?',
+    option_a: 'Sinh mã máy',
+    option_b: 'Phân tích từ vựng',
+    option_c: 'Tối ưu mã',
+    option_d: 'Liên kết thư viện',
+  },
+];
+
 export const mockCourseCards = mockClasses.map((item) => ({
   id: item.id,
   title: item.name,
@@ -329,6 +350,32 @@ export function getMockCourseSlides(courseId) {
 export function getMockCourseQuizzes(courseId) {
   const resolvedCourseId = resolveCourseId(courseId);
   return mockQuizzes.filter((quiz) => quiz.class_id === resolvedCourseId);
+}
+
+export function getMockQuizDetail(courseId, quizId) {
+  const quiz = getMockCourseQuizzes(courseId).find((item) => item.id === quizId);
+  if (!quiz) return null;
+
+  return {
+    id: quiz.id,
+    courseId: quiz.class_id,
+    title: quiz.title,
+    description: quiz.description ?? '',
+    timeLimit: quiz.time_limit,
+    totalQuestions: quiz.total_questions,
+    questions: mockQuizQuestions
+      .filter((question) => question.quiz_id === quiz.id)
+      .map((question) => ({
+        id: question.id,
+        text: question.question_text,
+        options: [
+          { key: 'A', text: question.option_a },
+          { key: 'B', text: question.option_b },
+          { key: 'C', text: question.option_c },
+          { key: 'D', text: question.option_d },
+        ],
+      })),
+  };
 }
 
 export function getMockCourseAssignments(courseId) {

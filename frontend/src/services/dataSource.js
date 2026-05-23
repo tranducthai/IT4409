@@ -7,6 +7,7 @@ import {
   getMockCourseSections,
   getMockCourseProgress,
   getMockCourseQuizzes,
+  getMockQuizDetail,
   getMockStudentCourseCards,
   getMockTeacherCourseCards,
   getMockTeacherPendingRequests,
@@ -45,4 +46,9 @@ export function getCourseDetailData(courseId, userId) {
   };
 }
 
+export function getQuizDetailData(courseId, quizId) {
+  return getMockQuizDetail(courseId, quizId);
+}
+
 export { getCourseDetailFromApi } from './api/course-detail.service';
+export { getQuizDetailFromApi } from './api/quiz-detail.service';

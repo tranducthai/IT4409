@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 const CLASS_TYPES = [
@@ -30,14 +30,29 @@ export default function TeacherDashboard({
     join_code: createJoinCode(),
     is_active: true,
   });
-  const [studentForm, setStudentForm] = useState({
-    class_id: '',
-    user_id: '',
-  });
-  const courseOptions = useMemo(
-    () => courses.map((course) => ({ id: course.id, title: course.title })),
-    [courses],
-  );
+  const [studentForms, setStudentForms] = useState({});
+
+  const handleStudentInputChange = (courseId, value) => {
+    setStudentForms((prev) => ({
+      ...prev,
+      [courseId]: value,
+    }));
+  };
+
+  const handleAddStudentSubmit = async (courseId) => {
+    const userId = String(studentForms[courseId] ?? '').trim();
+    if (!userId) return;
+
+    await onAddStudent?.({
+      class_id: courseId,
+      user_id: userId,
+    });
+
+    setStudentForms((prev) => ({
+      ...prev,
+      [courseId]: '',
+    }));
+  };
 
   return (
     <>
@@ -139,45 +154,6 @@ export default function TeacherDashboard({
       </section>
 
       <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
-        <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Thêm sinh viên vào lớp</h2>
-        <form
-          className="mt-4 grid gap-3 md:grid-cols-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            onAddStudent?.(studentForm);
-          }}
-        >
-          <select
-            className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            value={studentForm.class_id}
-            onChange={(e) => setStudentForm((prev) => ({ ...prev, class_id: e.target.value }))}
-            required
-          >
-            <option value="">Chọn lớp</option>
-            {courseOptions.map((course) => (
-              <option key={course.id} value={course.id}>
-                {course.title}
-              </option>
-            ))}
-          </select>
-          <input
-            className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
-            placeholder="Mã người dùng sinh viên"
-            value={studentForm.user_id}
-            onChange={(e) => setStudentForm((prev) => ({ ...prev, user_id: e.target.value }))}
-            required
-          />
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white"
-          >
-            Thêm sinh viên
-          </button>
-        </form>
-      </section>
-
-      <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
         <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Danh sách lớp phụ trách</h2>
         {isLoading ? (
           <p className="mt-3 text-sm text-slate-500">Đang tải danh sách lớp...</p>
@@ -200,6 +176,33 @@ export default function TeacherDashboard({
                     onBlur={(e) => onUpdateClass?.(course.id, { join_code: e.target.value })}
                   />
                 </div>
+                <form
+                  className="mt-3 grid gap-2 border-t border-slate-200 pt-3 text-xs dark:border-slate-800"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void handleAddStudentSubmit(course.id);
+                  }}
+                >
+                  <label className="font-semibold text-slate-700 dark:text-slate-200">
+                    Thêm sinh viên vào lớp này
+                  </label>
+                  <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                    <input
+                      className="rounded-lg border border-slate-200 px-2 py-1.5"
+                      placeholder="Mã người dùng sinh viên"
+                      value={studentForms[course.id] ?? ''}
+                      onChange={(e) => handleStudentInputChange(course.id, e.target.value)}
+                      required
+                    />
+                    <button
+                      type="submit"
+                      disabled={isLoading}
+                      className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+                    >
+                      Thêm
+                    </button>
+                  </div>
+                </form>
                 <Link
                   to={`/courses/${course.id}`}
                   className="mt-3 inline-block rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white"

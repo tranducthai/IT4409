@@ -6,6 +6,7 @@ import DevModeBanner from './components/DevModeBanner';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import CourseDetail from './pages/CourseDetail';
+import QuizDetail from './pages/QuizDetail';
 import Login from './pages/login';
 import Register from './pages/register';
 import {
@@ -68,6 +69,14 @@ function App() {
                     <RequireRole allowedRoles={['TEACHER']} fallbackPath="/dashboard/student">
                       <Dashboard />
                     </RequireRole>
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/courses/:courseId/quizzes/:quizId"
+                element={
+                  <RequireAuth>
+                    <QuizDetail />
                   </RequireAuth>
                 }
               />

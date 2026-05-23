@@ -7,8 +7,8 @@ Generated on 2026-05-20 for quick handover before new tasks.
 - Working directory: `/home/khanhson2005/projects/IT4409`
 - Current branch: `fix/frontend-audit-v2`
 - Worktree was clean at analysis time before Feat 2 work.
-- Latest completed frontend work: Feat 4 hardens concrete course detail loading/error/empty states and partial API failures.
-- Recommended next frontend work: Feat 3, move "add student" into each concrete class card.
+- Latest completed frontend work: Feat 6 adds a separate quiz detail route/page for existing quiz links.
+- Recommended next frontend work: Feat 5, add teacher UI for creating quiz and load quiz list from DB.
 - Existing handover doc: `docs/new-task-snapshot-frontend-fix.md`
 - Frontend audit docs mentioned in that handover are not present on this branch under `frontend/docs/`.
 
@@ -189,6 +189,7 @@ From `frontend/src/App.jsx`:
 - `/dashboard/student`: authenticated, `STUDENT` or `ADMIN`
 - `/dashboard/teacher`: authenticated, `TEACHER`
 - `/courses/:courseId`: authenticated course detail
+- `/courses/:courseId/quizzes/:quizId`: authenticated quiz detail
 
 Route guards live in `frontend/src/components/RouteGuards.jsx`.
 
@@ -233,11 +234,12 @@ Local storage keys:
 
 - Mock mode being the default can hide backend integration problems.
 - `CourseDetail.jsx` has real API loading/error handling, partial API failure warnings, tab empty states, and renders lesson resources plus a BTVN tab between `Bài học` and `Tài nguyên`.
+- `QuizDetail.jsx` renders the separate quiz page from `/courses/:courseId/quizzes/:quizId`; real mode loads `GET /quiz/:quizId`, while mock mode uses local sample questions.
 - Course detail assignment attachments may show `0 file` in real API mode because backend `AssignmentsRepository.findManyByClassId()` does not currently include the `attachments` relation.
 - `Dashboard.jsx` has real API integration for class lists and teacher actions, but uses compact mapping; verify field/enum contracts before extending.
-- `TeacherDashboard.jsx` uses raw UUID inputs for adding students; usable for testing, not polished UX.
+- `TeacherDashboard.jsx` now places the raw student UUID add form inside each teacher class card; usable for testing, not polished student search UX.
 - Visible Vietnamese UI copy has been synced with proper diacritics across the frontend as of Feat 9.
-- Recommended remaining priority after Feat 4: Feat 3, Feat 6, Feat 5, Feat 8, Feat 7.
+- Recommended remaining priority after Feat 6: Feat 5, Feat 8, Feat 7.
 
 ## Existing Docs
 

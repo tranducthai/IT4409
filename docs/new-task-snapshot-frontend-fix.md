@@ -373,23 +373,31 @@ Current behavior:
 
 Remaining risk:
 
-- Quiz resource links still target the future `/courses/:courseId/quizzes/:quizId` page, which is intentionally not implemented until the quiz page feature.
+- Quiz resource links now target the implemented `/courses/:courseId/quizzes/:quizId` page.
+- The quiz page displays quiz details/questions only; taking/submitting attempts is not implemented in the frontend yet.
 - Assignment attachments may still show `0 file` until the backend class assignment query includes attachment relations.
 
-### 8. Teacher dashboard form contract loose
+### 8. Teacher dashboard form contract partially normalized
 
 `TeacherDashboard.jsx` sends raw payloads:
 
 - create class
 - update class
-- add student
+- add student from the concrete class card
 - approve request
+
+Current behavior:
+
+- The standalone add-student section has been removed.
+- Each teacher class card now contains its own student user ID input and add button.
+- `Dashboard.jsx` still sends the existing class-member payload with the selected card's `class_id`.
 
 Risk:
 
 - Backend enum/field mismatch.
 - `teacher_id` may be derived from token, not accepted in body.
 - Empty `avatar_url` should maybe be null.
+- Add-student still requires a raw student user ID; no student search or account management UI exists yet.
 
 Potential fix:
 
