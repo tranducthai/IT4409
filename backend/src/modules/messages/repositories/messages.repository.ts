@@ -18,6 +18,26 @@ export class MessagesRepository {
         return this.repo.findOne({ where: { id } });
     }
 
+    findByDiscussionId(discussion_id: string) {
+        return this.repo
+            .createQueryBuilder('m')
+            .leftJoin('m.author', 'author')
+            .where('m.discussion_id = :discussion_id', { discussion_id })
+            .select([
+                'm.id',
+                'm.discussion_id',
+                'm.user_id',
+                'm.content',
+                'm.created_at',
+                'author.id',
+                'author.full_name',
+                'author.avatar_url',
+                'author.role',
+            ])
+            .orderBy('m.created_at', 'ASC')
+            .getMany();
+    }
+
     createOne(data: Partial<Message>) {
         return this.repo.save(this.repo.create(data));
     }
