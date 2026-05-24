@@ -18,13 +18,13 @@ export default function Footer() {
               7Study
             </span>
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              Learning space for modern classrooms
+              Không gian học tập cho lớp học hiện đại
             </p>
           </div>
         </div>
 
         <div className="space-y-5">
-          <h4 className="text-lg font-bold text-slate-800 dark:text-slate-100">Contact Us</h4>
+          <h4 className="text-lg font-bold text-slate-800 dark:text-slate-100">Liên hệ</h4>
           <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300"><Phone size={18}/> 1900 777 123</div>
           <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300"><Mail size={18}/> hello@7study.vn</div>
           <div className="flex items-start gap-3 text-slate-600 dark:text-slate-300">

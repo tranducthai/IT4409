@@ -1,8 +1,8 @@
 export const mockClasses = [
   {
     id: '1f6b8a4d-c1d4-4f79-90a9-24d8b4f00001',
-    name: 'Xay dung chuong trinh dich',
-    description: 'Mon hoc ve compiler pipeline',
+    name: 'Xây dựng chương trình dịch',
+    description: 'Môn học về quy trình biên dịch',
     avatar_url:
       'https://website-assets.studocu.com/img/document_thumbnails/0e3eb8bc2dde5ea7e2cd7df38b3ac01e/thumb_1200_927.png',
     type: 'PUBLIC',
@@ -13,8 +13,8 @@ export const mockClasses = [
   },
   {
     id: '1f6b8a4d-c1d4-4f79-90a9-24d8b4f00002',
-    name: 'Lap trinh C co ban',
-    description: 'Nen tang ngon ngu C cho sinh vien nam dau',
+    name: 'Lập trình C cơ bản',
+    description: 'Nền tảng ngôn ngữ C cho sinh viên năm đầu',
     avatar_url:
       'https://upload.wikimedia.org/wikipedia/commons/1/18/C_Programming_Language.svg',
     type: 'PUBLIC',
@@ -25,8 +25,8 @@ export const mockClasses = [
   },
   {
     id: '1f6b8a4d-c1d4-4f79-90a9-24d8b4f00003',
-    name: 'Introduction to Information Security',
-    description: 'Can ban ve bao mat thong tin',
+    name: 'Nhập môn An toàn thông tin',
+    description: 'Căn bản về bảo mật thông tin',
     avatar_url: 'https://via.placeholder.com/400x225',
     type: 'PRIVATE',
     teacher_id: '8b2ca5d8-9f69-4c8f-b1ef-183b6a10a222',
@@ -67,13 +67,13 @@ export const mockSections = [
   {
     id: 1,
     class_id: '1f6b8a4d-c1d4-4f79-90a9-24d8b4f00001',
-    title: 'Week 1 - Introduction',
+    title: 'Tuần 1 - Giới thiệu',
     order_index: 1,
   },
   {
     id: 2,
     class_id: '1f6b8a4d-c1d4-4f79-90a9-24d8b4f00001',
-    title: 'Week 2 - Lexical Analysis',
+    title: 'Tuần 2 - Phân tích từ vựng',
     order_index: 2,
   },
 ];
@@ -82,16 +82,16 @@ export const mockLessons = [
   {
     id: 1,
     section_id: 1,
-    title: 'Compiler Overview',
-    description: 'Tong quan ve cac pha trong compiler',
+    title: 'Tổng quan chương trình dịch',
+    description: 'Tổng quan về các pha trong compiler',
     order_index: 1,
     created_at: '2026-04-21T09:00:00.000Z',
   },
   {
     id: 2,
     section_id: 2,
-    title: 'Lexical Tokens and Regex',
-    description: 'Nhan dien token va quy tac lexical',
+    title: 'Token từ vựng và Regex',
+    description: 'Nhận diện token và quy tắc lexical',
     order_index: 1,
     created_at: '2026-04-21T09:30:00.000Z',
   },
@@ -101,8 +101,8 @@ export const mockLessonContents = [
   {
     id: 1,
     lesson_id: 1,
-    type: 'Video',
-    title: 'Video bai giang 1',
+    type: 'video',
+    title: 'Video bài giảng 1',
     file_url: 'https://example.com/video-1',
     content: null,
     duration: 900,
@@ -111,21 +111,45 @@ export const mockLessonContents = [
   {
     id: 2,
     lesson_id: 1,
-    type: 'Text',
-    title: 'Tom tat bai hoc',
+    type: 'text',
+    title: 'Tóm tắt bài học',
     file_url: null,
-    content: 'Noi dung tom tat...',
+    content: 'Nội dung tóm tắt...',
     duration: null,
     order_index: 2,
   },
   {
     id: 3,
     lesson_id: 2,
-    type: 'File',
-    title: 'Slide lexical analysis',
+    type: 'file',
+    title: 'PDF slide lexical analysis',
     file_url: 'https://example.com/slides-lexical.pdf',
     content: null,
     duration: null,
     order_index: 1,
+  },
+  {
+    id: 4,
+    lesson_id: 2,
+    type: 'quiz',
+    title: 'Quiz lexical analysis',
+    file_url: null,
+    content: '9c4f1d8d-66a4-4bb2-b312-2b9d60000001',
+    duration: 15,
+    order_index: 2,
+  },
+];
+
+export const mockQuizzes = [
+  {
+    id: '9c4f1d8d-66a4-4bb2-b312-2b9d60000001',
+    title: 'Quiz lexical analysis',
+    description: 'Kiểm tra nhanh về token, regex và scanner',
+    time_limit: 15,
+    total_questions: 10,
+    class_id: '1f6b8a4d-c1d4-4f79-90a9-24d8b4f00001',
+    created_by: '8b2ca5d8-9f69-4c8f-b1ef-183b6a10a222',
+    is_random: false,
+    created_at: '2026-04-22T09:00:00.000Z',
   },
 ];

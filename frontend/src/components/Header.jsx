@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { GraduationCap, User, ChevronDown, Moon, Sun } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { logout as logoutAuth } from '../services/api/auth.service';
+import { getCurrentUser } from '../services/api/session';
 import { useTheme } from '../context/theme';
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
+  const currentRole = String(getCurrentUser()?.role ?? '').toUpperCase();
 
   const isDashboard = location.pathname.startsWith('/dashboard');
   const isCoursePage = location.pathname.startsWith('/courses/');
@@ -27,16 +29,18 @@ export default function Header() {
             type="button"
             onClick={toggleTheme}
             className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-            aria-label="Toggle dark mode"
+            aria-label="Chuyển chế độ giao diện"
             title={theme === 'dark' ? 'Chuyển sang chế độ sáng' : 'Chuyển sang chế độ tối'}
           >
             {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-            <span className="hidden sm:inline">{theme === 'dark' ? 'Light' : 'Dark'}</span>
+            <span className="hidden sm:inline">{theme === 'dark' ? 'Sáng' : 'Tối'}</span>
           </button>
 
           {isLearningArea ? (
             <div className="relative flex items-center gap-3 md:gap-6">
-              <span className="hidden font-medium text-slate-700 dark:text-slate-300 md:inline">Khóa học của tôi</span>
+              <span className="hidden font-medium text-slate-700 dark:text-slate-300 md:inline">
+                {currentRole === 'ADMIN' ? 'Quản trị' : 'Khóa học của tôi'}
+              </span>
 
               <div
                 className="flex cursor-pointer items-center gap-1"
@@ -51,7 +55,7 @@ export default function Header() {
               {isMenuOpen && (
                 <div className="absolute right-0 top-12 z-50 w-56 rounded-lg border border-slate-200 bg-white py-2 shadow-xl transition-colors dark:border-slate-700 dark:bg-slate-900">
                   <div className="cursor-pointer px-4 py-2 text-sm text-slate-700 hover:bg-indigo-50 dark:text-slate-200 dark:hover:bg-slate-800">Tiếp tục khóa học gần nhất</div>
-                  <Link to="/dashboard" className="block px-4 py-2 text-sm text-slate-700 hover:bg-indigo-50 dark:text-slate-200 dark:hover:bg-slate-800" onClick={() => setIsMenuOpen(false)}>Dashboard</Link>
+                  <Link to="/dashboard" className="block px-4 py-2 text-sm text-slate-700 hover:bg-indigo-50 dark:text-slate-200 dark:hover:bg-slate-800" onClick={() => setIsMenuOpen(false)}>Bảng điều khiển</Link>
                   <div className="cursor-pointer px-4 py-2 text-sm text-slate-700 hover:bg-indigo-50 dark:text-slate-200 dark:hover:bg-slate-800">Hồ sơ cá nhân</div>
                   <div className="cursor-pointer px-4 py-2 text-sm text-slate-700 hover:bg-indigo-50 dark:text-slate-200 dark:hover:bg-slate-800">Tài khoản</div>
                   <Link

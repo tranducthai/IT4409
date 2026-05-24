@@ -1,7 +1,22 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import {
+  CalendarClock,
+  ClipboardList,
+  ExternalLink,
+  File,
+  FileText,
+  Paperclip,
+  Video,
+} from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { getCurrentUser } from '../services/api/session';
-import { getCourseDetailData } from '../services/dataSource';
+import {
+  createMockQuiz,
+  createQuiz,
+  getCourseDetailData,
+  getCourseDetailFromApi,
+  USE_MOCK_DATA,
+} from '../services/dataSource';
 
 const statusStyles = {
   done: 'bg-emerald-100 text-emerald-700',
@@ -17,22 +32,417 @@ const statusLabels = {
 
 const tabOptions = [
   { key: 'lessons', label: 'Bài học' },
+  { key: 'assignments', label: 'BTVN' },
   { key: 'resources', label: 'Tài nguyên' },
   { key: 'progress', label: 'Tiến độ' },
   { key: 'discussions', label: 'Thảo luận' },
 ];
 
+const resourceTypeMeta = {
+  text: {
+    label: 'Văn bản',
+    icon: FileText,
+    badgeClass: 'bg-sky-100 text-sky-700 dark:bg-sky-400/10 dark:text-sky-200',
+  },
+  pdf: {
+    label: 'PDF',
+    icon: File,
+    badgeClass: 'bg-rose-100 text-rose-700 dark:bg-rose-400/10 dark:text-rose-200',
+  },
+  file: {
+    label: 'Tệp',
+    icon: File,
+    badgeClass: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200',
+  },
+  video: {
+    label: 'Video',
+    icon: Video,
+    badgeClass: 'bg-violet-100 text-violet-700 dark:bg-violet-400/10 dark:text-violet-200',
+  },
+  quiz: {
+    label: 'Quiz',
+    icon: ClipboardList,
+    badgeClass: 'bg-amber-100 text-amber-700 dark:bg-amber-400/10 dark:text-amber-200',
+  },
+};
+
+const assignmentStatusMeta = {
+  open: {
+    label: 'Đang mở',
+    className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200',
+  },
+  overdue: {
+    label: 'Quá hạn',
+    className: 'bg-rose-100 text-rose-700 dark:bg-rose-400/10 dark:text-rose-200',
+  },
+  'no-due': {
+    label: 'Chưa đặt hạn',
+    className: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
+  },
+};
+
+const initialQuizForm = {
+  title: '',
+  description: '',
+  timeLimit: 15,
+  totalQuestions: 10,
+  isRandom: false,
+};
+
+function formatDueDate(value) {
+  if (!value) return 'Chưa đặt hạn nộp';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Chưa đặt hạn nộp';
+
+  return new Intl.DateTimeFormat('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+}
+
+function createQuizResource(quiz, courseId) {
+  return {
+    id: quiz.id,
+    title: quiz.title ?? 'Quiz chưa có tiêu đề',
+    description: quiz.description ?? '',
+    displayType: 'quiz',
+    quizId: quiz.id,
+    quizUrl: `/courses/${courseId}/quizzes/${quiz.id}`,
+    meta: `${quiz.total_questions ?? quiz.totalQuestions ?? 0} câu hỏi · ${quiz.time_limit ?? quiz.timeLimit ?? 0} phút`,
+  };
+}
+
+function appendQuizToCourseData(data, quiz, courseId) {
+  if (!data) return data;
+
+  const normalizedQuiz = {
+    ...quiz,
+    class_id: quiz.class_id ?? courseId,
+    total_questions: quiz.total_questions ?? quiz.totalQuestions ?? 0,
+    time_limit: quiz.time_limit ?? quiz.timeLimit ?? 0,
+  };
+  const quizResource = createQuizResource(normalizedQuiz, courseId);
+  const resources = (data.resources ?? []).map((group) =>
+    group.id === 'class-quizzes'
+      ? {
+          ...group,
+          items: [quizResource, ...(group.items ?? [])],
+        }
+      : group,
+  );
+  const hasQuizGroup = resources.some((group) => group.id === 'class-quizzes');
+
+  return {
+    ...data,
+    quizzes: [normalizedQuiz, ...(data.quizzes ?? [])],
+    resources: hasQuizGroup
+      ? resources
+      : [
+          ...(data.resources ?? []),
+          {
+            id: 'class-quizzes',
+            title: 'Quiz của lớp',
+            description: 'Danh sách quiz lấy theo class từ API',
+            items: [quizResource],
+          },
+        ],
+  };
+}
+
+function ResourceCard({ resource, compact = false }) {
+  if (typeof resource === 'string') {
+    return (
+      <div className="rounded-lg border border-white bg-white px-3 py-2 text-sm shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
+        {resource}
+      </div>
+    );
+  }
+
+  const type = resource.displayType ?? resource.type ?? 'file';
+  const meta = resourceTypeMeta[type] ?? resourceTypeMeta.file;
+  const Icon = meta.icon;
+  const actionUrl =
+    type === 'quiz'
+      ? resource.quizUrl
+      : resource.fileUrl ?? resource.openUrl ?? resource.url;
+
+  return (
+    <div className="rounded-xl border border-slate-100 bg-white p-3 text-left shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold ${meta.badgeClass}`}>
+              <Icon className="h-3.5 w-3.5" />
+              {meta.label}
+            </span>
+            {resource.meta && (
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                {resource.meta}
+              </span>
+            )}
+          </div>
+          <p className="mt-2 break-words text-sm font-semibold text-slate-900 dark:text-slate-100">
+            {resource.title}
+          </p>
+          {resource.lessonTitle && (
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              {resource.sectionTitle} · {resource.lessonTitle}
+            </p>
+          )}
+          {resource.content && type === 'text' && (
+            <p className="mt-2 text-xs leading-5 text-slate-600 dark:text-slate-300">
+              {resource.content}
+            </p>
+          )}
+          {resource.description && compact && (
+            <p className="mt-2 text-xs leading-5 text-slate-600 dark:text-slate-300">
+              {resource.description}
+            </p>
+          )}
+        </div>
+
+        {actionUrl ? (
+          type === 'quiz' ? (
+            <Link
+              to={actionUrl}
+              className="inline-flex h-8 flex-shrink-0 items-center gap-1 rounded-lg bg-indigo-600 px-2.5 text-xs font-semibold text-white"
+            >
+              Mở
+              <ExternalLink className="h-3.5 w-3.5" />
+            </Link>
+          ) : (
+            <a
+              href={actionUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-8 flex-shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2.5 text-xs font-semibold text-slate-700 hover:border-indigo-200 hover:text-indigo-700 dark:border-slate-700 dark:text-slate-200"
+            >
+              Mở
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          )
+        ) : (
+          <span className="flex-shrink-0 rounded-lg border border-dashed border-slate-200 px-2.5 py-2 text-xs text-slate-400 dark:border-slate-700">
+            Chưa có liên kết
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AssignmentCard({ assignment }) {
+  const statusMeta =
+    assignmentStatusMeta[assignment.status] ?? assignmentStatusMeta['no-due'];
+  const attachments = assignment.attachments ?? [];
+
+  return (
+    <article className="rounded-xl border border-slate-100 bg-slate-50 p-4 text-left transition-colors dark:border-slate-800 dark:bg-slate-950">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
+            {assignment.title}
+          </p>
+          {assignment.description && (
+            <p className="mt-2 text-sm leading-5 text-slate-600 dark:text-slate-300">
+              {assignment.description}
+            </p>
+          )}
+        </div>
+        <span className={`flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${statusMeta.className}`}>
+          {statusMeta.label}
+        </span>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+        <span className="inline-flex items-center gap-1">
+          <CalendarClock className="h-3.5 w-3.5" />
+          Hạn nộp: {formatDueDate(assignment.dueDate)}
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <Paperclip className="h-3.5 w-3.5" />
+          {attachments.length} tệp
+        </span>
+      </div>
+
+      {attachments.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {attachments.map((attachment) => (
+            <a
+              key={attachment.id}
+              href={attachment.fileUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-700 hover:border-indigo-200 hover:text-indigo-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+            >
+              {attachment.originalName}
+              <ExternalLink className="h-3.5 w-3.5" />
+            </a>
+          ))}
+        </div>
+      )}
+    </article>
+  );
+}
+
 export default function CourseDetail() {
   const { courseId } = useParams();
-  const courseData = getCourseDetailData(courseId, getCurrentUser()?.id);
-  const { course } = courseData;
+  const currentUser = getCurrentUser();
+  const [courseData, setCourseData] = useState(() =>
+    USE_MOCK_DATA ? getCourseDetailData(courseId, currentUser?.id) : null,
+  );
+  const [isLoading, setIsLoading] = useState(!USE_MOCK_DATA);
+  const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('lessons');
+  const [reloadToken, setReloadToken] = useState(0);
+  const [quizForm, setQuizForm] = useState(initialQuizForm);
+  const [quizFormError, setQuizFormError] = useState('');
+  const [quizFormSuccess, setQuizFormSuccess] = useState('');
+  const [isCreatingQuiz, setIsCreatingQuiz] = useState(false);
 
-  const sectionItems = courseData.sections;
-  const lessonItems = courseData.lessons;
-  const resourceItems = courseData.resources;
-  const discussionItems = courseData.discussions;
-  const progress = courseData.progress;
+  useEffect(() => {
+    let isMounted = true;
+
+    if (USE_MOCK_DATA) {
+      setCourseData(getCourseDetailData(courseId, currentUser?.id));
+      setIsLoading(false);
+      setError('');
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    const loadCourseDetail = async () => {
+      setIsLoading(true);
+      setError('');
+      try {
+        const data = await getCourseDetailFromApi(courseId);
+        if (isMounted) setCourseData(data);
+      } catch (err) {
+        if (isMounted) {
+          setCourseData(null);
+          setError(err?.message || 'Không tải được chi tiết khóa học.');
+        }
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+
+    void loadCourseDetail();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [courseId, currentUser?.id, reloadToken]);
+
+  const { course } = courseData ?? {};
+  const sectionItems = courseData?.sections ?? [];
+  const lessonItems = courseData?.lessons ?? [];
+  const resourceItems = courseData?.resources ?? [];
+  const assignmentItems = courseData?.assignments ?? [];
+  const discussionItems = courseData?.discussions ?? [];
+  const warningItems = courseData?.warnings ?? [];
+  const progress = courseData?.progress ?? {
+    progressPercent: 0,
+    completed: 0,
+    inProgress: 0,
+    todo: 0,
+  };
+  const handleRetry = () => setReloadToken((value) => value + 1);
+  const canManageQuizzes = currentUser?.role === 'TEACHER';
+
+  const handleQuizFormChange = (field, value) => {
+    setQuizForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleCreateQuiz = async (event) => {
+    event.preventDefault();
+    setQuizFormError('');
+    setQuizFormSuccess('');
+
+    const title = quizForm.title.trim();
+    if (!title) {
+      setQuizFormError('Vui lòng nhập tiêu đề quiz.');
+      return;
+    }
+
+    const timeLimit = Math.max(1, Number(quizForm.timeLimit) || 1);
+    const totalQuestions = Math.max(0, Number(quizForm.totalQuestions) || 0);
+    const payload = {
+      title,
+      description: quizForm.description.trim() || undefined,
+      time_limit: timeLimit,
+      total_questions: totalQuestions,
+      class_id: courseId,
+      is_random: Boolean(quizForm.isRandom),
+    };
+
+    setIsCreatingQuiz(true);
+    try {
+      if (USE_MOCK_DATA) {
+        const mockQuiz = {
+          id:
+            globalThis.crypto?.randomUUID?.() ??
+            `mock-quiz-${Date.now()}`,
+          ...payload,
+          created_by: currentUser?.id,
+          created_at: new Date().toISOString(),
+        };
+        createMockQuiz(mockQuiz);
+        setCourseData((prev) => appendQuizToCourseData(prev, mockQuiz, courseId));
+      } else {
+        await createQuiz(payload);
+        setReloadToken((value) => value + 1);
+      }
+
+      setQuizForm(initialQuizForm);
+      setQuizFormSuccess('Đã tạo quiz mới.');
+    } catch (err) {
+      setQuizFormError(err?.message || 'Không tạo được quiz.');
+    } finally {
+      setIsCreatingQuiz(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <main className="mx-auto w-full max-w-5xl flex-grow px-4 py-12 md:px-8">
+        <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center text-slate-500 transition-colors dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
+          Đang tải chi tiết khóa học...
+        </div>
+      </main>
+    );
+  }
+
+  if (error) {
+    return (
+      <main className="mx-auto w-full max-w-5xl flex-grow px-4 py-12 md:px-8">
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-6 py-14 text-center text-rose-700 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-200">
+          <h1 className="text-2xl font-bold">Không tải được khóa học</h1>
+          <p className="mt-2 text-sm">{error}</p>
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
+            <button
+              type="button"
+              onClick={handleRetry}
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white"
+            >
+              Tải lại
+            </button>
+            <Link to="/dashboard" className="inline-block rounded-lg border border-rose-200 bg-white px-4 py-2 text-sm font-semibold text-rose-700 dark:border-rose-400/30 dark:bg-slate-950 dark:text-rose-200">
+              Quay lại bảng điều khiển
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   if (!course) {
     return (
@@ -41,19 +451,23 @@ export default function CourseDetail() {
           <h1 className="text-2xl font-bold text-slate-900">Không tìm thấy khóa học</h1>
           <p className="mt-2 text-sm text-slate-500">Khóa học bạn truy cập không tồn tại trong danh sách mock hiện tại.</p>
           <Link to="/dashboard" className="mt-6 inline-block rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">
-            Quay lại dashboard
+            Quay lại bảng điều khiển
           </Link>
         </div>
       </main>
     );
   }
 
-  const progressPercent = progress.progressPercent;
   const totalSections = sectionItems.length;
   const totalLessons = lessonItems.length;
   const totalResources = resourceItems.reduce(
-    (sum, group) => sum + group.items.length,
+    (sum, group) => sum + (group.items?.length ?? 0),
     0,
+  );
+  const totalAssignments = assignmentItems.length;
+  const progressPercent = Math.min(
+    100,
+    Math.max(0, Number(progress.progressPercent) || 0),
   );
 
   return (
@@ -71,7 +485,7 @@ export default function CourseDetail() {
             </p>
             <h1 className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100 md:text-3xl">{course.title}</h1>
             <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-              Trang chi tiet khoa hoc dang dung mock data theo schema backend de test giao dien truoc khi cắm API that.
+              {course.description || 'Tổng quan nội dung, tài nguyên và tiến độ của khóa học.'}
             </p>
 
             <div className="mt-5">
@@ -84,18 +498,22 @@ export default function CourseDetail() {
               </div>
             </div>
 
-            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+            <div className="mt-5 grid gap-3 sm:grid-cols-4">
               <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3 transition-colors dark:border-slate-800 dark:bg-slate-950">
-                <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Sections</p>
+                <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Phần</p>
                 <p className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100">{totalSections}</p>
               </div>
               <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3 transition-colors dark:border-slate-800 dark:bg-slate-950">
-                <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Bai hoc</p>
+                <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Bài học</p>
                 <p className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100">{totalLessons}</p>
               </div>
               <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3 transition-colors dark:border-slate-800 dark:bg-slate-950">
-                <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Tai nguyen</p>
+                <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">Tài nguyên</p>
                 <p className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100">{totalResources}</p>
+              </div>
+              <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3 transition-colors dark:border-slate-800 dark:bg-slate-950">
+                <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">BTVN</p>
+                <p className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100">{totalAssignments}</p>
               </div>
             </div>
 
@@ -119,96 +537,261 @@ export default function CourseDetail() {
         </div>
       </div>
 
+      {warningItems.length > 0 && (
+        <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 transition-colors dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-100">
+          <p className="font-semibold">Một số dữ liệu của khóa học chưa tải được.</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            {warningItems.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            onClick={handleRetry}
+            className="mt-3 rounded-lg bg-amber-600 px-3 py-2 text-xs font-semibold text-white"
+          >
+            Tải lại dữ liệu
+          </button>
+        </div>
+      )}
+
       {activeTab === 'lessons' && (
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Bai hoc</h2>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Danh sach bai hoc duoc nhom theo section</p>
-          <div className="mt-4 space-y-4">
-            {sectionItems.map((section) => (
-              <div key={section.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 transition-colors dark:border-slate-800 dark:bg-slate-950">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">{section.title}</h3>
-                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{section.lessonCount} bai hoc</p>
-                  </div>
-                  <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-400/10 dark:text-indigo-200">
-                    Week {section.orderIndex}
-                  </span>
-                </div>
-
-                <div className="mt-4 space-y-3">
-                  {section.lessons.map((lesson) => (
-                    <div key={lesson.id} className="rounded-xl border border-white bg-white p-3 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{lesson.title}</p>
-                          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{lesson.description}</p>
-                          <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                            Thoi luong: {lesson.duration} · {lesson.contentCount} tai nguyen con
-                          </p>
-                        </div>
-                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusStyles[lesson.status]}`}>
-                          {statusLabels[lesson.status]}
-                        </span>
-                      </div>
-
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {lesson.contentTypes.map((type) => (
-                          <span
-                            key={`${lesson.id}-${type}`}
-                            className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300"
-                          >
-                            {type}
-                          </span>
-                        ))}
-                      </div>
+          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Bài học</h2>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Danh sách bài học được nhóm theo phần</p>
+          {sectionItems.length > 0 ? (
+            <div className="mt-4 space-y-4">
+              {sectionItems.map((section) => (
+                <div key={section.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 transition-colors dark:border-slate-800 dark:bg-slate-950">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">{section.title}</h3>
+                      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{section.lessonCount} bài học</p>
                     </div>
-                  ))}
+                    <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-400/10 dark:text-indigo-200">
+                      Tuần {section.orderIndex}
+                    </span>
+                  </div>
+
+                  {section.lessons?.length > 0 ? (
+                    <div className="mt-4 space-y-3">
+                      {section.lessons.map((lesson) => (
+                        <div key={lesson.id} className="rounded-xl border border-white bg-white p-3 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{lesson.title}</p>
+                              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{lesson.description}</p>
+                              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                                Thời lượng: {lesson.duration} · {lesson.contentCount} tài nguyên con
+                              </p>
+                            </div>
+                            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusStyles[lesson.status]}`}>
+                              {statusLabels[lesson.status]}
+                            </span>
+                          </div>
+
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {(lesson.contentTypes ?? []).map((type) => (
+                              <span
+                                key={`${lesson.id}-${type}`}
+                                className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                              >
+                                {type}
+                              </span>
+                            ))}
+                          </div>
+
+                          {lesson.contents?.length > 0 && (
+                            <div className="mt-3 grid gap-2 lg:grid-cols-2">
+                              {lesson.contents.map((content) => (
+                                <ResourceCard
+                                  key={`${lesson.id}-${content.id}`}
+                                  resource={content}
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-500 transition-colors dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+                      Phần này chưa có bài học nào.
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
+          ) : (
+            <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500 transition-colors dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
+              Khóa học này chưa có phần hoặc bài học nào.
+            </div>
+          )}
+        </section>
+      )}
+
+      {activeTab === 'assignments' && (
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900 dark:text-slate-100">
+                <ClipboardList className="h-5 w-5 text-indigo-600 dark:text-indigo-300" />
+                BTVN
+              </h2>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                Bài tập về nhà của lớp hiện tại
+              </p>
+            </div>
+            <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-400/10 dark:text-indigo-200">
+              {totalAssignments} bài
+            </span>
           </div>
+
+          {assignmentItems.length > 0 ? (
+            <div className="mt-4 grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
+              {assignmentItems.map((assignment) => (
+                <AssignmentCard key={assignment.id} assignment={assignment} />
+              ))}
+            </div>
+          ) : (
+            <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500 transition-colors dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
+              Chưa có BTVN nào cho lớp này.
+            </div>
+          )}
         </section>
       )}
 
       {activeTab === 'resources' && (
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Tai nguyen hoc tap</h2>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Tong hop wiki va slide de chuan bi cho API that sau nay</p>
-          <div className="mt-4 space-y-4">
-            {resourceItems.map((group) => (
-              <div key={group.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-4 transition-colors dark:border-slate-800 dark:bg-slate-950">
-                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">{group.title}</h3>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{group.description}</p>
-                <ul className="mt-3 space-y-2 text-sm text-slate-700 dark:text-slate-300">
-                  {group.items.map((item) => (
-                    <li key={item} className="rounded-lg border border-white bg-white px-3 py-2 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
-                      {item}
-                    </li>
-                  ))}
-                </ul>
+          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Tài nguyên học tập</h2>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Tổng hợp tài nguyên, quiz và nội dung học tập của lớp</p>
+          {canManageQuizzes && (
+            <form
+              className="mt-4 rounded-2xl border border-indigo-100 bg-indigo-50 p-4 text-left transition-colors dark:border-indigo-400/30 dark:bg-indigo-400/10"
+              onSubmit={handleCreateQuiz}
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                    Tạo quiz mới
+                  </h3>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                    Quiz sẽ được gắn trực tiếp với lớp hiện tại.
+                  </p>
+                </div>
+                <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-indigo-700 dark:bg-slate-950 dark:text-indigo-200">
+                  Giảng viên
+                </span>
               </div>
-            ))}
-          </div>
+
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                <input
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  placeholder="Tiêu đề quiz"
+                  value={quizForm.title}
+                  onChange={(event) => handleQuizFormChange('title', event.target.value)}
+                  required
+                />
+                <input
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  min="1"
+                  placeholder="Thời lượng phút"
+                  type="number"
+                  value={quizForm.timeLimit}
+                  onChange={(event) => handleQuizFormChange('timeLimit', event.target.value)}
+                  required
+                />
+                <input
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  min="0"
+                  placeholder="Số câu hỏi"
+                  type="number"
+                  value={quizForm.totalQuestions}
+                  onChange={(event) => handleQuizFormChange('totalQuestions', event.target.value)}
+                  required
+                />
+                <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
+                  <input
+                    type="checkbox"
+                    checked={quizForm.isRandom}
+                    onChange={(event) => handleQuizFormChange('isRandom', event.target.checked)}
+                  />
+                  Trộn thứ tự câu hỏi
+                </label>
+                <textarea
+                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 md:col-span-2"
+                  placeholder="Mô tả quiz"
+                  value={quizForm.description}
+                  onChange={(event) => handleQuizFormChange('description', event.target.value)}
+                />
+              </div>
+
+              {quizFormError && (
+                <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-200">
+                  {quizFormError}
+                </div>
+              )}
+              {quizFormSuccess && (
+                <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-200">
+                  {quizFormSuccess}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={isCreatingQuiz}
+                className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+              >
+                {isCreatingQuiz ? 'Đang tạo...' : 'Tạo quiz'}
+              </button>
+            </form>
+          )}
+          {resourceItems.length > 0 ? (
+            <div className="mt-4 space-y-4">
+              {resourceItems.map((group) => (
+                <div key={group.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-4 transition-colors dark:border-slate-800 dark:bg-slate-950">
+                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">{group.title}</h3>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{group.description}</p>
+                  {group.items?.length > 0 ? (
+                    <ul className="mt-3 space-y-2 text-sm text-slate-700 dark:text-slate-300">
+                      {group.items.map((item) => (
+                        <li key={typeof item === 'string' ? item : `${group.id}-${item.id}`}>
+                          <ResourceCard resource={item} compact />
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="mt-3 rounded-xl border border-dashed border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-500 transition-colors dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+                      Chưa có tài nguyên trong nhóm này.
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500 transition-colors dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
+              Khóa học này chưa có tài nguyên học tập nào.
+            </div>
+          )}
         </section>
       )}
 
       {activeTab === 'progress' && (
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Theo doi tien do</h2>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Tong quan qua trinh hoc tap</p>
+          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Theo dõi tiến độ</h2>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Tổng quan quá trình học tập</p>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
             <div className="rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-center transition-colors dark:border-emerald-400/30 dark:bg-emerald-400/10">
               <p className="text-xl font-bold text-emerald-700 dark:text-emerald-200">{progress.completed}</p>
-              <p className="text-xs text-emerald-700 dark:text-emerald-200">Da hoan thanh</p>
+              <p className="text-xs text-emerald-700 dark:text-emerald-200">Đã hoàn thành</p>
             </div>
             <div className="rounded-xl border border-amber-100 bg-amber-50 p-3 text-center transition-colors dark:border-amber-400/30 dark:bg-amber-400/10">
               <p className="text-xl font-bold text-amber-700 dark:text-amber-200">{progress.inProgress}</p>
-              <p className="text-xs text-amber-700 dark:text-amber-200">Dang hoc</p>
+              <p className="text-xs text-amber-700 dark:text-amber-200">Đang học</p>
             </div>
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-center transition-colors dark:border-slate-800 dark:bg-slate-950">
               <p className="text-xl font-bold text-slate-700 dark:text-slate-200">{progress.todo}</p>
-              <p className="text-xs text-slate-600 dark:text-slate-400">Chua hoc</p>
+              <p className="text-xs text-slate-600 dark:text-slate-400">Chưa học</p>
             </div>
           </div>
         </section>
@@ -216,14 +799,20 @@ export default function CourseDetail() {
 
       {activeTab === 'discussions' && (
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Thao luan</h2>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Cac chu de thao luan gan day</p>
+          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Thảo luận</h2>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Các chủ đề thảo luận gần đây</p>
           <ul className="mt-4 space-y-2 text-sm text-slate-700 dark:text-slate-300">
-            {discussionItems.map((item) => (
-              <li key={item} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 transition-colors dark:border-slate-800 dark:bg-slate-950">
-                {item}
+            {discussionItems.length > 0 ? (
+              discussionItems.map((item) => (
+                <li key={item} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 transition-colors dark:border-slate-800 dark:bg-slate-950">
+                  {item}
+                </li>
+              ))
+            ) : (
+              <li className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-6 text-center text-slate-500 transition-colors dark:border-slate-800 dark:bg-slate-950">
+                Chưa có thảo luận nào.
               </li>
-            ))}
+            )}
           </ul>
         </section>
       )}

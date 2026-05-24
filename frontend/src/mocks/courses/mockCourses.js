@@ -3,10 +3,94 @@ import {
   mockClassMembers,
   mockLessonContents,
   mockLessons,
+  mockQuizzes,
   mockSections,
 } from '../classes/mockClasses';
 
 const defaultCourseImage = 'https://via.placeholder.com/400x225';
+
+const mockAssignments = [
+  {
+    id: 'a57b6f3d-63d4-49a7-a5c7-2a6f30000001',
+    class_id: '1f6b8a4d-c1d4-4f79-90a9-24d8b4f00001',
+    created_by: '8b2ca5d8-9f69-4c8f-b1ef-183b6a10a222',
+    title: 'BTVN 01 - Viết lexer đơn giản',
+    description: 'Cài đặt lexer nhận diện identifier, number và keyword cơ bản.',
+    due_date: '2026-05-28T16:59:59.000Z',
+    created_at: '2026-05-10T08:00:00.000Z',
+    attachments: [
+      {
+        id: 'f9ec9814-0d2d-41b4-b1e2-1d4900000001',
+        file_url: 'https://example.com/assignments/lexer-btvn.pdf',
+        original_name: 'lexer-btvn.pdf',
+        file_name: 'lexer-btvn.pdf',
+        mime_type: 'application/pdf',
+        size: 256000,
+      },
+    ],
+  },
+  {
+    id: 'a57b6f3d-63d4-49a7-a5c7-2a6f30000002',
+    class_id: '1f6b8a4d-c1d4-4f79-90a9-24d8b4f00001',
+    created_by: '8b2ca5d8-9f69-4c8f-b1ef-183b6a10a222',
+    title: 'BTVN 02 - Regex và DFA',
+    description: 'Vẽ DFA từ các biểu thức chính quy trong đề bài.',
+    due_date: '2026-06-04T16:59:59.000Z',
+    created_at: '2026-05-14T08:00:00.000Z',
+    attachments: [],
+  },
+  {
+    id: 'a57b6f3d-63d4-49a7-a5c7-2a6f30000003',
+    class_id: '1f6b8a4d-c1d4-4f79-90a9-24d8b4f00002',
+    created_by: '8b2ca5d8-9f69-4c8f-b1ef-183b6a10a222',
+    title: 'BTVN 01 - Kiểu dữ liệu và biến',
+    description: 'Hoàn thành các bài tập về khai báo biến và ép kiểu trong C.',
+    due_date: '2026-05-30T16:59:59.000Z',
+    created_at: '2026-05-12T08:00:00.000Z',
+    attachments: [],
+  },
+];
+
+const mockQuizQuestions = [
+  {
+    id: '0bd63d6f-8284-4f2d-9f4e-6c0600000001',
+    quiz_id: '9c4f1d8d-66a4-4bb2-b312-2b9d60000001',
+    question_text: 'Token nào thường được scanner nhận diện trước khi parser xử lý?',
+    option_a: 'Identifier',
+    option_b: 'AST',
+    option_c: 'Bytecode',
+    option_d: 'Symbol table',
+  },
+  {
+    id: '0bd63d6f-8284-4f2d-9f4e-6c0600000002',
+    quiz_id: '9c4f1d8d-66a4-4bb2-b312-2b9d60000001',
+    question_text: 'Biểu thức chính quy thường được dùng trong pha nào?',
+    option_a: 'Sinh mã máy',
+    option_b: 'Phân tích từ vựng',
+    option_c: 'Tối ưu mã',
+    option_d: 'Liên kết thư viện',
+  },
+];
+
+const mockCreatedQuizzesStorageKey = 'it4409_mock_created_quizzes';
+
+function getStoredMockQuizzes() {
+  try {
+    const raw = localStorage.getItem(mockCreatedQuizzesStorageKey);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function setStoredMockQuizzes(items) {
+  try {
+    localStorage.setItem(mockCreatedQuizzesStorageKey, JSON.stringify(items));
+  } catch {
+    // Storage can be unavailable in private contexts; the live page state still updates.
+  }
+}
 
 export const mockCourseCards = mockClasses.map((item) => ({
   id: item.id,
@@ -40,6 +124,78 @@ function resolveCourse(courseRef) {
 function resolveCourseId(courseRef) {
   const course = resolveCourse(courseRef);
   return course?.id ?? String(courseRef);
+}
+
+function normalizeContentType(type) {
+  return String(type ?? '').trim().toLowerCase();
+}
+
+function getDisplayType(content) {
+  const type = normalizeContentType(content.type);
+  const url = String(content.file_url ?? '').toLowerCase();
+  const title = String(content.title ?? '').toLowerCase();
+
+  if (type === 'file' && (url.endsWith('.pdf') || title.includes('pdf'))) {
+    return 'pdf';
+  }
+
+  return type || 'file';
+}
+
+function normalizeLessonContent(content, courseId) {
+  const displayType = getDisplayType(content);
+  const matchedQuiz =
+    displayType === 'quiz'
+      ? mockQuizzes.find(
+          (quiz) =>
+            quiz.id === content.content ||
+            quiz.id === content.file_url ||
+            quiz.title.toLowerCase() === content.title.toLowerCase(),
+        )
+      : null;
+
+  return {
+    id: content.id,
+    lessonId: content.lesson_id,
+    type: normalizeContentType(content.type),
+    displayType,
+    title: content.title,
+    content: content.content,
+    fileUrl: content.file_url,
+    openUrl: `/api/lesson-contents/${content.id}/open`,
+    duration: content.duration,
+    orderIndex: content.order_index,
+    quizId: matchedQuiz?.id ?? null,
+    quizUrl: matchedQuiz ? `/courses/${courseId}/quizzes/${matchedQuiz.id}` : null,
+  };
+}
+
+function getAssignmentStatus(assignment) {
+  if (!assignment.due_date) return 'no-due';
+
+  const dueDate = new Date(assignment.due_date);
+  if (Number.isNaN(dueDate.getTime())) return 'no-due';
+
+  return dueDate < new Date() ? 'overdue' : 'open';
+}
+
+function normalizeAssignment(assignment) {
+  return {
+    id: assignment.id,
+    classId: assignment.class_id,
+    title: assignment.title,
+    description: assignment.description ?? '',
+    dueDate: assignment.due_date ?? null,
+    createdAt: assignment.created_at ?? null,
+    status: getAssignmentStatus(assignment),
+    attachments: (assignment.attachments ?? []).map((attachment) => ({
+      id: attachment.id,
+      fileUrl: attachment.file_url,
+      originalName: attachment.original_name ?? attachment.file_name ?? 'File đính kèm',
+      mimeType: attachment.mime_type,
+      size: attachment.size,
+    })),
+  };
 }
 
 export function getMockStudentCourseCards(userId) {
@@ -92,11 +248,13 @@ export function getMockCourseLessons(courseId) {
         (content) => content.lesson_id === lesson.id,
       );
 
-      const hasVideo = lessonContent.some((item) => item.type === 'Video');
+      const hasVideo = lessonContent.some(
+        (item) => normalizeContentType(item.type) === 'video',
+      );
       return {
         id: lesson.id,
         title: lesson.title,
-        duration: hasVideo ? '45 phut' : '30 phut',
+        duration: hasVideo ? '45 phút' : '30 phút',
         status: lesson.id === 1 ? 'done' : 'in-progress',
       };
     });
@@ -117,15 +275,19 @@ export function getMockCourseSections(courseId) {
             (content) => content.lesson_id === lesson.id,
           );
 
-          const hasVideo = lessonContent.some((item) => item.type === 'Video');
+          const contents = lessonContent
+            .map((content) => normalizeLessonContent(content, resolvedCourseId))
+            .sort((left, right) => left.orderIndex - right.orderIndex);
+          const hasVideo = contents.some((item) => item.type === 'video');
 
           return {
             id: lesson.id,
             title: lesson.title,
             description: lesson.description,
-            duration: hasVideo ? '45 phut' : '30 phut',
-            contentCount: lessonContent.length,
-            contentTypes: lessonContent.map((item) => item.type),
+            duration: hasVideo ? '45 phút' : '30 phút',
+            contentCount: contents.length,
+            contentTypes: contents.map((item) => item.displayType),
+            contents,
             status: lesson.id === 1 ? 'done' : 'in-progress',
           };
         });
@@ -142,21 +304,38 @@ export function getMockCourseSections(courseId) {
 
 export function getMockCourseResources(courseId) {
   const resolvedCourseId = resolveCourseId(courseId);
-  const wikiItems = getMockCourseWiki(resolvedCourseId);
-  const slideItems = getMockCourseSlides(resolvedCourseId);
+  const lessonResources = getMockCourseSections(resolvedCourseId).flatMap(
+    (section) =>
+      section.lessons.flatMap((lesson) =>
+        lesson.contents.map((content) => ({
+          ...content,
+          sectionTitle: section.title,
+          lessonTitle: lesson.title,
+        })),
+      ),
+  );
+  const quizItems = getMockCourseQuizzes(resolvedCourseId).map((quiz) => ({
+    id: quiz.id,
+    title: quiz.title,
+    description: quiz.description,
+    displayType: 'quiz',
+    quizId: quiz.id,
+    quizUrl: `/courses/${resolvedCourseId}/quizzes/${quiz.id}`,
+    meta: `${quiz.total_questions} câu hỏi · ${quiz.time_limit} phút`,
+  }));
 
   return [
     {
-      id: 'wiki',
-      title: 'Wiki khoa hoc',
-      description: 'Tai lieu tong hop, dinh nghia va checklist on tap',
-      items: wikiItems,
+      id: 'lesson-resources',
+      title: 'Tài nguyên theo bài học',
+      description: 'Văn bản, PDF, tệp, video và quiz gắn với từng bài học',
+      items: lessonResources,
     },
     {
-      id: 'slides',
-      title: 'Slide bai giang',
-      description: 'Tai lieu slide dung cho moi tuan hoc',
-      items: slideItems,
+      id: 'class-quizzes',
+      title: 'Quiz của lớp',
+      description: 'Danh sách quiz của khóa học',
+      items: quizItems,
     },
   ];
 }
@@ -164,18 +343,18 @@ export function getMockCourseResources(courseId) {
 export function getMockCourseDiscussions(courseId) {
   const resolvedCourseId = resolveCourseId(courseId);
   return [
-    `Q&A tuan dau cho lop ${resolvedCourseId.slice(-4)}`,
-    'Thao luan nhom ve bai tap lon',
-    'Giai dap van de trien khai assignment',
+    `Q&A tuần đầu cho lớp ${resolvedCourseId.slice(-4)}`,
+    'Thảo luận nhóm về bài tập lớn',
+    'Giải đáp vấn đề triển khai assignment',
   ];
 }
 
 export function getMockCourseWiki(courseId) {
   const resolvedCourseId = resolveCourseId(courseId);
   return [
-    `Tong hop thuat ngu cua khoa hoc ${resolvedCourseId.slice(-4)}`,
-    'So do tong quan noi dung hoc phan',
-    'Checklist on tap truoc quiz',
+    `Tổng hợp thuật ngữ của khóa học ${resolvedCourseId.slice(-4)}`,
+    'Sơ đồ tổng quan nội dung học phần',
+    'Checklist ôn tập trước quiz',
   ];
 }
 
@@ -186,6 +365,56 @@ export function getMockCourseSlides(courseId) {
     'Slide week 2 - Core concepts',
     'Slide week 3 - Practice session',
   ];
+}
+
+export function getMockCourseQuizzes(courseId) {
+  const resolvedCourseId = resolveCourseId(courseId);
+  return [...getStoredMockQuizzes(), ...mockQuizzes].filter(
+    (quiz) => quiz.class_id === resolvedCourseId,
+  );
+}
+
+export function addMockCourseQuiz(quiz) {
+  const stored = getStoredMockQuizzes();
+  const next = [
+    quiz,
+    ...stored.filter((item) => item.id !== quiz.id),
+  ];
+  setStoredMockQuizzes(next);
+  return quiz;
+}
+
+export function getMockQuizDetail(courseId, quizId) {
+  const quiz = getMockCourseQuizzes(courseId).find((item) => item.id === quizId);
+  if (!quiz) return null;
+
+  return {
+    id: quiz.id,
+    courseId: quiz.class_id,
+    title: quiz.title,
+    description: quiz.description ?? '',
+    timeLimit: quiz.time_limit,
+    totalQuestions: quiz.total_questions,
+    questions: mockQuizQuestions
+      .filter((question) => question.quiz_id === quiz.id)
+      .map((question) => ({
+        id: question.id,
+        text: question.question_text,
+        options: [
+          { key: 'A', text: question.option_a },
+          { key: 'B', text: question.option_b },
+          { key: 'C', text: question.option_c },
+          { key: 'D', text: question.option_d },
+        ],
+      })),
+  };
+}
+
+export function getMockCourseAssignments(courseId) {
+  const resolvedCourseId = resolveCourseId(courseId);
+  return mockAssignments
+    .filter((assignment) => assignment.class_id === resolvedCourseId)
+    .map(normalizeAssignment);
 }
 
 export function getMockCourseProgress(courseId, userId) {

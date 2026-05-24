@@ -16,10 +16,62 @@ import {
     getTeacherDashboardData,
     USE_MOCK_DATA,
 } from '../services/dataSource';
-import StudentDashboard from './dashboard/StudentDashboard';
-import TeacherDashboard from './dashboard/TeacherDashboard';
-
-export default function Dashboard() {
+import AccountManagementCard from '../components/AccountManagementCard';
+import AdminDashboard from './dashboard/AdminDashboard';
+ import StudentDashboard from './dashboard/StudentDashboard';
+ import TeacherDashboard from './dashboard/TeacherDashboard';
+ 
+ function normalizeClassType(value) {
+   return value === 'CLOSED' ? 'CLOSED' : 'OPEN';
+ }
+ 
+ function toNullableTrimmed(value) {
+   if (typeof value !== 'string') return null;
+   const trimmed = value.trim();
+   return trimmed || null;
+ }
+ 
+ function normalizeClassPayload(payload = {}) {
+   return {
+     name: String(payload.name ?? '').trim(),
+     description: toNullableTrimmed(payload.description),
+     avatar_url: toNullableTrimmed(payload.avatar_url),
+     type: normalizeClassType(payload.type),
+     join_code: String(payload.join_code ?? '').trim().toUpperCase(),
+     is_active: payload.is_active !== false,
+     teacher_id: payload.teacher_id,
+   };
+ }
+ 
+ function normalizeClassUpdatePayload(payload = {}) {
+   const normalized = {};
+ 
+   if (Object.prototype.hasOwnProperty.call(payload, 'name')) {
+     normalized.name = String(payload.name ?? '').trim();
+   }
+   if (Object.prototype.hasOwnProperty.call(payload, 'description')) {
+     normalized.description = toNullableTrimmed(payload.description);
+   }
+   if (Object.prototype.hasOwnProperty.call(payload, 'avatar_url')) {
+     normalized.avatar_url = toNullableTrimmed(payload.avatar_url);
+   }
+   if (Object.prototype.hasOwnProperty.call(payload, 'type')) {
+     normalized.type = normalizeClassType(payload.type);
+   }
+   if (Object.prototype.hasOwnProperty.call(payload, 'join_code')) {
+     normalized.join_code = String(payload.join_code ?? '').trim().toUpperCase();
+   }
+   if (Object.prototype.hasOwnProperty.call(payload, 'is_active')) {
+     normalized.is_active = Boolean(payload.is_active);
+   }
+   if (Object.prototype.hasOwnProperty.call(payload, 'teacher_id')) {
+     normalized.teacher_id = payload.teacher_id;
+   }
+ 
+   return normalized;
+ }
+ 
+ export default function Dashboard() {
   const currentUser = getCurrentUser();
   const role = currentUser?.role ?? 'STUDENT';
   const userId = currentUser?.id;
@@ -51,7 +103,7 @@ export default function Dashboard() {
           id: cls.id,
           title: cls.name,
           code: cls.join_code,
-          category: cls.type ?? 'Course',
+          category: cls.type ?? 'Khóa học',
           image: cls.avatar_url ?? 'https://via.placeholder.com/400x225',
         }));
 
@@ -60,7 +112,7 @@ export default function Dashboard() {
         }
       } catch (err) {
         if (isMounted) {
-          setStudentError(err?.message || 'Khong tai duoc danh sach lop.');
+          setStudentError(err?.message || 'Không tải được danh sách lớp.');
           setStudentCourses([]);
         }
       } finally {
@@ -98,7 +150,7 @@ export default function Dashboard() {
       setTeacherCourses(normalizedCourses);
       setTeacherPending(normalizedPending);
     } catch (err) {
-      setTeacherError(err?.message || 'Khong tai duoc danh sach lop.');
+      setTeacherError(err?.message || 'Không tải được danh sách lớp.');
       setTeacherCourses([]);
       setTeacherPending([]);
     } finally {
@@ -116,23 +168,22 @@ export default function Dashboard() {
     void reloadTeacherClasses();
   }, [role, teacherData.courses, teacherData.pendingRequests, reloadTeacherClasses]);
 
-  const handleCreateClass = async (payload) => {
-    const accessToken = getAccessToken();
-    await createClass(
-      {
-        ...payload,
-        teacher_id: userId,
-      },
-      accessToken,
-    );
-    await reloadTeacherClasses();
-  };
+   const handleCreateClass = async (payload) => {
+     const accessToken = getAccessToken();
+     const normalizedPayload = normalizeClassPayload({
+       ...payload,
+       teacher_id: userId,
+     });
+     await createClass(normalizedPayload, accessToken);
+     await reloadTeacherClasses();
+   };
 
-  const handleUpdateClass = async (classId, payload) => {
-    const accessToken = getAccessToken();
-    await updateClass(classId, payload, accessToken);
-    await reloadTeacherClasses();
-  };
+   const handleUpdateClass = async (classId, payload) => {
+     const accessToken = getAccessToken();
+     const normalizedPayload = normalizeClassUpdatePayload(payload);
+     await updateClass(classId, normalizedPayload, accessToken);
+     await reloadTeacherClasses();
+   };
 
   const handleDeleteClass = async (classId) => {
     const accessToken = getAccessToken();
@@ -163,10 +214,14 @@ export default function Dashboard() {
   return (
     <main className="mx-auto w-full max-w-7xl flex-grow px-4 py-10 md:px-8">
       <div className="mb-4 rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-left text-sm text-indigo-800">
-        Vai tro hien tai: <span className="font-bold">{role}</span>.
+        Vai trò hiện tại: <span className="font-bold">{role}</span>.
       </div>
 
-      {role === 'TEACHER' ? (
+      <AccountManagementCard user={currentUser} />
+
+      {role === 'ADMIN' ? (
+        <AdminDashboard user={currentUser} />
+      ) : role === 'TEACHER' ? (
         <TeacherDashboard
           courses={teacherCourses}
           pendingRequests={teacherPending}

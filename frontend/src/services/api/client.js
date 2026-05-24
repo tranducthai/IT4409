@@ -1,3 +1,5 @@
+import { authStorageKeys, clearAuthState } from './authState';
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api';
 
 export class ApiError extends Error {
@@ -9,25 +11,22 @@ export class ApiError extends Error {
   }
 }
 
-const ACCESS_KEY = 'it4409_access_token';
-const REFRESH_KEY = 'it4409_refresh_token';
-
 export function setAuthTokens({ accessToken, refreshToken }) {
-  if (accessToken) localStorage.setItem(ACCESS_KEY, accessToken);
-  if (refreshToken) localStorage.setItem(REFRESH_KEY, refreshToken);
+  if (accessToken) localStorage.setItem(authStorageKeys.accessToken, accessToken);
+  if (refreshToken) localStorage.setItem(authStorageKeys.refreshToken, refreshToken);
 }
 
 export function clearAuthTokens() {
-  localStorage.removeItem(ACCESS_KEY);
-  localStorage.removeItem(REFRESH_KEY);
+  localStorage.removeItem(authStorageKeys.accessToken);
+  localStorage.removeItem(authStorageKeys.refreshToken);
 }
 
 export function getAccessToken() {
-  return localStorage.getItem(ACCESS_KEY);
+  return localStorage.getItem(authStorageKeys.accessToken);
 }
 
 async function tryRefreshToken() {
-  const refreshToken = localStorage.getItem(REFRESH_KEY);
+  const refreshToken = localStorage.getItem(authStorageKeys.refreshToken);
   if (!refreshToken) return null;
 
   const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
@@ -76,7 +75,7 @@ export async function apiRequest(path, options = {}) {
         _retry: true,
       });
     } else {
-      clearAuthTokens();
+      clearAuthState();
     }
   }
 

@@ -1,6 +1,7 @@
 import { mockUsers } from '../../mocks/auth/mockUsers';
-import { apiRequest, clearAuthTokens } from './client';
-import { clearCurrentUser, getCurrentUser, setCurrentUser } from './session';
+import { apiRequest } from './client';
+import { clearAuthState } from './authState';
+import { getCurrentUser, setCurrentUser } from './session';
 
 const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA !== 'false';
 
@@ -85,9 +86,22 @@ export async function register(payload) {
   return normalized;
 }
 
-export function logout() {
-  clearAuthTokens();
-  clearCurrentUser();
+export async function changePassword(payload) {
+  if (USE_MOCK_DATA) {
+    return { changed: true };
+  }
+
+  return apiRequest('/auth/change-password', {
+    method: 'PATCH',
+    body: JSON.stringify({
+      oldPassword: payload.oldPassword,
+      newPassword: payload.newPassword,
+    }),
+  });
 }
 
-export default { login, register, logout };
+export function logout() {
+  clearAuthState();
+}
+
+export default { login, register, changePassword, logout };
