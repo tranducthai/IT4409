@@ -52,7 +52,7 @@ export default function QuizDetail() {
 
   if (isLoading) {
     return (
-      <main className="mx-auto w-full max-w-5xl flex-grow px-4 py-12 md:px-8">
+      <main className="mx-auto w-full max-w-7xl flex-grow px-4 py-12 md:px-8">
         <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center text-slate-500 transition-colors dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
           Đang tải quiz...
         </div>
@@ -62,13 +62,13 @@ export default function QuizDetail() {
 
   if (error) {
     return (
-      <main className="mx-auto w-full max-w-5xl flex-grow px-4 py-12 md:px-8">
+      <main className="mx-auto w-full max-w-7xl flex-grow px-4 py-12 md:px-8">
         <div className="rounded-2xl border border-rose-200 bg-rose-50 px-6 py-14 text-center text-rose-700 transition-colors dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-200">
           <h1 className="text-2xl font-bold">Không tải được quiz</h1>
           <p className="mt-2 text-sm">{error}</p>
           <Link
             to={`/courses/${courseId}`}
-            className="mt-6 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white"
+            className="action-btn mt-6 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
           >
             <ArrowLeft className="h-4 w-4" />
             Quay lại khóa học
@@ -80,7 +80,7 @@ export default function QuizDetail() {
 
   if (!quizData) {
     return (
-      <main className="mx-auto w-full max-w-5xl flex-grow px-4 py-12 md:px-8">
+      <main className="mx-auto w-full max-w-7xl flex-grow px-4 py-12 md:px-8">
         <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center transition-colors dark:border-slate-700 dark:bg-slate-900">
           <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
             Không tìm thấy quiz
@@ -90,7 +90,7 @@ export default function QuizDetail() {
           </p>
           <Link
             to={`/courses/${courseId}`}
-            className="mt-6 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white"
+            className="action-btn mt-6 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
           >
             <ArrowLeft className="h-4 w-4" />
             Quay lại khóa học
@@ -103,10 +103,10 @@ export default function QuizDetail() {
   const questionItems = quizData.questions ?? [];
 
   return (
-    <main className="mx-auto w-full max-w-5xl flex-grow px-4 py-10 transition-colors md:px-8">
+    <main className="mx-auto w-full max-w-7xl flex-grow px-4 py-10 transition-colors md:px-8">
       <Link
         to={`/courses/${courseId}`}
-        className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-300"
+        className="action-btn mb-5 inline-flex items-center gap-2 rounded-lg px-2 py-1 text-sm font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-300"
       >
         <ArrowLeft className="h-4 w-4" />
         Quay lại khóa học

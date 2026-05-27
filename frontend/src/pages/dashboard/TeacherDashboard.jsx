@@ -146,7 +146,7 @@ export default function TeacherDashboard({
           <button
             type="submit"
             disabled={isLoading}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white"
+            className="action-btn rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300"
           >
             Tạo lớp
           </button>
@@ -197,7 +197,7 @@ export default function TeacherDashboard({
                     <button
                       type="submit"
                       disabled={isLoading}
-                      className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+                      className="action-btn rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                     >
                       Thêm
                     </button>
@@ -205,14 +205,14 @@ export default function TeacherDashboard({
                 </form>
                 <Link
                   to={`/courses/${course.id}`}
-                  className="mt-3 inline-block rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white"
+                  className="action-btn mt-3 inline-block rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700"
                 >
                   Xem chi tiết
                 </Link>
                 <button
                   type="button"
                   onClick={() => onDeleteClass?.(course.id)}
-                  className="ml-2 mt-3 inline-block rounded-md bg-rose-500 px-3 py-1.5 text-sm font-semibold text-white"
+                  className="action-btn ml-2 mt-3 inline-block rounded-md bg-rose-500 px-3 py-1.5 text-sm font-semibold text-white hover:bg-rose-600"
                 >
                   Xóa lớp
                 </button>
@@ -234,7 +234,7 @@ export default function TeacherDashboard({
                 <button
                   type="button"
                   onClick={() => onApproveRequest?.(request.id)}
-                  className="ml-3 rounded-md bg-emerald-600 px-2 py-1 text-xs font-semibold text-white"
+                  className="action-btn ml-3 rounded-md bg-emerald-600 px-2 py-1 text-xs font-semibold text-white hover:bg-emerald-700"
                 >
                   Duyệt
                 </button>

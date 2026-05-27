@@ -58,7 +58,7 @@ function Login() {
           <div>
             <label
               htmlFor="email"
-              className="mb-1 block text-sm font-medium text-slate-700"
+              className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200"
             >
               Email
             </label>
@@ -77,7 +77,7 @@ function Login() {
           <div>
             <label
               htmlFor="password"
-              className="mb-1 block text-sm font-medium text-slate-700"
+              className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200"
             >
               Mật khẩu
             </label>
@@ -94,15 +94,20 @@ function Login() {
           </div>
 
           <div className="text-right">
-            <a href="#" className="text-sm font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-300 dark:hover:text-indigo-200">
+            <button
+              type="button"
+              disabled
+              className="text-sm font-medium text-slate-400 dark:text-slate-500"
+              title="Chưa có luồng khôi phục mật khẩu"
+            >
               Quên mật khẩu?
-            </a>
+            </button>
           </div>
 
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-70"
+            className="action-btn w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {isSubmitting ? 'Đang xử lý...' : 'Đăng nhập'}
           </button>
@@ -110,7 +115,7 @@ function Login() {
 
         <p className="mt-6 text-center text-sm text-slate-600 dark:text-slate-400">
           Chưa có tài khoản?{' '}
-          <Link to="/register" className="font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-300 dark:hover:text-indigo-200">
+          <Link to="/register" className="action-btn rounded px-1 font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-300 dark:hover:text-indigo-200">
             Đăng ký ngay
           </Link>
         </p>
