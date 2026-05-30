@@ -21,6 +21,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { UserRole } from '../users/enums/user-role.enum';
 import { CreateSubmissionDto } from './dtos/create-submission.dto';
+import { GradeSubmissionDto } from './dtos/grade-submission.dto';
 import { SubmitAssignmentDto } from './dtos/submit-assignment.dto';
 import { UpdateSubmissionDto } from './dtos/update-submission.dto';
 import { SubmissionsService } from './submissions.service';
@@ -64,6 +65,38 @@ export class SubmissionsController {
         );
     }
 
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth('access-token')
+    @Get('assignment/:assignmentId')
+    listByAssignment(
+        @Req() req: AuthedRequest,
+        @Param('assignmentId', ParseUUIDPipe) assignmentId: string,
+    ) {
+        if (req.user.role !== UserRole.TEACHER) {
+            throw new ForbiddenException('Teacher role required');
+        }
+        return this.submissionsService.findByAssignmentForTeacher(
+            assignmentId,
+            req.user.sub,
+        );
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth('access-token')
+    @Get('assignment/:assignmentId/me')
+    listMyByAssignment(
+        @Req() req: AuthedRequest,
+        @Param('assignmentId', ParseUUIDPipe) assignmentId: string,
+    ) {
+        if (req.user.role !== UserRole.STUDENT) {
+            throw new ForbiddenException('Student role required');
+        }
+        return this.submissionsService.findMyByAssignment(
+            assignmentId,
+            req.user.sub,
+        );
+    }
+
     @Post()
     create(@Body() dto: CreateSubmissionDto) {
         return this.submissionsService.create(dto);
@@ -85,6 +118,25 @@ export class SubmissionsController {
         @Body() dto: UpdateSubmissionDto,
     ) {
         return this.submissionsService.update(id, dto);
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth('access-token')
+    @Patch(':id/grade')
+    grade(
+        @Req() req: AuthedRequest,
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() dto: GradeSubmissionDto,
+    ) {
+        if (req.user.role !== UserRole.TEACHER) {
+            throw new ForbiddenException('Teacher role required');
+        }
+        return this.submissionsService.gradeSubmission(
+            req.user.sub,
+            id,
+            dto.score,
+            dto.feedback,
+        );
     }
 
     @Delete(':id')

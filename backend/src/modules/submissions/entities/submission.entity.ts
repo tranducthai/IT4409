@@ -8,6 +8,7 @@ import {
     PrimaryGeneratedColumn,
 } from 'typeorm';
 import { Assignment } from '../../assignments/entities/assignment.entity';
+import { User } from '../../users/entities/user.entity';
 import { SubmissionFile } from './submission-file.entity';
 
 @Entity('assignment_submissions')
@@ -24,6 +25,10 @@ export class Submission {
 
     @Column({ type: 'uuid' })
     student_id: string;
+
+    @ManyToOne(() => User)
+    @JoinColumn({ name: 'student_id' })
+    student: User;
 
     @Column({ type: 'text', nullable: true })
     content: string | null;

@@ -6,3 +6,14 @@ export function createQuiz(payload) {
     body: JSON.stringify(payload),
   });
 }
+
+export function updateQuiz(quizId, payload) {
+  return apiRequest(`/quizzes/${quizId}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteQuiz(quizId) {
+  return apiRequest(`/quizzes/${quizId}`, { method: 'DELETE' });
+}

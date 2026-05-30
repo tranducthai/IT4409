@@ -7,8 +7,9 @@ import {
   OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm';
-import { Quiz } from '../../quizzes/entities/quiz.entity';
 import { QuizAnswer } from '../../quiz-answers/entities/quiz-answer.entity';
+import { Quiz } from '../../quizzes/entities/quiz.entity';
+import { User } from '../../users/entities/user.entity';
 
 @Entity('quiz_attempts')
 export class QuizAttempt {
@@ -24,6 +25,10 @@ export class QuizAttempt {
 
   @Column({ type: 'uuid' })
   student_id: string;
+
+  @ManyToOne(() => User)
+  @JoinColumn({ name: 'student_id' })
+  student: User;
 
   @CreateDateColumn({ type: 'timestamp' })
   start_time: Date;

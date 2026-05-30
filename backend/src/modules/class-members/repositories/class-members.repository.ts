@@ -70,6 +70,15 @@ export class ClassMembersRepository {
       .getMany();
   }
 
+  countActiveStudentsByClass(class_id: string) {
+    return this.repo
+      .createQueryBuilder('cm')
+      .where('cm.class_id = :class_id', { class_id })
+      .andWhere('cm.role = :role', { role: ClassMemberRole.Student })
+      .andWhere('cm.status = :status', { status: ClassMemberStatus.Active })
+      .getCount();
+  }
+
   createOne(data: Partial<ClassMember>) {
     return this.repo.save(this.repo.create(data));
   }

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -8,7 +9,11 @@ import {
   Patch,
   Post,
   Redirect,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { buildFileUrl, createDiskStorage } from '../../common/utils/upload.util';
 import { CreateLessonContentDto } from './dtos/create-lesson-content.dto';
 import { CreateManyLessonContentsDto } from './dtos/create-many-lesson-contents.dto';
 import { UpdateLessonContentDto } from './dtos/update-lesson-content.dto';
@@ -21,6 +26,26 @@ export class LessonContentsController {
   @Post()
   create(@Body() dto: CreateLessonContentDto) {
     return this.lessonContentsService.create(dto);
+  }
+
+  @Post('upload')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: createDiskStorage('lesson-contents'),
+    }),
+  )
+  upload(@UploadedFile() file?: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('File is required');
+    }
+
+    return {
+      file_url: buildFileUrl('lesson-contents', file.filename),
+      original_name: file.originalname,
+      file_name: file.filename,
+      mime_type: file.mimetype,
+      size: file.size,
+    };
   }
 
   @Post('bulk')

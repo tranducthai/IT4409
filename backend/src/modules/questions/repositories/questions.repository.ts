@@ -8,7 +8,7 @@ export class QuestionsRepository {
   constructor(
     @InjectRepository(Question)
     private readonly repo: Repository<Question>,
-  ) {}
+  ) { }
 
   findAll() {
     return this.repo.find();
@@ -16,6 +16,10 @@ export class QuestionsRepository {
 
   findById(id: string) {
     return this.repo.findOne({ where: { id } });
+  }
+
+  findByQuizId(quiz_id: string) {
+    return this.repo.find({ where: { quiz_id } });
   }
 
   createOne(data: Partial<Question>) {

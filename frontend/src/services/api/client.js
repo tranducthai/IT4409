@@ -90,5 +90,50 @@ export async function apiRequest(path, options = {}) {
   return data;
 }
 
+export async function apiUpload(path, formData, options = {}) {
+  const token = getAccessToken();
+  const headers = {
+    ...(options.headers ?? {}),
+  };
+
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  let response = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'POST',
+    ...options,
+    headers,
+    body: formData,
+  });
+
+  if (response.status === 401 && !options._retry) {
+    const newToken = await tryRefreshToken();
+    if (newToken) {
+      const retryHeaders = {
+        ...headers,
+        Authorization: `Bearer ${newToken}`,
+      };
+      response = await fetch(`${API_BASE_URL}${path}`, {
+        method: 'POST',
+        ...options,
+        headers: retryHeaders,
+        body: formData,
+        _retry: true,
+      });
+    } else {
+      clearAuthState();
+    }
+  }
+
+  const hasBody = response.status !== 204;
+  const data = hasBody ? await response.json().catch(() => null) : null;
+
+  if (!response.ok) {
+    const message = data?.message ?? data?.error ?? `API request failed with status ${response.status}`;
+    throw new ApiError(message, response.status, data);
+  }
+
+  return data;
+}
+
 export { API_BASE_URL };
 

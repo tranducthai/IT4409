@@ -2,19 +2,28 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
+import { Request } from 'express';
+import type { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { UserRole } from '../users/enums/user-role.enum';
+import { ClassesService } from './classes.service';
 import { CreateClassDto } from './dtos/create-class.dto';
 import { UpdateClassDto } from './dtos/update-class.dto';
-import { ClassesService } from './classes.service';
+
+type AuthedRequest = Request & { user: JwtPayload };
 
 @Controller('classes')
 export class ClassesController {
-  constructor(private readonly classesService: ClassesService) {}
+  constructor(private readonly classesService: ClassesService) { }
 
   @Post()
   create(@Body() dto: CreateClassDto) {
@@ -29,6 +38,18 @@ export class ClassesController {
   @Get(':id')
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.classesService.findOne(id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(':id/teacher-progress')
+  getTeacherProgress(
+    @Req() req: AuthedRequest,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    if (req.user.role !== UserRole.TEACHER) {
+      throw new ForbiddenException('Teacher role required');
+    }
+    return this.classesService.getTeacherProgress(id, req.user.sub);
   }
 
   @Patch(':id')

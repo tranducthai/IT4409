@@ -86,6 +86,41 @@ export class SubmissionsService {
         return this.submissionsRepository.findByIdWithFiles(submission.id);
     }
 
+    async findByAssignmentForTeacher(assignmentId: string, teacherId: string) {
+        const assignment = await this.assignmentsService.findOne(assignmentId);
+        if (assignment.created_by !== teacherId) {
+            throw new ForbiddenException('Only creator can view submissions');
+        }
+        return this.submissionsRepository.findManyByAssignmentIdWithFiles(assignmentId);
+    }
+
+    async findMyByAssignment(assignmentId: string, studentId: string) {
+        const assignment = await this.assignmentsService.findOne(assignmentId);
+        await this.classMembersService.ensureActiveStudent(
+            assignment.class_id,
+            studentId,
+        );
+        return this.submissionsRepository.findManyByAssignmentAndStudent(
+            assignmentId,
+            studentId,
+        );
+    }
+
+    async gradeSubmission(teacherId: string, submissionId: string, score?: number, feedback?: string) {
+        const existing = await this.submissionsRepository.findById(submissionId);
+        if (!existing) throw new NotFoundException('Submission not found');
+
+        const assignment = await this.assignmentsService.findOne(existing.assignment_id);
+        if (assignment.created_by !== teacherId) {
+            throw new ForbiddenException('Only creator can grade submissions');
+        }
+
+        return this.submissionsRepository.updateOne(submissionId, {
+            score: score === undefined ? undefined : score,
+            feedback: feedback === undefined ? undefined : feedback,
+        });
+    }
+
     async update(id: string, dto: UpdateSubmissionDto) {
         const existing = await this.submissionsRepository.findById(id);
         if (!existing) throw new NotFoundException('Submission not found');

@@ -156,6 +156,19 @@ function normalizeAssignment(assignment) {
   };
 }
 
+function normalizeDiscussion(item) {
+  if (!item || typeof item !== 'object') return null;
+  return {
+    id: item.id,
+    classId: item.class_id,
+    title: item.title ?? 'Thảo luận chưa có tiêu đề',
+    content: item.content ?? '',
+    createdBy: item.created_by,
+    createdAt: item.created_at,
+    author: item.author ?? null,
+  };
+}
+
 export async function getCourseDetailFromApi(courseId) {
   const course = await apiRequest(`/classes/${courseId}`);
   const normalizedCourse = normalizeCourse(course);
@@ -164,12 +177,13 @@ export async function getCourseDetailFromApi(courseId) {
     throw new Error('Không tìm thấy thông tin khóa học.');
   }
 
-  const [sectionsResult, contentsResult, quizzesResult, assignmentsResult] =
+  const [sectionsResult, contentsResult, quizzesResult, assignmentsResult, discussionsResult] =
     await Promise.all([
       loadOptionalArray(`/sections/class/${courseId}`, 'Không tải được danh sách phần'),
       loadOptionalArray('/lesson-contents', 'Không tải được tài nguyên bài học'),
       loadOptionalArray(`/quizzes/class/${courseId}`, 'Không tải được danh sách quiz'),
       loadOptionalArray(`/assignments/class/${courseId}`, 'Không tải được danh sách BTVN'),
+      loadOptionalArray(`/discussions/class/${courseId}`, 'Không tải được thảo luận'),
     ]);
 
   const rawSections = sectionsResult.items;
@@ -198,6 +212,7 @@ export async function getCourseDetailFromApi(courseId) {
     contentsResult.warning,
     quizzesResult.warning,
     assignmentsResult.warning,
+    discussionsResult.warning,
     ...lessonResults.map((result) => result.warning),
   ].filter(Boolean);
 
@@ -223,6 +238,12 @@ export async function getCourseDetailFromApi(courseId) {
         title: lesson.title ?? 'Bài học chưa có tiêu đề',
         description: lesson.description ?? '',
         duration: lesson.duration ? `${lesson.duration} phút` : 'Chưa cập nhật',
+        durationValue: lesson.duration ?? null,
+        orderIndex: lesson.order_index ?? 0,
+        type: lesson.type ?? null,
+        fileUrl: lesson.file_url ?? null,
+        content: lesson.content ?? null,
+        quizId: lesson.quiz_id ?? null,
         contentCount: contents.length,
         contentTypes: contents.map((item) => item.displayType),
         contents,
@@ -245,7 +266,7 @@ export async function getCourseDetailFromApi(courseId) {
     course: normalizedCourse,
     sections,
     lessons: flatLessons,
-    discussions: [],
+    discussions: discussionsResult.items.map(normalizeDiscussion).filter(Boolean),
     resources: buildResourceGroups(sections, quizzes, courseId),
     quizzes,
     assignments: assignmentsResult.items.map(normalizeAssignment).filter(Boolean),

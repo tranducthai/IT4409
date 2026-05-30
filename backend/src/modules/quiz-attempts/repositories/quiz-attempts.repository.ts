@@ -8,7 +8,7 @@ export class QuizAttemptsRepository {
   constructor(
     @InjectRepository(QuizAttempt)
     private readonly repo: Repository<QuizAttempt>,
-  ) {}
+  ) { }
 
   findAll() {
     return this.repo.find();
@@ -29,5 +29,33 @@ export class QuizAttemptsRepository {
 
   async removeOne(id: string) {
     await this.repo.delete({ id });
+  }
+
+  async findBestScoresByQuizIds(quizIds: string[]) {
+    if (!quizIds.length) return [] as {
+      quiz_id: string;
+      student_id: string;
+      best_score: number | null;
+      last_end_time: Date | null;
+      student_full_name: string | null;
+      student_avatar_url: string | null;
+    }[];
+
+    return this.repo
+      .createQueryBuilder('attempt')
+      .leftJoin('attempt.student', 'student')
+      .where('attempt.quiz_id IN (:...quizIds)', { quizIds })
+      .andWhere('attempt.score IS NOT NULL')
+      .select('attempt.quiz_id', 'quiz_id')
+      .addSelect('attempt.student_id', 'student_id')
+      .addSelect('MAX(attempt.score)', 'best_score')
+      .addSelect('MAX(attempt.end_time)', 'last_end_time')
+      .addSelect('student.full_name', 'student_full_name')
+      .addSelect('student.avatar_url', 'student_avatar_url')
+      .groupBy('attempt.quiz_id')
+      .addGroupBy('attempt.student_id')
+      .addGroupBy('student.full_name')
+      .addGroupBy('student.avatar_url')
+      .getRawMany();
   }
 }

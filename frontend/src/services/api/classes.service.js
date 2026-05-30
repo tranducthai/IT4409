@@ -24,6 +24,13 @@ export function getTeacherClasses(accessToken) {
   });
 }
 
+export function getAllClasses(accessToken) {
+  return apiRequest('/classes', {
+    method: 'GET',
+    ...withAuth(accessToken),
+  });
+}
+
 export function getPendingClassRequests(classId, accessToken) {
   return apiRequest(`/class-members/classes/${classId}/pending`, {
     method: 'GET',
@@ -50,6 +57,13 @@ export function updateClass(classId, payload, accessToken) {
 export function deleteClass(classId, accessToken) {
   return apiRequest(`/classes/${classId}`, {
     method: 'DELETE',
+    ...withAuth(accessToken),
+  });
+}
+
+export function getTeacherClassProgress(classId, accessToken) {
+  return apiRequest(`/classes/${classId}/teacher-progress`, {
+    method: 'GET',
     ...withAuth(accessToken),
   });
 }

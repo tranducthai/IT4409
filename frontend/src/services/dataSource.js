@@ -1,18 +1,18 @@
 import {
-  addMockCourseQuiz,
-  getMockCourseById,
-  getMockCourseDiscussions,
-  getMockCourseAssignments,
-  getMockCourseLessons,
-  getMockCourseResources,
-  getMockCourseSections,
-  getMockCourseProgress,
-  getMockCourseQuizzes,
-  getMockQuizDetail,
-  getMockStudentCourseCards,
-  getMockTeacherCourseCards,
-  getMockTeacherPendingRequests,
-  mockCourseCards,
+    addMockCourseQuiz,
+    getMockCourseAssignments,
+    getMockCourseById,
+    getMockCourseDiscussions,
+    getMockCourseLessons,
+    getMockCourseProgress,
+    getMockCourseQuizzes,
+    getMockCourseResources,
+    getMockCourseSections,
+    getMockQuizDetail,
+    getMockStudentCourseCards,
+    getMockTeacherCourseCards,
+    getMockTeacherPendingRequests,
+    mockCourseCards,
 } from '../mocks/courses/mockCourses';
 
 export const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA !== 'false';
@@ -56,5 +56,11 @@ export function createMockQuiz(quiz) {
 }
 
 export { getCourseDetailFromApi } from './api/course-detail.service';
-export { getQuizDetailFromApi } from './api/quiz-detail.service';
+export {
+    getQuizDetailFromApi,
+    listMyQuizAttempts,
+    startQuizAttempt,
+    submitQuizAttempt
+} from './api/quiz-detail.service';
 export { createQuiz } from './api/quizzes.service';
+
