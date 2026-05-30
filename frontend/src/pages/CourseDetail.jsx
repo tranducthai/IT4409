@@ -209,7 +209,7 @@ function ResourceCard({ resource, compact = false }) {
           type === 'quiz' ? (
             <Link
               to={actionUrl}
-              className="inline-flex h-8 flex-shrink-0 items-center gap-1 rounded-lg bg-indigo-600 px-2.5 text-xs font-semibold text-white"
+              className="action-btn inline-flex h-8 flex-shrink-0 items-center gap-1 rounded-lg bg-indigo-600 px-2.5 text-xs font-semibold text-white hover:bg-indigo-700"
             >
               Mở
               <ExternalLink className="h-3.5 w-3.5" />
@@ -219,7 +219,7 @@ function ResourceCard({ resource, compact = false }) {
               href={actionUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex h-8 flex-shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2.5 text-xs font-semibold text-slate-700 hover:border-indigo-200 hover:text-indigo-700 dark:border-slate-700 dark:text-slate-200"
+              className="action-btn inline-flex h-8 flex-shrink-0 items-center gap-1 rounded-lg border border-slate-200 px-2.5 text-xs font-semibold text-slate-700 hover:border-indigo-200 hover:text-indigo-700 dark:border-slate-700 dark:text-slate-200"
             >
               Mở
               <ExternalLink className="h-3.5 w-3.5" />
@@ -277,7 +277,7 @@ function AssignmentCard({ assignment }) {
               href={attachment.fileUrl}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-700 hover:border-indigo-200 hover:text-indigo-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+              className="action-btn inline-flex h-8 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-700 hover:border-indigo-200 hover:text-indigo-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
             >
               {attachment.originalName}
               <ExternalLink className="h-3.5 w-3.5" />
@@ -413,7 +413,7 @@ export default function CourseDetail() {
 
   if (isLoading) {
     return (
-      <main className="mx-auto w-full max-w-5xl flex-grow px-4 py-12 md:px-8">
+      <main className="mx-auto w-full max-w-7xl flex-grow px-4 py-12 md:px-8">
         <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center text-slate-500 transition-colors dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
           Đang tải chi tiết khóa học...
         </div>
@@ -423,7 +423,7 @@ export default function CourseDetail() {
 
   if (error) {
     return (
-      <main className="mx-auto w-full max-w-5xl flex-grow px-4 py-12 md:px-8">
+      <main className="mx-auto w-full max-w-7xl flex-grow px-4 py-12 md:px-8">
         <div className="rounded-2xl border border-rose-200 bg-rose-50 px-6 py-14 text-center text-rose-700 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-200">
           <h1 className="text-2xl font-bold">Không tải được khóa học</h1>
           <p className="mt-2 text-sm">{error}</p>
@@ -431,11 +431,11 @@ export default function CourseDetail() {
             <button
               type="button"
               onClick={handleRetry}
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white"
+              className="action-btn rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
             >
               Tải lại
             </button>
-            <Link to="/dashboard" className="inline-block rounded-lg border border-rose-200 bg-white px-4 py-2 text-sm font-semibold text-rose-700 dark:border-rose-400/30 dark:bg-slate-950 dark:text-rose-200">
+            <Link to="/dashboard" className="action-btn inline-block rounded-lg border border-rose-200 bg-white px-4 py-2 text-sm font-semibold text-rose-700 hover:border-rose-300 hover:bg-rose-50 dark:border-rose-400/30 dark:bg-slate-950 dark:text-rose-200 dark:hover:bg-rose-500/10">
               Quay lại bảng điều khiển
             </Link>
           </div>
@@ -446,11 +446,11 @@ export default function CourseDetail() {
 
   if (!course) {
     return (
-      <main className="mx-auto w-full max-w-5xl flex-grow px-4 py-12 md:px-8">
+      <main className="mx-auto w-full max-w-7xl flex-grow px-4 py-12 md:px-8">
         <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center">
           <h1 className="text-2xl font-bold text-slate-900">Không tìm thấy khóa học</h1>
           <p className="mt-2 text-sm text-slate-500">Khóa học bạn truy cập không tồn tại trong danh sách mock hiện tại.</p>
-          <Link to="/dashboard" className="mt-6 inline-block rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">
+          <Link to="/dashboard" className="action-btn mt-6 inline-block rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
             Quay lại bảng điều khiển
           </Link>
         </div>
@@ -523,7 +523,7 @@ export default function CourseDetail() {
                   key={tab.key}
                   type="button"
                   onClick={() => setActiveTab(tab.key)}
-                  className={`rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+                  className={`action-btn rounded-lg border px-3 py-2 text-sm font-semibold ${
                     activeTab === tab.key
                       ? 'border-indigo-200 bg-indigo-600 text-white'
                       : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:text-indigo-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300 dark:hover:border-indigo-400 dark:hover:text-indigo-200'
@@ -548,7 +548,7 @@ export default function CourseDetail() {
           <button
             type="button"
             onClick={handleRetry}
-            className="mt-3 rounded-lg bg-amber-600 px-3 py-2 text-xs font-semibold text-white"
+            className="action-btn mt-3 rounded-lg bg-amber-600 px-3 py-2 text-xs font-semibold text-white hover:bg-amber-700"
           >
             Tải lại dữ liệu
           </button>
@@ -740,7 +740,7 @@ export default function CourseDetail() {
               <button
                 type="submit"
                 disabled={isCreatingQuiz}
-                className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+                className="action-btn mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300"
               >
                 {isCreatingQuiz ? 'Đang tạo...' : 'Tạo quiz'}
               </button>

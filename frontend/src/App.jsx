@@ -5,6 +5,8 @@ import Footer from './components/Footer';
 import DevModeBanner from './components/DevModeBanner';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
+import Account from './pages/Account';
+import Profile from './pages/Profile';
 import CourseDetail from './pages/CourseDetail';
 import QuizDetail from './pages/QuizDetail';
 import Login from './pages/login';
@@ -49,6 +51,22 @@ function App() {
                 element={
                   <RequireAuth>
                     <DashboardRoute />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/account"
+                element={
+                  <RequireAuth>
+                    <Account />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/profile"
+                element={
+                  <RequireAuth>
+                    <Profile />
                   </RequireAuth>
                 }
               />

@@ -74,7 +74,7 @@ function Register() {
           <div>
             <label
               htmlFor="fullName"
-              className="mb-1 block text-sm font-medium text-slate-700"
+              className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200"
             >
               Họ và tên
             </label>
@@ -93,7 +93,7 @@ function Register() {
           <div>
             <label
               htmlFor="role"
-              className="mb-1 block text-sm font-medium text-slate-700"
+              className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200"
             >
               Vai trò
             </label>
@@ -113,7 +113,7 @@ function Register() {
           <div>
             <label
               htmlFor="email"
-              className="mb-1 block text-sm font-medium text-slate-700"
+              className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200"
             >
               Email
             </label>
@@ -132,7 +132,7 @@ function Register() {
           <div>
             <label
               htmlFor="password"
-              className="mb-1 block text-sm font-medium text-slate-700"
+              className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200"
             >
               Mật khẩu
             </label>
@@ -151,7 +151,7 @@ function Register() {
           <div>
             <label
               htmlFor="confirmPassword"
-              className="mb-1 block text-sm font-medium text-slate-700"
+              className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-200"
             >
               Nhập lại mật khẩu
             </label>
@@ -161,7 +161,7 @@ function Register() {
               placeholder="••••••••"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100"
+              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:bg-slate-900"
               required
               disabled={isSubmitting}
             />
@@ -170,7 +170,7 @@ function Register() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-70"
+            className="action-btn w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {isSubmitting ? 'Đang xử lý...' : 'Đăng ký'}
           </button>
@@ -178,7 +178,7 @@ function Register() {
 
         <p className="mt-6 text-center text-sm text-slate-600 dark:text-slate-400">
           Đã có tài khoản?{' '}
-          <Link to="/login" className="font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-300 dark:hover:text-indigo-200">
+          <Link to="/login" className="action-btn rounded px-1 font-semibold text-indigo-600 hover:text-indigo-700 dark:text-indigo-300 dark:hover:text-indigo-200">
             Đăng nhập
           </Link>
         </p>

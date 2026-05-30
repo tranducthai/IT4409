@@ -1,4 +1,5 @@
 import { authStorageKeys, clearAuthState } from './authState';
+import { setCurrentUser } from './session';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api';
 
@@ -42,6 +43,7 @@ async function tryRefreshToken() {
       accessToken: data.access_token,
       refreshToken: data.refresh_token ?? refreshToken,
     });
+    if (data.user) setCurrentUser(data.user);
     return data.access_token;
   }
   return null;
@@ -91,4 +93,3 @@ export async function apiRequest(path, options = {}) {
 }
 
 export { API_BASE_URL };
-
