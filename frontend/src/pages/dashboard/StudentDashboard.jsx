@@ -18,23 +18,23 @@ export default function StudentDashboard({ courses, isLoading = false, error = '
       </div>
 
       {error && (
-        <div className="mb-4 max-w-5xl rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+        <div className="mb-4 w-full rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
           {error}
         </div>
       )}
 
       {isLoading ? (
-        <div className="max-w-5xl rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center text-slate-500 transition-colors dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
+        <div className="w-full rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center text-slate-500 transition-colors dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
           Đang tải danh sách lớp...
         </div>
       ) : hasCourses ? (
-        <div className="max-w-5xl">
+        <div className="w-full">
           {courses.map((item) => (
             <DashboardCard key={item.id} course={item} />
           ))}
         </div>
       ) : (
-        <div className="max-w-5xl rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center text-slate-500 transition-colors dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
+        <div className="w-full rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center text-slate-500 transition-colors dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
           Bạn chưa tham gia khóa học nào.
         </div>
       )}

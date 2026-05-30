@@ -100,8 +100,28 @@ export async function changePassword(payload) {
   });
 }
 
+export async function getCurrentUserFromApi() {
+  if (USE_MOCK_DATA) {
+    return getCurrentUser();
+  }
+
+  try {
+    const user = await apiRequest('/auth/me', {
+      method: 'GET',
+    });
+
+    if (user) setCurrentUser(user);
+    return user;
+  } catch (error) {
+    if (error?.status === 401 || error?.status === 403) {
+      clearAuthState();
+    }
+    throw error;
+  }
+}
+
 export function logout() {
   clearAuthState();
 }
 
-export default { login, register, changePassword, logout };
+export default { login, register, changePassword, getCurrentUserFromApi, logout };
