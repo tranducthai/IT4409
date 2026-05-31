@@ -201,3 +201,14 @@ export async function apiUpload(path, formData, options = {}) {
 }
 
 export { API_BASE_URL };
+
+export function toAbsoluteFileUrl(path) {
+  if (!path) return '';
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  try {
+    const origin = new URL(API_BASE_URL).origin;
+    return `${origin}${path}`;
+  } catch {
+    return path;
+  }
+}

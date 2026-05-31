@@ -1,4 +1,4 @@
-import { apiRequest } from './client';
+import { apiRequest, toAbsoluteFileUrl } from './client';
 
 const defaultCourseImage = 'https://via.placeholder.com/400x225';
 
@@ -148,7 +148,7 @@ function normalizeAssignment(assignment) {
     status: getAssignmentStatus(assignment),
     attachments: toArray(assignment.attachments).map((attachment) => ({
       id: attachment.id,
-      fileUrl: attachment.file_url,
+      fileUrl: toAbsoluteFileUrl(attachment.file_url),
       originalName: attachment.original_name ?? attachment.file_name ?? 'File đính kèm',
       mimeType: attachment.mime_type,
       size: attachment.size,

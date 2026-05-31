@@ -7,7 +7,8 @@ import {
     Paperclip,
     Video,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { io } from 'socket.io-client';
 import { Link, useParams } from 'react-router-dom';
 import {
     createAssignment,
@@ -15,6 +16,14 @@ import {
     updateAssignment,
 } from '../services/api/assignments.service';
 import { getTeacherClassProgress } from '../services/api/classes.service';
+import {
+    createClassFolder,
+    deleteClassFolder,
+    deleteClassResource,
+    getClassFolders,
+    getClassResources,
+    uploadClassResource,
+} from '../services/api/class-resources.service';
 import {
     createDiscussion,
     deleteDiscussion,
@@ -38,6 +47,7 @@ import {
     deleteSection,
     updateSection,
 } from '../services/api/sections.service';
+import { API_BASE_URL, getAccessToken, toAbsoluteFileUrl } from '../services/api/client';
 import { getCurrentUser } from '../services/api/session';
 import {
     getMySubmissionsByAssignment,
@@ -144,6 +154,27 @@ function formatDueDate(value) {
     hour: '2-digit',
     minute: '2-digit',
   }).format(date);
+}
+
+function toLocalDatetimeInput(utcString) {
+  if (!utcString) return '';
+  const d = new Date(utcString);
+  if (Number.isNaN(d.getTime())) return '';
+  const offset = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - offset).toISOString().slice(0, 16);
+}
+
+function formatChatTime(value) {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  const now = new Date();
+  const isToday = d.toDateString() === now.toDateString();
+  return isToday
+    ? d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+    : d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) +
+        ' ' +
+        d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 }
 
 function createQuizResource(quiz, courseId) {
@@ -420,6 +451,22 @@ export default function CourseDetail() {
   const [teacherProgress, setTeacherProgress] = useState(null);
   const [teacherProgressLoading, setTeacherProgressLoading] = useState(false);
   const [teacherProgressError, setTeacherProgressError] = useState('');
+  const chatSocketRef = useRef(null);
+  const messagesEndRef = useRef(null);
+  const [socketConnected, setSocketConnected] = useState(false);
+  const [classResources, setClassResources] = useState([]);
+  const [classFolders, setClassFolders] = useState([]);
+  const [classResourcesLoading, setClassResourcesLoading] = useState(false);
+  const [classResourcesError, setClassResourcesError] = useState('');
+  const [currentFolderId, setCurrentFolderId] = useState(null);
+  const [resourceUploadFile, setResourceUploadFile] = useState(null);
+  const [resourceUploading, setResourceUploading] = useState(false);
+  const [resourceUploadError, setResourceUploadError] = useState('');
+  const [resourceUploadSuccess, setResourceUploadSuccess] = useState('');
+  const [folderNameInput, setFolderNameInput] = useState('');
+  const [folderCreating, setFolderCreating] = useState(false);
+  const [folderCreateError, setFolderCreateError] = useState('');
+  const [showFolderForm, setShowFolderForm] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -474,6 +521,10 @@ export default function CourseDetail() {
   };
   const canManageLessons = currentUser?.role === 'TEACHER';
   const canManageAssignments = currentUser?.role === 'TEACHER';
+  const assignmentIds = useMemo(
+    () => assignmentItems.map((a) => a.id).join(','),
+    [assignmentItems],
+  );
   const handleRetry = () => setReloadToken((value) => value + 1);
   const canManageQuizzes = currentUser?.role === 'TEACHER';
 
@@ -527,6 +578,142 @@ export default function CourseDetail() {
       isMounted = false;
     };
   }, [activeTab, canManageAssignments, courseId, reloadToken]);
+
+  useEffect(() => {
+    if (activeTab !== 'resources' || USE_MOCK_DATA) return;
+    let isMounted = true;
+    const load = async () => {
+      setClassResourcesLoading(true);
+      setClassResourcesError('');
+      try {
+        const [files, folders] = await Promise.all([
+          getClassResources(courseId),
+          getClassFolders(courseId),
+        ]);
+        if (isMounted) {
+          setClassResources(files ?? []);
+          setClassFolders(folders ?? []);
+        }
+      } catch (err) {
+        if (isMounted) setClassResourcesError(err?.message || 'Không tải được tài nguyên.');
+      } finally {
+        if (isMounted) setClassResourcesLoading(false);
+      }
+    };
+    void load();
+    return () => { isMounted = false; };
+  }, [activeTab, courseId, reloadToken]);
+
+  const handleResourceUpload = async (event) => {
+    event.preventDefault();
+    if (!resourceUploadFile) return;
+    setResourceUploading(true);
+    setResourceUploadError('');
+    setResourceUploadSuccess('');
+    try {
+      const created = await uploadClassResource(courseId, resourceUploadFile, currentFolderId);
+      setClassResources((prev) => [created, ...prev]);
+      setResourceUploadFile(null);
+      setResourceUploadSuccess('Tải lên thành công.');
+      event.target.reset();
+    } catch (err) {
+      setResourceUploadError(err?.message || 'Tải lên thất bại.');
+    } finally {
+      setResourceUploading(false);
+    }
+  };
+
+  const handleDeleteClassResource = async (resourceId) => {
+    if (!window.confirm('Bạn có chắc muốn xóa tài nguyên này?')) return;
+    try {
+      await deleteClassResource(resourceId);
+      setClassResources((prev) => prev.filter((r) => r.id !== resourceId));
+    } catch (err) {
+      setClassResourcesError(err?.message || 'Không xóa được tài nguyên.');
+    }
+  };
+
+  const handleCreateFolder = async (event) => {
+    event.preventDefault();
+    const name = folderNameInput.trim();
+    if (!name) return;
+    setFolderCreating(true);
+    setFolderCreateError('');
+    try {
+      const folder = await createClassFolder(courseId, name);
+      setClassFolders((prev) => [...prev, folder]);
+      setFolderNameInput('');
+      setShowFolderForm(false);
+    } catch (err) {
+      setFolderCreateError(err?.message || 'Không tạo được thư mục.');
+    } finally {
+      setFolderCreating(false);
+    }
+  };
+
+  const handleDeleteFolder = async (folderId) => {
+    if (!window.confirm('Xóa thư mục này? Thư mục phải trống mới xóa được.')) return;
+    try {
+      await deleteClassFolder(folderId);
+      setClassFolders((prev) => prev.filter((f) => f.id !== folderId));
+      if (currentFolderId === folderId) setCurrentFolderId(null);
+    } catch (err) {
+      setClassResourcesError(err?.message || 'Không xóa được thư mục.');
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab !== 'assignments' || USE_MOCK_DATA || !assignmentIds) return;
+    assignmentIds.split(',').filter(Boolean).forEach((id) => {
+      if (!submissionHistory[id]) {
+        void loadSubmissionHistory(id);
+      }
+    });
+  }, [activeTab, assignmentIds]);
+
+  // ── WebSocket chat ──────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (activeTab !== 'discussions' || USE_MOCK_DATA) return;
+
+    const backendOrigin = new URL(API_BASE_URL).origin;
+    const socket = io(`${backendOrigin}/chat`, {
+      auth: { token: getAccessToken() ?? '' },
+      transports: ['websocket', 'polling'],
+    });
+    chatSocketRef.current = socket;
+
+    socket.on('connect', () => setSocketConnected(true));
+    socket.on('disconnect', () => setSocketConnected(false));
+    socket.on('connect_error', () => setSocketConnected(false));
+
+    socket.on('newMessage', (msg) => {
+      setDiscussionMessages((prev) =>
+        prev.find((m) => m.id === msg.id) ? prev : [...prev, msg],
+      );
+    });
+
+    return () => {
+      socket.disconnect();
+      chatSocketRef.current = null;
+      setSocketConnected(false);
+    };
+  }, [activeTab]);
+
+  // Join/leave discussion room
+  useEffect(() => {
+    const socket = chatSocketRef.current;
+    if (!socket || !socketConnected || !selectedDiscussionId) return;
+    socket.emit('joinDiscussion', selectedDiscussionId);
+    return () => {
+      if (socket.connected) socket.emit('leaveDiscussion', selectedDiscussionId);
+    };
+  }, [socketConnected, selectedDiscussionId]);
+  // ────────────────────────────────────────────────────────────────────────────
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [discussionMessages]);
 
   const handleQuizFormChange = (field, value) => {
     setQuizForm((prev) => ({
@@ -769,7 +956,7 @@ export default function CourseDetail() {
     }
   };
 
-  const handleCreateMessage = async (event) => {
+  const handleCreateMessage = (event) => {
     event.preventDefault();
     setMessageError('');
 
@@ -779,21 +966,22 @@ export default function CourseDetail() {
     }
 
     const content = messageForm.trim();
-    if (!content) {
-      setMessageError('Vui lòng nhập nội dung tin nhắn.');
+    if (!content) return;
+
+    const socket = chatSocketRef.current;
+    if (!socket || !socket.connected) {
+      setMessageError('Chưa kết nối chat. Vui lòng thử lại.');
       return;
     }
 
-    try {
-      await createMessage({
-        discussion_id: selectedDiscussionId,
-        content,
-      });
-      setMessageForm('');
-      await loadMessages(selectedDiscussionId);
-    } catch (err) {
-      setMessageError(err?.message || 'Không gửi được tin nhắn.');
-    }
+    setMessageForm('');
+    socket.emit(
+      'sendMessage',
+      { discussionId: selectedDiscussionId, content },
+      (ack) => {
+        if (ack?.error) setMessageError(ack.error);
+      },
+    );
   };
 
   const toIsoDate = (value) => {
@@ -849,7 +1037,7 @@ export default function CourseDetail() {
     setEditingAssignmentForm({
       title: assignment.title ?? '',
       description: assignment.description ?? '',
-      dueDate: assignment.dueDate ? assignment.dueDate.slice(0, 16) : '',
+      dueDate: toLocalDatetimeInput(assignment.dueDate),
     });
     setEditingAssignmentError('');
   };
@@ -2067,232 +2255,365 @@ export default function CourseDetail() {
           )}
 
           {assignmentItems.length > 0 ? (
-            <div className="mt-4 grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
-              {assignmentItems.map((assignment) => (
-                <div key={assignment.id} className="space-y-3">
-                  <AssignmentCard assignment={assignment} />
-                  {canManageAssignments && (
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleStartEditAssignment(assignment)}
-                        className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
-                      >
-                        Sửa
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteAssignment(assignment.id)}
-                        className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-600 dark:border-rose-400/40 dark:bg-rose-400/10 dark:text-rose-200"
-                      >
-                        Xóa
-                      </button>
-                    </div>
-                  )}
-                  {canManageAssignments && editingAssignmentId === assignment.id && (
-                    <form
-                      className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900"
-                      onSubmit={handleUpdateAssignment}
-                    >
-                      <div className="grid gap-3 md:grid-cols-2">
-                        <input
-                          className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                          placeholder="Tiêu đề"
-                          value={editingAssignmentForm.title}
-                          onChange={(event) =>
-                            setEditingAssignmentForm((prev) => ({
-                              ...prev,
-                              title: event.target.value,
-                            }))
-                          }
-                          required
-                        />
-                        <input
-                          className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                          type="datetime-local"
-                          value={editingAssignmentForm.dueDate}
-                          onChange={(event) =>
-                            setEditingAssignmentForm((prev) => ({
-                              ...prev,
-                              dueDate: event.target.value,
-                            }))
-                          }
-                        />
-                        <textarea
-                          className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 md:col-span-2"
-                          placeholder="Mô tả"
-                          value={editingAssignmentForm.description}
-                          onChange={(event) =>
-                            setEditingAssignmentForm((prev) => ({
-                              ...prev,
-                              description: event.target.value,
-                            }))
-                          }
-                        />
-                      </div>
-                      {editingAssignmentError && (
-                        <div className="mt-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-200">
-                          {editingAssignmentError}
+            <div className="mt-4 space-y-4">
+              {assignmentItems.map((assignment) => {
+                const mySubmissions = submissionHistory[assignment.id];
+                const hasSubmitted = mySubmissions?.length > 0;
+                const latestSubmission = mySubmissions?.[0];
+                const isSubmissionsVisible = submissionForms[assignment.id]?.showSubmissions ?? false;
+
+                return (
+                  <div key={assignment.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+                    {/* Header: card + status + teacher actions */}
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                            {assignment.title}
+                          </p>
+                          {/* Submission status badge (student) */}
+                          {!canManageAssignments && mySubmissions !== undefined && (
+                            <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${hasSubmitted ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200' : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300'}`}>
+                              {hasSubmitted ? 'Đã nộp' : 'Chưa nộp'}
+                            </span>
+                          )}
+                          {/* Submission count badge (teacher) */}
+                          {canManageAssignments && mySubmissions !== undefined && (
+                            <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-semibold text-indigo-700 dark:bg-indigo-400/10 dark:text-indigo-200">
+                              {mySubmissions.length} bài nộp
+                            </span>
+                          )}
                         </div>
-                      )}
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        <button type="submit" className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white">
-                          Lưu
+                        {assignment.description && (
+                          <p className="mt-1 text-sm leading-5 text-slate-600 dark:text-slate-300">
+                            {assignment.description}
+                          </p>
+                        )}
+                        <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+                          <span className="inline-flex items-center gap-1">
+                            <CalendarClock className="h-3.5 w-3.5" />
+                            Hạn nộp: {formatDueDate(assignment.dueDate)}
+                          </span>
+                          {assignment.attachments?.length > 0 && (
+                            <span className="inline-flex items-center gap-1">
+                              <Paperclip className="h-3.5 w-3.5" />
+                              {assignment.attachments.length} tệp đính kèm
+                            </span>
+                          )}
+                        </div>
+                        {/* Attachment download links */}
+                        {assignment.attachments?.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {assignment.attachments.map((att) => (
+                              <a
+                                key={att.id}
+                                href={att.fileUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex h-7 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-700 hover:border-indigo-200 hover:text-indigo-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                              >
+                                {att.originalName}
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      {/* Assignment status badge */}
+                      {(() => {
+                        const meta = assignmentStatusMeta[assignment.status] ?? assignmentStatusMeta['no-due'];
+                        return (
+                          <span className={`flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${meta.className}`}>
+                            {meta.label}
+                          </span>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Teacher: edit / delete */}
+                    {canManageAssignments && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleStartEditAssignment(assignment)}
+                          className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 hover:border-indigo-200 hover:text-indigo-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                        >
+                          Sửa
                         </button>
                         <button
                           type="button"
-                          onClick={() => setEditingAssignmentId(null)}
-                          className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                          onClick={() => handleDeleteAssignment(assignment.id)}
+                          className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-600 dark:border-rose-400/40 dark:bg-rose-400/10 dark:text-rose-200"
                         >
-                          Hủy
+                          Xóa
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            updateSubmissionForm(assignment.id, { showSubmissions: !isSubmissionsVisible });
+                            if (!mySubmissions) void loadSubmissionHistory(assignment.id);
+                          }}
+                          className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-700 dark:border-indigo-400/30 dark:bg-indigo-400/10 dark:text-indigo-200"
+                        >
+                          {isSubmissionsVisible ? 'Ẩn bài nộp' : 'Xem bài nộp'}
                         </button>
                       </div>
-                    </form>
-                  )}
-                  {!canManageAssignments && (
-                    <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
-                      <button
-                        type="button"
-                        onClick={() => handleToggleSubmission(assignment.id)}
-                        className="rounded-lg bg-indigo-600 px-3 py-1 text-xs font-semibold text-white"
+                    )}
+
+                    {/* Teacher: edit form */}
+                    {canManageAssignments && editingAssignmentId === assignment.id && (
+                      <form
+                        className="mt-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900"
+                        onSubmit={handleUpdateAssignment}
                       >
-                        {submissionForms[assignment.id]?.isOpen ? 'Đóng nộp bài' : 'Nộp bài'}
-                      </button>
-                      {submissionLoading[assignment.id]?.isLoading && (
-                        <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Đang tải lịch sử nộp bài...</p>
-                      )}
-                      {submissionLoading[assignment.id]?.error && (
-                        <p className="mt-2 text-xs text-rose-600 dark:text-rose-200">
-                          {submissionLoading[assignment.id]?.error}
-                        </p>
-                      )}
-                      {submissionHistory[assignment.id]?.length > 0 && (
-                        <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
-                          <p>Đã nộp {submissionHistory[assignment.id].length} lần.</p>
-                          <p className="mt-1">
-                            Lần gần nhất: {submissionHistory[assignment.id][0]?.submitted_at ? new Date(submissionHistory[assignment.id][0].submitted_at).toLocaleString('vi-VN') : 'N/A'}
-                          </p>
-                          {submissionHistory[assignment.id][0]?.score !== null && submissionHistory[assignment.id][0]?.score !== undefined && (
-                            <p className="mt-1">Điểm: {submissionHistory[assignment.id][0].score}</p>
-                          )}
-                          {submissionHistory[assignment.id][0]?.feedback && (
-                            <p className="mt-1">Nhận xét: {submissionHistory[assignment.id][0].feedback}</p>
-                          )}
-                        </div>
-                      )}
-                      {submissionForms[assignment.id]?.isOpen && (
-                        <form className="mt-3" onSubmit={(event) => handleSubmitAssignment(event, assignment.id)}>
-                          <textarea
-                            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                            placeholder="Ghi chú nộp bài"
-                            value={submissionForms[assignment.id]?.content ?? ''}
-                            onChange={(event) => updateSubmissionForm(assignment.id, { content: event.target.value })}
-                            rows={3}
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <input
+                            className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                            placeholder="Tiêu đề"
+                            value={editingAssignmentForm.title}
+                            onChange={(event) =>
+                              setEditingAssignmentForm((prev) => ({ ...prev, title: event.target.value }))
+                            }
+                            required
                           />
                           <input
-                            className="mt-2 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                            type="file"
-                            multiple
+                            className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                            type="datetime-local"
+                            value={editingAssignmentForm.dueDate}
                             onChange={(event) =>
-                              updateSubmissionForm(
-                                assignment.id,
-                                { files: Array.from(event.target.files ?? []) },
-                              )
+                              setEditingAssignmentForm((prev) => ({ ...prev, dueDate: event.target.value }))
                             }
                           />
-                          {submissionErrors[assignment.id] && (
-                            <p className="mt-2 text-sm text-rose-600 dark:text-rose-200">
-                              {submissionErrors[assignment.id]}
-                            </p>
-                          )}
-                          {submissionSuccess[assignment.id] && (
-                            <p className="mt-2 text-sm text-emerald-600 dark:text-emerald-200">
-                              {submissionSuccess[assignment.id]}
-                            </p>
-                          )}
-                          <button type="submit" className="mt-2 rounded-lg bg-emerald-600 px-3 py-1 text-xs font-semibold text-white">
-                            Nộp bài
+                          <textarea
+                            className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 md:col-span-2"
+                            placeholder="Mô tả"
+                            value={editingAssignmentForm.description}
+                            onChange={(event) =>
+                              setEditingAssignmentForm((prev) => ({ ...prev, description: event.target.value }))
+                            }
+                          />
+                        </div>
+                        {editingAssignmentError && (
+                          <div className="mt-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-200">
+                            {editingAssignmentError}
+                          </div>
+                        )}
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <button type="submit" className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white">
+                            Lưu
                           </button>
-                        </form>
-                      )}
-                    </div>
-                  )}
-                  {canManageAssignments && (
-                    <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
-                      <button
-                        type="button"
-                        onClick={() => loadSubmissionHistory(assignment.id)}
-                        className="rounded-lg bg-indigo-600 px-3 py-1 text-xs font-semibold text-white"
-                      >
-                        Xem bài nộp
-                      </button>
-                      {submissionLoading[assignment.id]?.isLoading && (
-                        <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Đang tải danh sách nộp bài...</p>
-                      )}
-                      {submissionLoading[assignment.id]?.error && (
-                        <p className="mt-2 text-xs text-rose-600 dark:text-rose-200">
-                          {submissionLoading[assignment.id]?.error}
-                        </p>
-                      )}
-                      {submissionHistory[assignment.id]?.length > 0 && (
-                        <ul className="mt-3 space-y-2">
-                          {submissionHistory[assignment.id].map((submission) => (
-                            <li key={submission.id} className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200">
-                              <p>SV: {submission.student?.full_name ?? submission.student_id}</p>
-                              <p className="mt-1">Nộp lúc: {submission.submitted_at ? new Date(submission.submitted_at).toLocaleString('vi-VN') : ''}</p>
-                              {submission.files?.length > 0 && (
-                                <div className="mt-2 flex flex-wrap gap-2">
-                                  {submission.files.map((file) => (
-                                    <a
-                                      key={file.id}
-                                      href={file.file_url}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                                    >
-                                      {file.original_name}
-                                    </a>
-                                  ))}
-                                </div>
-                              )}
-                              <form className="mt-2" onSubmit={(event) => handleGradeSubmission(event, assignment.id, submission.id)}>
-                                <div className="grid gap-2 md:grid-cols-2">
-                                  <input
-                                    className="rounded-lg border border-slate-200 px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                                    placeholder="Điểm"
-                                    type="number"
-                                    value={gradingForms[submission.id]?.score ?? submission.score ?? ''}
-                                    onChange={(event) => updateGradingForm(submission.id, { score: event.target.value })}
-                                  />
-                                  <input
-                                    className="rounded-lg border border-slate-200 px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                                    placeholder="Nhận xét"
-                                    value={gradingForms[submission.id]?.feedback ?? submission.feedback ?? ''}
-                                    onChange={(event) => updateGradingForm(submission.id, { feedback: event.target.value })}
-                                  />
-                                </div>
-                                {gradingErrors[submission.id] && (
-                                  <p className="mt-2 text-xs text-rose-600 dark:text-rose-200">
-                                    {gradingErrors[submission.id]}
+                          <button
+                            type="button"
+                            onClick={() => setEditingAssignmentId(null)}
+                            className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                          >
+                            Hủy
+                          </button>
+                        </div>
+                      </form>
+                    )}
+
+                    {/* Teacher: submissions list */}
+                    {canManageAssignments && isSubmissionsVisible && (
+                      <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+                        {submissionLoading[assignment.id]?.isLoading && (
+                          <p className="text-xs text-slate-500 dark:text-slate-400">Đang tải danh sách nộp bài...</p>
+                        )}
+                        {submissionLoading[assignment.id]?.error && (
+                          <p className="text-xs text-rose-600 dark:text-rose-200">
+                            {submissionLoading[assignment.id]?.error}
+                          </p>
+                        )}
+                        {mySubmissions?.length === 0 && !submissionLoading[assignment.id]?.isLoading && (
+                          <p className="text-xs text-slate-500 dark:text-slate-400">Chưa có sinh viên nộp bài.</p>
+                        )}
+                        {mySubmissions?.length > 0 && (
+                          <ul className="space-y-3">
+                            {mySubmissions.map((submission) => (
+                              <li key={submission.id} className="rounded-lg border border-slate-100 bg-slate-50 p-3 text-xs text-slate-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200">
+                                <p className="font-semibold">{submission.student?.full_name ?? submission.student_id}</p>
+                                <p className="mt-0.5 text-slate-500">
+                                  Nộp lúc: {submission.submitted_at ? new Date(submission.submitted_at).toLocaleString('vi-VN') : ''}
+                                </p>
+                                {submission.content && (
+                                  <p className="mt-1 text-slate-600 dark:text-slate-300">Ghi chú: {submission.content}</p>
+                                )}
+                                {submission.score != null && (
+                                  <p className="mt-0.5">Điểm: <span className="font-semibold text-indigo-600 dark:text-indigo-300">{submission.score}</span></p>
+                                )}
+                                {submission.feedback && (
+                                  <p className="mt-0.5 text-slate-500">Nhận xét: {submission.feedback}</p>
+                                )}
+                                {submission.files?.length > 0 && (
+                                  <div className="mt-2 flex flex-wrap gap-2">
+                                    {submission.files.map((file) => (
+                                      <a
+                                        key={file.id}
+                                        href={toAbsoluteFileUrl(file.file_url)}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex h-6 items-center gap-1 rounded border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-600 hover:border-indigo-200 hover:text-indigo-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                                      >
+                                        {file.original_name}
+                                        <ExternalLink className="h-3 w-3" />
+                                      </a>
+                                    ))}
+                                  </div>
+                                )}
+                                <form
+                                  className="mt-2 rounded-lg border border-slate-100 bg-white p-2 dark:border-slate-800 dark:bg-slate-900"
+                                  onSubmit={(event) => handleGradeSubmission(event, assignment.id, submission.id)}
+                                >
+                                  <p className="mb-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200">Chấm điểm</p>
+                                  <div className="grid gap-2 md:grid-cols-2">
+                                    <input
+                                      className="rounded-lg border border-slate-200 px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                      placeholder="Điểm (0–10)"
+                                      type="number"
+                                      min="0"
+                                      max="10"
+                                      step="0.1"
+                                      value={gradingForms[submission.id]?.score ?? submission.score ?? ''}
+                                      onChange={(event) => updateGradingForm(submission.id, { score: event.target.value })}
+                                    />
+                                    <input
+                                      className="rounded-lg border border-slate-200 px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                                      placeholder="Nhận xét"
+                                      value={gradingForms[submission.id]?.feedback ?? submission.feedback ?? ''}
+                                      onChange={(event) => updateGradingForm(submission.id, { feedback: event.target.value })}
+                                    />
+                                  </div>
+                                  {gradingErrors[submission.id] && (
+                                    <p className="mt-1 text-xs text-rose-600 dark:text-rose-200">
+                                      {gradingErrors[submission.id]}
+                                    </p>
+                                  )}
+                                  {gradingSuccess[submission.id] && (
+                                    <p className="mt-1 text-xs text-emerald-600 dark:text-emerald-200">
+                                      {gradingSuccess[submission.id]}
+                                    </p>
+                                  )}
+                                  <button type="submit" className="mt-1.5 rounded-lg bg-emerald-600 px-3 py-1 text-xs font-semibold text-white">
+                                    Lưu điểm
+                                  </button>
+                                </form>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Student: submit section */}
+                    {!canManageAssignments && (
+                      <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleSubmission(assignment.id)}
+                            className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700"
+                          >
+                            {submissionForms[assignment.id]?.isOpen ? 'Đóng' : 'Nộp bài'}
+                          </button>
+                          {submissionSuccess[assignment.id] && (
+                            <span className="text-xs text-emerald-600 dark:text-emerald-300">
+                              {submissionSuccess[assignment.id]}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Student submission history */}
+                        {submissionLoading[assignment.id]?.isLoading && (
+                          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Đang tải...</p>
+                        )}
+                        {submissionLoading[assignment.id]?.error && (
+                          <p className="mt-2 text-xs text-rose-600 dark:text-rose-200">
+                            {submissionLoading[assignment.id]?.error}
+                          </p>
+                        )}
+                        {mySubmissions !== undefined && mySubmissions.length === 0 && !submissionLoading[assignment.id]?.isLoading && (
+                          <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Bạn chưa nộp bài này.</p>
+                        )}
+                        {hasSubmitted && (
+                          <div className="mt-2 space-y-2">
+                            <p className="text-xs font-semibold text-slate-700 dark:text-slate-200">
+                              Đã nộp {mySubmissions.length} lần
+                            </p>
+                            {mySubmissions.map((sub, idx) => (
+                              <div key={sub.id} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs dark:border-slate-800 dark:bg-slate-950">
+                                <p className="text-slate-500">
+                                  {idx === 0 ? 'Lần gần nhất' : `Lần ${mySubmissions.length - idx}`}:{' '}
+                                  {sub.submitted_at ? new Date(sub.submitted_at).toLocaleString('vi-VN') : 'N/A'}
+                                </p>
+                                {sub.content && (
+                                  <p className="mt-1 text-slate-600 dark:text-slate-300">Ghi chú: {sub.content}</p>
+                                )}
+                                {sub.files?.length > 0 && (
+                                  <div className="mt-1 flex flex-wrap gap-1.5">
+                                    {sub.files.map((file) => (
+                                      <a
+                                        key={file.id}
+                                        href={toAbsoluteFileUrl(file.file_url)}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex h-6 items-center gap-1 rounded border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-600 hover:border-indigo-200 hover:text-indigo-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                                      >
+                                        {file.original_name}
+                                        <ExternalLink className="h-3 w-3" />
+                                      </a>
+                                    ))}
+                                  </div>
+                                )}
+                                {sub.score != null && (
+                                  <p className="mt-1">
+                                    Điểm: <span className="font-semibold text-indigo-600 dark:text-indigo-300">{sub.score}</span>
                                   </p>
                                 )}
-                                {gradingSuccess[submission.id] && (
-                                  <p className="mt-2 text-xs text-emerald-600 dark:text-emerald-200">
-                                    {gradingSuccess[submission.id]}
-                                  </p>
+                                {sub.feedback && (
+                                  <p className="mt-0.5 text-slate-500">Nhận xét: {sub.feedback}</p>
                                 )}
-                                <button type="submit" className="mt-2 rounded-lg bg-emerald-600 px-3 py-1 text-xs font-semibold text-white">
-                                  Lưu điểm
-                                </button>
-                              </form>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Submit form */}
+                        {submissionForms[assignment.id]?.isOpen && (
+                          <form className="mt-3 space-y-2" onSubmit={(event) => handleSubmitAssignment(event, assignment.id)}>
+                            <textarea
+                              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                              placeholder="Ghi chú nộp bài (tùy chọn)"
+                              value={submissionForms[assignment.id]?.content ?? ''}
+                              onChange={(event) => updateSubmissionForm(assignment.id, { content: event.target.value })}
+                              rows={2}
+                            />
+                            <div>
+                              <input
+                                className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                                type="file"
+                                multiple
+                                accept=".pdf,.doc,.docx"
+                                onChange={(event) =>
+                                  updateSubmissionForm(assignment.id, { files: Array.from(event.target.files ?? []) })
+                                }
+                              />
+                              <p className="mt-1 text-xs text-slate-400">Chỉ chấp nhận file PDF hoặc Word (.doc, .docx)</p>
+                            </div>
+                            {submissionErrors[assignment.id] && (
+                              <p className="text-sm text-rose-600 dark:text-rose-200">
+                                {submissionErrors[assignment.id]}
+                              </p>
+                            )}
+                            <button type="submit" className="rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700">
+                              Nộp bài
+                            </button>
+                          </form>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500 transition-colors dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
@@ -2304,116 +2625,224 @@ export default function CourseDetail() {
 
       {activeTab === 'resources' && (
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Tài nguyên học tập</h2>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Tổng hợp tài nguyên, quiz và nội dung học tập của lớp</p>
-          {canManageQuizzes && (
-            <form
-              className="mt-4 rounded-2xl border border-indigo-100 bg-indigo-50 p-4 text-left transition-colors dark:border-indigo-400/30 dark:bg-indigo-400/10"
-              onSubmit={handleCreateQuiz}
-            >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                    Tạo quiz mới
-                  </h3>
-                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                    Quiz sẽ được gắn trực tiếp với lớp hiện tại.
-                  </p>
-                </div>
-                <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-indigo-700 dark:bg-slate-950 dark:text-indigo-200">
-                  Giảng viên
-                </span>
-              </div>
-
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
-                <input
-                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                  placeholder="Tiêu đề quiz"
-                  value={quizForm.title}
-                  onChange={(event) => handleQuizFormChange('title', event.target.value)}
-                  required
-                />
-                <input
-                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                  min="1"
-                  placeholder="Thời lượng phút"
-                  type="number"
-                  value={quizForm.timeLimit}
-                  onChange={(event) => handleQuizFormChange('timeLimit', event.target.value)}
-                  required
-                />
-                <input
-                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                  min="0"
-                  placeholder="Số câu hỏi"
-                  type="number"
-                  value={quizForm.totalQuestions}
-                  onChange={(event) => handleQuizFormChange('totalQuestions', event.target.value)}
-                  required
-                />
-                <label className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200">
-                  <input
-                    type="checkbox"
-                    checked={quizForm.isRandom}
-                    onChange={(event) => handleQuizFormChange('isRandom', event.target.checked)}
-                  />
-                  Trộn thứ tự câu hỏi
-                </label>
-                <textarea
-                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 md:col-span-2"
-                  placeholder="Mô tả quiz"
-                  value={quizForm.description}
-                  onChange={(event) => handleQuizFormChange('description', event.target.value)}
-                />
-              </div>
-
-              {quizFormError && (
-                <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-200">
-                  {quizFormError}
-                </div>
+          {/* Header + breadcrumb */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm">
+              <button
+                type="button"
+                onClick={() => setCurrentFolderId(null)}
+                className={`font-semibold ${currentFolderId ? 'text-indigo-600 hover:underline dark:text-indigo-300' : 'text-slate-900 dark:text-slate-100'}`}
+              >
+                Tài nguyên
+              </button>
+              {currentFolderId && (
+                <>
+                  <span className="text-slate-400">/</span>
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">
+                    {classFolders.find((f) => f.id === currentFolderId)?.name ?? 'Thư mục'}
+                  </span>
+                </>
               )}
-              {quizFormSuccess && (
-                <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-200">
-                  {quizFormSuccess}
-                </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {!currentFolderId && (
+                <button
+                  type="button"
+                  onClick={() => { setShowFolderForm((v) => !v); setFolderCreateError(''); }}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 hover:border-indigo-200 hover:text-indigo-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                >
+                  + Tạo thư mục
+                </button>
               )}
+              <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-400/10 dark:text-indigo-200">
+                {currentFolderId
+                  ? `${classResources.filter((r) => r.folder_id === currentFolderId).length} file`
+                  : `${classFolders.length} thư mục · ${classResources.filter((r) => !r.folder_id).length} file`}
+              </span>
+            </div>
+          </div>
 
+          {/* Create folder form */}
+          {!currentFolderId && showFolderForm && (
+            <form className="mt-3 flex items-center gap-2" onSubmit={handleCreateFolder}>
+              <input
+                className="flex-1 rounded-lg border border-slate-200 px-3 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                placeholder="Tên thư mục"
+                value={folderNameInput}
+                onChange={(e) => setFolderNameInput(e.target.value)}
+                autoFocus
+                required
+              />
               <button
                 type="submit"
-                disabled={isCreatingQuiz}
-                className="action-btn mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                disabled={folderCreating}
+                className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
               >
-                {isCreatingQuiz ? 'Đang tạo...' : 'Tạo quiz'}
+                {folderCreating ? '...' : 'Tạo'}
               </button>
+              <button
+                type="button"
+                onClick={() => { setShowFolderForm(false); setFolderNameInput(''); }}
+                className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300"
+              >
+                Hủy
+              </button>
+              {folderCreateError && (
+                <p className="text-xs text-rose-600 dark:text-rose-300">{folderCreateError}</p>
+              )}
             </form>
           )}
-          {resourceItems.length > 0 ? (
-            <div className="mt-4 space-y-4">
-              {resourceItems.map((group) => (
-                <div key={group.id} className="rounded-2xl border border-slate-100 bg-slate-50 p-4 transition-colors dark:border-slate-800 dark:bg-slate-950">
-                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">{group.title}</h3>
-                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{group.description}</p>
-                  {group.items?.length > 0 ? (
-                    <ul className="mt-3 space-y-2 text-sm text-slate-700 dark:text-slate-300">
-                      {group.items.map((item) => (
-                        <li key={typeof item === 'string' ? item : `${group.id}-${item.id}`}>
-                          <ResourceCard resource={item} compact />
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <div className="mt-3 rounded-xl border border-dashed border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-500 transition-colors dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
-                      Chưa có tài nguyên trong nhóm này.
-                    </div>
-                  )}
-                </div>
-              ))}
+
+          {/* Upload form */}
+          <form
+            className="mt-4 rounded-2xl border border-indigo-100 bg-indigo-50 p-4 dark:border-indigo-400/30 dark:bg-indigo-400/10"
+            onSubmit={handleResourceUpload}
+          >
+            <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+              Tải lên{currentFolderId ? ` vào "${classFolders.find((f) => f.id === currentFolderId)?.name}"` : ''}
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <input
+                type="file"
+                className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                onChange={(e) => setResourceUploadFile(e.target.files?.[0] ?? null)}
+                required
+              />
+              <button
+                type="submit"
+                disabled={resourceUploading || !resourceUploadFile}
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {resourceUploading ? 'Đang tải...' : 'Tải lên'}
+              </button>
             </div>
-          ) : (
-            <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500 transition-colors dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
-              Khóa học này chưa có tài nguyên học tập nào.
+            {resourceUploadError && (
+              <p className="mt-2 text-xs text-rose-600 dark:text-rose-300">{resourceUploadError}</p>
+            )}
+            {resourceUploadSuccess && (
+              <p className="mt-2 text-xs text-emerald-600 dark:text-emerald-300">{resourceUploadSuccess}</p>
+            )}
+          </form>
+
+          {/* Error / loading */}
+          {classResourcesLoading && (
+            <p className="mt-4 py-6 text-center text-sm text-slate-500 dark:text-slate-400">Đang tải...</p>
+          )}
+          {classResourcesError && (
+            <p className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-200">
+              {classResourcesError}
+            </p>
+          )}
+
+          {/* Folder list (root view only) */}
+          {!currentFolderId && !classResourcesLoading && classFolders.length > 0 && (
+            <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {classFolders.map((folder) => {
+                const fileCount = classResources.filter((r) => r.folder_id === folder.id).length;
+                const canDeleteFolder =
+                  folder.created_by === currentUser?.id || currentUser?.role === 'TEACHER';
+                return (
+                  <div
+                    key={folder.id}
+                    className="group flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 transition-colors hover:border-indigo-200 hover:bg-indigo-50 dark:border-slate-800 dark:bg-slate-950 dark:hover:border-indigo-400/40 dark:hover:bg-indigo-400/10"
+                  >
+                    <button
+                      type="button"
+                      className="flex flex-1 items-center gap-3 text-left"
+                      onClick={() => setCurrentFolderId(folder.id)}
+                    >
+                      <span className="text-2xl">📁</span>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-slate-900 group-hover:text-indigo-700 dark:text-slate-100 dark:group-hover:text-indigo-300">
+                          {folder.name}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          {fileCount} file · {folder.creator?.full_name ?? ''}
+                        </p>
+                      </div>
+                    </button>
+                    {canDeleteFolder && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteFolder(folder.id)}
+                        className="flex-shrink-0 rounded-md px-1.5 py-1 text-xs text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-400/10 dark:hover:text-rose-300"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
+
+          {/* File list */}
+          {!classResourcesLoading && (() => {
+            const visibleFiles = classResources.filter(
+              (r) => r.folder_id === currentFolderId,
+            );
+            if (visibleFiles.length === 0 && (!currentFolderId ? classFolders.length === 0 : true)) {
+              return (
+                <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400">
+                  {currentFolderId ? 'Thư mục này chưa có file nào.' : 'Chưa có tài nguyên nào. Hãy tải lên tài liệu đầu tiên!'}
+                </div>
+              );
+            }
+            if (visibleFiles.length === 0) return null;
+            return (
+              <ul className="mt-4 space-y-2">
+                {visibleFiles.map((resource) => {
+                  const canDelete =
+                    resource.uploaded_by === currentUser?.id || currentUser?.role === 'TEACHER';
+                  const sizeKb = Math.round(resource.size / 1024);
+                  const sizeLabel = sizeKb >= 1024
+                    ? `${(sizeKb / 1024).toFixed(1)} MB`
+                    : `${sizeKb} KB`;
+                  return (
+                    <li
+                      key={resource.id}
+                      className="flex items-center gap-3 rounded-xl border border-slate-100 bg-slate-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-950"
+                    >
+                      <File className="h-7 w-7 flex-shrink-0 text-indigo-400 dark:text-indigo-300" />
+                      <div className="min-w-0 flex-1">
+                        <a
+                          href={resource.file_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="block truncate text-sm font-semibold text-slate-900 hover:text-indigo-600 dark:text-slate-100 dark:hover:text-indigo-300"
+                        >
+                          {resource.original_name}
+                        </a>
+                        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                          {resource.uploader?.full_name ?? 'Thành viên'} · {sizeLabel} ·{' '}
+                          {resource.created_at ? new Date(resource.created_at).toLocaleDateString('vi-VN') : ''}
+                        </p>
+                      </div>
+                      <div className="flex flex-shrink-0 items-center gap-2">
+                        <a
+                          href={resource.file_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex h-7 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-700 hover:border-indigo-200 hover:text-indigo-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                        >
+                          Mở <ExternalLink className="h-3 w-3" />
+                        </a>
+                        {canDelete && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteClassResource(resource.id)}
+                            className="inline-flex h-7 items-center rounded-lg border border-rose-200 bg-rose-50 px-2.5 text-xs font-semibold text-rose-600 hover:border-rose-300 dark:border-rose-400/40 dark:bg-rose-400/10 dark:text-rose-300"
+                          >
+                            Xóa
+                          </button>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            );
+          })()}
         </section>
       )}
 
@@ -2539,274 +2968,194 @@ export default function CourseDetail() {
 
       {activeTab === 'discussions' && (
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Thảo luận</h2>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Các chủ đề thảo luận của lớp</p>
+          {/* Header */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Thảo luận</h2>
+            <div className="flex items-center gap-2">
+              {!USE_MOCK_DATA && (
+                <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${socketConnected ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>
+                  <span className={`h-1.5 w-1.5 rounded-full ${socketConnected ? 'animate-pulse bg-emerald-500' : 'bg-slate-400'}`} />
+                  {socketConnected ? 'Trực tuyến' : 'Đang kết nối...'}
+                </span>
+              )}
             </div>
-            <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-400/10 dark:text-indigo-200">
-              {discussionItems.length} chủ đề
-            </span>
           </div>
 
-          <form
-            className="mt-4 rounded-2xl border border-indigo-100 bg-indigo-50 p-4 text-left transition-colors dark:border-indigo-400/30 dark:bg-indigo-400/10"
-            onSubmit={handleCreateDiscussion}
-          >
-            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Tạo thảo luận mới</h3>
-            <div className="mt-3 grid gap-3 md:grid-cols-2">
+          {/* Topic bar: scrollable pills + inline create */}
+          <div className="mt-3 flex items-center gap-2 overflow-x-auto pb-1">
+            <form
+              className="flex flex-shrink-0 items-center gap-1"
+              onSubmit={handleCreateDiscussion}
+            >
               <input
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                placeholder="Tiêu đề thảo luận"
+                className="h-8 w-40 rounded-full border border-slate-200 bg-slate-50 px-3 text-xs dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                placeholder="+ Chủ đề mới..."
                 value={discussionForm.title}
                 onChange={(event) => handleDiscussionFormChange('title', event.target.value)}
-                required
               />
-              <input
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                placeholder="Mô tả ngắn"
-                value={discussionForm.content}
-                onChange={(event) => handleDiscussionFormChange('content', event.target.value)}
-              />
-            </div>
-            {discussionError && (
-              <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-200">
-                {discussionError}
-              </div>
-            )}
-            {discussionSuccess && (
-              <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-200">
-                {discussionSuccess}
-              </div>
-            )}
-            <button type="submit" className="mt-3 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">
-              Tạo thảo luận
-            </button>
-          </form>
+              {discussionForm.title.trim() && (
+                <button
+                  type="submit"
+                  className="h-8 rounded-full bg-indigo-600 px-3 text-xs font-semibold text-white"
+                >
+                  Tạo
+                </button>
+              )}
+            </form>
 
-          {discussionItems.length === 0 ? (
-            <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-6 text-center text-slate-500 transition-colors dark:border-slate-800 dark:bg-slate-950">
-              Chưa có thảo luận nào.
-            </div>
-          ) : (
-            <div className="mt-4 grid gap-4 lg:grid-cols-[280px_1fr]">
-              <aside className="space-y-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950">
-                {discussionItems.map((discussion) => (
-                  <button
-                    key={discussion.id}
-                    type="button"
-                    onClick={() => setSelectedDiscussionId(discussion.id)}
-                    className={`w-full rounded-xl border px-3 py-2 text-left text-sm transition ${
-                      selectedDiscussionId === discussion.id
-                        ? 'border-indigo-200 bg-white text-slate-900 shadow-sm dark:border-indigo-400/40 dark:bg-slate-900 dark:text-slate-100'
-                        : 'border-transparent text-slate-600 hover:border-slate-200 hover:bg-white dark:text-slate-300 dark:hover:border-slate-700 dark:hover:bg-slate-900'
-                    }`}
-                  >
-                    <p className="font-semibold">{discussion.title}</p>
-                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                      {discussion.author?.full_name ?? 'Thành viên'} ·{' '}
-                      {discussion.createdAt ? new Date(discussion.createdAt).toLocaleString('vi-VN') : ''}
-                    </p>
+            {discussionItems.map((discussion) => {
+              const isActive = selectedDiscussionId === discussion.id;
+              const canDelete =
+                discussion.createdBy === currentUser?.id || currentUser?.role === 'TEACHER';
+              return (
+                <div
+                  key={discussion.id}
+                  className={`group flex flex-shrink-0 items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                    isActive
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  <button type="button" onClick={() => setSelectedDiscussionId(discussion.id)}>
+                    {discussion.title}
                   </button>
-                ))}
-              </aside>
+                  {canDelete && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteDiscussion(discussion.id)}
+                      className={`ml-1 rounded-full p-0.5 ${isActive ? 'hover:bg-indigo-700' : 'hover:bg-slate-300 dark:hover:bg-slate-600'}`}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-                {selectedDiscussionId ? (
-                  (() => {
-                    const selected = discussionItems.find((item) => item.id === selectedDiscussionId);
-                    if (!selected) return null;
+          {discussionError && (
+            <p className="mt-2 text-xs text-rose-600 dark:text-rose-300">{discussionError}</p>
+          )}
 
-                    const canEditDiscussion = selected.createdBy === currentUser?.id;
-                    const canDeleteDiscussion = canEditDiscussion || currentUser?.role === 'TEACHER';
-
-                    return (
-                      <div>
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div>
-                            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                              {selected.title}
-                            </h3>
-                            {selected.content && (
-                              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                                {selected.content}
-                              </p>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {canEditDiscussion && (
+          {/* Chat area */}
+          {selectedDiscussionId ? (
+            <div className="mt-4 flex flex-col gap-3">
+              {/* Messages */}
+              <div className="flex h-96 flex-col overflow-y-auto rounded-xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+                {isLoadingMessages && (
+                  <p className="text-center text-xs text-slate-400">Đang tải...</p>
+                )}
+                {!isLoadingMessages && discussionMessages.length === 0 && (
+                  <p className="m-auto text-sm text-slate-400">Chưa có tin nhắn. Hãy bắt đầu trò chuyện!</p>
+                )}
+                {discussionMessages.map((message) => {
+                  const isOwn = message.user_id === currentUser?.id;
+                  const canEdit = isOwn;
+                  const canDelete = isOwn || currentUser?.role === 'TEACHER';
+                  const initials = (message.author?.full_name ?? '?')[0].toUpperCase();
+                  return (
+                    <div key={message.id} className="group mb-3 flex gap-2.5">
+                      <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-600 dark:bg-indigo-400/20 dark:text-indigo-300">
+                        {initials}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-baseline gap-2">
+                          <span className="text-xs font-semibold text-slate-800 dark:text-slate-100">
+                            {message.author?.full_name ?? 'Thành viên'}
+                          </span>
+                          <span className="text-xs text-slate-400">
+                            {formatChatTime(message.created_at)}
+                          </span>
+                          <div className="ml-auto hidden items-center gap-1 group-hover:flex">
+                            {canEdit && (
                               <button
                                 type="button"
-                                onClick={() => handleStartEditDiscussion(selected)}
-                                className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+                                onClick={() => handleStartEditMessage(message)}
+                                className="rounded px-1.5 py-0.5 text-xs text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700"
                               >
                                 Sửa
                               </button>
                             )}
-                            {canDeleteDiscussion && (
+                            {canDelete && (
                               <button
                                 type="button"
-                                onClick={() => handleDeleteDiscussion(selected.id)}
-                                className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-600 dark:border-rose-400/40 dark:bg-rose-400/10 dark:text-rose-200"
+                                onClick={() => handleDeleteMessage(message.id)}
+                                className="rounded px-1.5 py-0.5 text-xs text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-400/10"
                               >
                                 Xóa
                               </button>
                             )}
                           </div>
                         </div>
-
-                        {editingDiscussionId === selected.id && (
-                          <form
-                            className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950"
-                            onSubmit={handleUpdateDiscussion}
-                          >
-                            <div className="grid gap-3 md:grid-cols-2">
-                              <input
-                                className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                                placeholder="Tiêu đề thảo luận"
-                                value={editingDiscussionForm.title}
-                                onChange={(event) =>
-                                  setEditingDiscussionForm((prev) => ({
-                                    ...prev,
-                                    title: event.target.value,
-                                  }))
-                                }
-                                required
-                              />
-                              <input
-                                className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                                placeholder="Mô tả"
-                                value={editingDiscussionForm.content}
-                                onChange={(event) =>
-                                  setEditingDiscussionForm((prev) => ({
-                                    ...prev,
-                                    content: event.target.value,
-                                  }))
-                                }
-                              />
-                            </div>
-                            {editingDiscussionError && (
-                              <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-200">
-                                {editingDiscussionError}
-                              </div>
-                            )}
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              <button type="submit" className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white">
-                                Lưu
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setEditingDiscussionId(null)}
-                                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
-                              >
-                                Hủy
-                              </button>
-                            </div>
-                          </form>
-                        )}
-
-                        <div className="mt-4">
-                          <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Tin nhắn</h4>
-                          {isLoadingMessages ? (
-                            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Đang tải tin nhắn...</p>
-                          ) : discussionMessagesError ? (
-                            <p className="mt-2 text-sm text-rose-600 dark:text-rose-200">{discussionMessagesError}</p>
-                          ) : discussionMessages.length === 0 ? (
-                            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Chưa có tin nhắn nào.</p>
-                          ) : (
-                            <ul className="mt-3 space-y-3">
-                              {discussionMessages.map((message) => {
-                                const canEditMessage = message.user_id === currentUser?.id;
-                                const canDeleteMessage = canEditMessage || currentUser?.role === 'TEACHER';
-                                return (
-                                  <li key={message.id} className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3 dark:border-slate-800 dark:bg-slate-950">
-                                    <div className="flex items-start justify-between gap-3">
-                                      <div>
-                                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                                          {message.author?.full_name ?? 'Thành viên'}
-                                        </p>
-                                        <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{message.content}</p>
-                                        <p className="mt-1 text-xs text-slate-400">
-                                          {message.created_at ? new Date(message.created_at).toLocaleString('vi-VN') : ''}
-                                        </p>
-                                      </div>
-                                      <div className="flex items-center gap-2">
-                                        {canEditMessage && (
-                                          <button
-                                            type="button"
-                                            onClick={() => handleStartEditMessage(message)}
-                                            className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
-                                          >
-                                            Sửa
-                                          </button>
-                                        )}
-                                        {canDeleteMessage && (
-                                          <button
-                                            type="button"
-                                            onClick={() => handleDeleteMessage(message.id)}
-                                            className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-semibold text-rose-600 dark:border-rose-400/40 dark:bg-rose-400/10 dark:text-rose-200"
-                                          >
-                                            Xóa
-                                          </button>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </li>
-                                );
-                              })}
-                            </ul>
-                          )}
-                        </div>
-
-                        {editingMessageId && (
-                          <form className="mt-4" onSubmit={handleUpdateMessage}>
-                            <textarea
-                              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                              placeholder="Cập nhật tin nhắn"
+                        {editingMessageId === message.id ? (
+                          <form className="mt-1 flex gap-2" onSubmit={handleUpdateMessage}>
+                            <input
+                              className="flex-1 rounded border border-slate-200 px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                               value={editingMessageContent}
-                              onChange={(event) => setEditingMessageContent(event.target.value)}
-                              rows={3}
+                              onChange={(e) => setEditingMessageContent(e.target.value)}
+                              autoFocus
                             />
-                            {editingMessageError && (
-                              <p className="mt-2 text-sm text-rose-600 dark:text-rose-200">{editingMessageError}</p>
-                            )}
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              <button type="submit" className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white">
-                                Lưu tin nhắn
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setEditingMessageId(null)}
-                                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
-                              >
-                                Hủy
-                              </button>
-                            </div>
+                            <button type="submit" className="rounded bg-indigo-600 px-2 py-1 text-xs font-semibold text-white">
+                              Lưu
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingMessageId(null)}
+                              className="rounded border border-slate-200 px-2 py-1 text-xs text-slate-600 dark:border-slate-700 dark:text-slate-300"
+                            >
+                              Hủy
+                            </button>
                           </form>
+                        ) : (
+                          <p className="mt-0.5 whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-200">
+                            {message.content}
+                          </p>
                         )}
-
-                        <form className="mt-4" onSubmit={handleCreateMessage}>
-                          <textarea
-                            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                            placeholder="Nhập tin nhắn"
-                            value={messageForm}
-                            onChange={(event) => setMessageForm(event.target.value)}
-                            rows={3}
-                          />
-                          {messageError && (
-                            <p className="mt-2 text-sm text-rose-600 dark:text-rose-200">{messageError}</p>
-                          )}
-                          <button type="submit" className="mt-2 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white">
-                            Gửi tin nhắn
-                          </button>
-                        </form>
+                        {editingMessageError && editingMessageId === message.id && (
+                          <p className="mt-1 text-xs text-rose-500">{editingMessageError}</p>
+                        )}
                       </div>
-                    );
-                  })()
-                ) : (
-                  <div className="text-sm text-slate-500 dark:text-slate-400">Chọn một thảo luận để xem chi tiết.</div>
-                )}
+                    </div>
+                  );
+                })}
+                <div ref={messagesEndRef} />
               </div>
+
+              {/* Message input */}
+              <form
+                className="flex items-end gap-2"
+                onSubmit={handleCreateMessage}
+              >
+                <textarea
+                  className="flex-1 resize-none rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  placeholder="Nhập tin nhắn... (Enter để gửi, Shift+Enter xuống dòng)"
+                  value={messageForm}
+                  rows={2}
+                  onChange={(e) => setMessageForm(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleCreateMessage(e);
+                    }
+                  }}
+                />
+                <button
+                  type="submit"
+                  disabled={!messageForm.trim()}
+                  className="h-10 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-40"
+                >
+                  Gửi
+                </button>
+              </form>
+              {messageError && (
+                <p className="text-xs text-rose-600 dark:text-rose-300">{messageError}</p>
+              )}
+            </div>
+          ) : (
+            <div className="mt-6 rounded-xl border border-dashed border-slate-200 py-10 text-center text-sm text-slate-400 dark:border-slate-700">
+              {discussionItems.length === 0
+                ? 'Chưa có chủ đề nào. Tạo chủ đề đầu tiên ở trên!'
+                : 'Chọn một chủ đề để bắt đầu trò chuyện'}
             </div>
           )}
         </section>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+    addStudentByStudentCode,
     addStudentToClass,
     approveJoinRequest,
     createClass,
@@ -7,6 +8,8 @@ import {
     getPendingClassRequests,
     getStudentClasses,
     getTeacherClasses,
+    rejectJoinRequest,
+    requestJoinByCode,
     updateClass,
 } from '../services/api/classes.service';
 import { getAccessToken } from '../services/api/client';
@@ -142,7 +145,11 @@ import AdminDashboard from './dashboard/AdminDashboard';
       }));
 
       const pendingLists = await Promise.all(
-        (classes ?? []).map((cls) => getPendingClassRequests(cls.id, accessToken)),
+        (classes ?? []).map((cls) =>
+          getPendingClassRequests(cls.id, accessToken)
+            .then((reqs) => (reqs ?? []).map((r) => ({ ...r, class_name: cls.name, class_id: cls.id })))
+            .catch(() => []),
+        ),
       );
       const normalizedPending = pendingLists.flat();
 
@@ -210,6 +217,33 @@ import AdminDashboard from './dashboard/AdminDashboard';
     await reloadTeacherClasses();
   };
 
+  const handleRejectRequest = async (requestId) => {
+    const accessToken = getAccessToken();
+    await rejectJoinRequest(requestId, accessToken);
+    await reloadTeacherClasses();
+  };
+
+  const handleAddStudentByCode = async ({ class_id, student_code }) => {
+    const accessToken = getAccessToken();
+    await addStudentByStudentCode(class_id, student_code, accessToken);
+    await reloadTeacherClasses();
+  };
+
+  const handleJoinByCode = async (joinCode) => {
+    const accessToken = getAccessToken();
+    await requestJoinByCode(joinCode, accessToken);
+    // reload student classes
+    const classes = await getStudentClasses(accessToken);
+    const normalized = (classes ?? []).map((cls) => ({
+      id: cls.id,
+      title: cls.name,
+      code: cls.join_code,
+      category: cls.type ?? 'Khóa học',
+      image: cls.avatar_url ?? 'https://via.placeholder.com/400x225',
+    }));
+    setStudentCourses(normalized);
+  };
+
   return (
     <main className="mx-auto w-full max-w-7xl flex-grow px-4 py-10 md:px-8">
       <div className="mb-4 rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-left text-sm text-indigo-800">
@@ -225,8 +259,9 @@ import AdminDashboard from './dashboard/AdminDashboard';
           onCreateClass={handleCreateClass}
           onUpdateClass={handleUpdateClass}
           onDeleteClass={handleDeleteClass}
-          onAddStudent={handleAddStudent}
+          onAddStudentByCode={handleAddStudentByCode}
           onApproveRequest={handleApproveRequest}
+          onRejectRequest={handleRejectRequest}
           isLoading={isLoadingTeacher}
           error={teacherError}
         />
@@ -235,6 +270,7 @@ import AdminDashboard from './dashboard/AdminDashboard';
           courses={studentCourses}
           isLoading={isLoadingStudent}
           error={studentError}
+          onJoinByCode={handleJoinByCode}
         />
       )}
     </main>

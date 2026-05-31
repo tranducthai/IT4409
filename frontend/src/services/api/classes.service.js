@@ -77,3 +77,28 @@ export function approveJoinRequest(requestId, accessToken) {
     ...withAuth(accessToken),
   });
 }
+
+export function rejectJoinRequest(requestId, accessToken) {
+  return apiRequest(`/class-members/${requestId}/reject`, {
+    method: 'PATCH',
+    ...withAuth(accessToken),
+  });
+}
+
+// Student: join class by join_code
+export function requestJoinByCode(joinCode, accessToken) {
+  return apiRequest('/class-members/me/request-join', {
+    method: 'POST',
+    body: { join_code: joinCode },
+    ...withAuth(accessToken),
+  });
+}
+
+// Teacher: add student by MSSV (student_code)
+export function addStudentByStudentCode(classId, studentCode, accessToken) {
+  return apiRequest(`/class-members/classes/${classId}/add-by-code`, {
+    method: 'POST',
+    body: { student_code: studentCode },
+    ...withAuth(accessToken),
+  });
+}
