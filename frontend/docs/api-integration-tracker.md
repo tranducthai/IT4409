@@ -336,23 +336,99 @@ Review checklist:
 
 Goal: tranh goi `/lesson-contents` lay toan bo data.
 
-- [ ] Chon contract: `GET /lesson-contents/lesson/:lessonId` hoac `GET /lesson-contents/class/:classId`.
-- [ ] Them backend endpoint scoped.
-- [ ] Doi frontend CourseDetail sang endpoint scoped.
-- [ ] Test manual: course co nhieu lesson, resource count dung, link open file/quiz dung.
-- [ ] Review: query backend khong leak content cua class khac.
+Current gap:
+
+- Frontend `CourseDetail` dang load `/lesson-contents` roi filter theo `lessonId`, nen van lay du lieu cua toan he thong.
+- Backend `lesson-contents` co CRUD va upload, nhung chua co endpoint scoped theo class/lesson de frontend lay dung pham vi can dung.
+
+Files expected:
+
+- `backend/src/modules/lesson-contents/lesson-contents.controller.ts`
+- `backend/src/modules/lesson-contents/lesson-contents.service.ts`
+- `backend/src/modules/lesson-contents/repositories/lesson-contents.repository.ts`
+- `backend/src/modules/lesson-contents/entities/lesson-content.entity.ts`
+- `frontend/src/services/api/course-detail.service.js`
+- `frontend/src/pages/CourseDetail.jsx`
+
+Implementation steps:
+
+- [ ] Chon contract chinh: `GET /lesson-contents/class/:classId`.
+  - Uu tien class-scoped truoc vi `CourseDetail` load theo class va can gom tat ca lesson content cua mot lop.
+  - Neu sau nay can toi uu tiep, co the mo rong them lesson-scoped cho cac man hinh chi tiet hon.
+- [ ] Them backend endpoint scoped trong `lesson-contents.controller.ts` va `lesson-contents.service.ts`.
+  - Endpoint chi tra contents cua class duoc request, khong tra toan bo bang.
+  - Dinh dang response giu on dinh de frontend group theo lesson id.
+- [ ] Bo logic load toan bo trong `frontend/src/services/api/course-detail.service.js`.
+  - Doi sang goi scoped endpoint theo classId.
+  - Frontend van group content theo lesson, nhung chi tren data cua class hien tai.
+- [ ] Cap nhat `CourseDetail.jsx` de doc scoped contents.
+  - Dam bao resource/lesson counts van dung khi class co nhieu sections va lessons.
+  - Empty state phai ro khi class khong co lesson content nao.
+- [ ] Chot contract an toan du lieu.
+  - Khong tra content cua class khac.
+  - Khong lam thay doi contract upload/open file hien co.
+
+Manual test cases:
+
+- [ ] Mo course co nhieu section/lesson va kiem tra resource content chi lay trong class do.
+- [ ] Kiem tra lesson khong co content van hien empty state ro rang, khong crash UI.
+- [ ] Kiem tra file open/quiz link van dung sau khi doi sang endpoint scoped.
+
+Review checklist:
+
+- [ ] Khong con fetch toan bo `/lesson-contents` nua.
+- [ ] Data scope bam theo classId, khong leak cross-class.
+- [ ] Frontend render duoc voi class co nhieu lesson/content.
 
 ### Batch 5: Class member security and flow
 
 Goal: dong bo flow them/duyet sinh vien.
 
-- [ ] Xac nhan co cho phep teacher direct-add hay chi join request.
-- [ ] Neu direct-add: them guard/auth cho `POST /class-members` va verify teacher owns class.
-- [ ] Neu chi join request: UI teacher khong goi direct-add nua, thay bang approve pending request.
-- [ ] Teacher dashboard chi hien lop phu trach va yeu cau cho duyet, khong render course-style cards hay label sai scope.
-- [ ] Test manual: teacher them/duyet, student thay lop sau khi refresh dashboard.
-- [ ] Test manual: teacher login vao dashboard khong thay giao dien nhu student course list.
-- [ ] Review: khong de user bat ky tao membership tuy y.
+Current gap:
+
+- `TeacherDashboard` dang hien form them sinh vien truc tiep vao lop.
+- Backend `POST /class-members` chua co guard/auth va chua verify ownership cua giang vien voi lop dang them.
+- Luong duyet pending da co, nhung UI/permission chua dong bo ro rang nen de rui ro student/teacher scope bi lech.
+
+Files expected:
+
+- `backend/src/modules/class-members/class-members.controller.ts`
+- `backend/src/modules/class-members/class-members.service.ts`
+- `backend/src/modules/class-members/repositories/class-members.repository.ts`
+- `backend/src/modules/class-members/entities/class-member.entity.ts`
+- `backend/src/modules/classes/classes.service.ts`
+- `frontend/src/pages/Dashboard.jsx`
+- `frontend/src/pages/dashboard/TeacherDashboard.jsx`
+
+Implementation steps:
+
+- [ ] Xac nhan business rule: direct-add con duoc phep hay chi join request.
+  - Neu con direct-add, phai co guard/auth va verify teacher owns class.
+  - Neu chi request-join, bo toan bo flow add student truc tiep tren UI.
+- [ ] Be backend `POST /class-members` trong `class-members.controller.ts` va `class-members.service.ts`.
+  - Teacher chi duoc them vao lop minh phu trach.
+  - Student khong duoc tao membership tuy y.
+- [ ] Dong bo `Dashboard.jsx` voi permission moi.
+  - Teacher dashboard chi load lop phu trach va pending request.
+  - Student dashboard khong bi render nham sang giao dien course list cua teacher.
+- [ ] To chuc lai `TeacherDashboard.jsx`.
+  - Neu direct-add bi loai bo, cat form them sinh vien.
+  - Neu direct-add duoc giu lai, hien form chi khi guard/backend da chac chan.
+- [ ] Dam bao approve flow van on dinh.
+  - `GET /class-members/classes/:classId/pending` va `PATCH /class-members/:id/approve` van la flow chinh de giang vien duyet hoc vien.
+
+Manual test cases:
+
+- [ ] Teacher mo dashboard chi thay lop minh day va danh sach pending request.
+- [ ] Teacher khong the them student vao lop khong phu trach.
+- [ ] Student khong co quyen dung dashboard teacher/add member API.
+- [ ] Pending request van duoc duyet va student thay lop sau khi refresh.
+
+Review checklist:
+
+- [ ] Khong con de route/UI nao cho phep membership tao tuy y.
+- [ ] Dashboard teacher khong bi render theo kieu student course list.
+- [ ] Approval flow van hoat dong tren lop that.
 
 ### Batch 6: Quiz taking
 
