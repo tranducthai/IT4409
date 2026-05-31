@@ -180,7 +180,7 @@ export async function getCourseDetailFromApi(courseId) {
   const [sectionsResult, contentsResult, quizzesResult, assignmentsResult, discussionsResult] =
     await Promise.all([
       loadOptionalArray(`/sections/class/${courseId}`, 'Không tải được danh sách phần'),
-      loadOptionalArray('/lesson-contents', 'Không tải được tài nguyên bài học'),
+      loadOptionalArray(`/lesson-contents/class/${courseId}`, 'Không tải được tài nguyên bài học'),
       loadOptionalArray(`/quizzes/class/${courseId}`, 'Không tải được danh sách quiz'),
       loadOptionalArray(`/assignments/class/${courseId}`, 'Không tải được danh sách BTVN'),
       loadOptionalArray(`/discussions/class/${courseId}`, 'Không tải được thảo luận'),

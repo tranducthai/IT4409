@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -20,14 +21,28 @@ export class ClassMembersService {
     private readonly classesRepository: ClassesRepository,
   ) { }
 
-  create(dto: CreateClassMemberDto) {
+  async create(requesterId: string, dto: CreateClassMemberDto) {
+    const cls = await this.classesRepository.findById(dto.class_id);
+    if (!cls) throw new NotFoundException('Class not found');
+    if (cls.teacher_id !== requesterId) {
+      throw new ForbiddenException('You can only add students to your own classes');
+    }
+    if (!cls.is_active) throw new ConflictException('Class is inactive');
+
+    const existing = await this.classMembersRepository.findOneByClassAndUser(
+      dto.class_id,
+      dto.user_id,
+    );
+    if (existing) throw new ConflictException('Already requested or joined');
+
     const payload: Partial<ClassMember> = {
       class_id: dto.class_id,
       user_id: dto.user_id,
-      role: dto.role,
-      status: dto.status,
+      role: ClassMemberRole.Student,
+      status: ClassMemberStatus.Active,
       joined_at: dto.joined_at ? new Date(dto.joined_at) : new Date(),
     };
+
     return this.classMembersRepository.createOne(payload);
   }
 

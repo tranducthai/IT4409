@@ -84,9 +84,15 @@ export class ClassMembersController {
     return this.classMembersService.listPendingRequests(req.user.sub, classId);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
   @Post()
-  create(@Body() dto: CreateClassMemberDto) {
-    return this.classMembersService.create(dto);
+  create(@Req() req: AuthedRequest, @Body() dto: CreateClassMemberDto) {
+    if (req.user.role !== UserRole.TEACHER) {
+      throw new ForbiddenException('Teacher role required');
+    }
+
+    return this.classMembersService.create(req.user.sub, dto);
   }
 
   @Get()
