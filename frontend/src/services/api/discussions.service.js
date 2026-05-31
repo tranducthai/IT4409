@@ -7,14 +7,14 @@ export function getDiscussionsByClass(classId) {
 export function createDiscussion(payload) {
   return apiRequest('/discussions', {
     method: 'POST',
-    body: JSON.stringify(payload),
+    body: payload,
   });
 }
 
 export function updateDiscussion(discussionId, payload) {
   return apiRequest(`/discussions/${discussionId}`, {
     method: 'PATCH',
-    body: JSON.stringify(payload),
+    body: payload,
   });
 }
 

@@ -1,13 +1,8 @@
 import { apiRequest } from './client';
 
 function withAuth(accessToken) {
-  return accessToken
-    ? {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      }
-    : {};
+  void accessToken;
+  return {};
 }
 
 export function getStudentClasses(accessToken) {
@@ -41,7 +36,7 @@ export function getPendingClassRequests(classId, accessToken) {
 export function createClass(payload, accessToken) {
   return apiRequest('/classes', {
     method: 'POST',
-    body: JSON.stringify(payload),
+    body: payload,
     ...withAuth(accessToken),
   });
 }
@@ -49,7 +44,7 @@ export function createClass(payload, accessToken) {
 export function updateClass(classId, payload, accessToken) {
   return apiRequest(`/classes/${classId}`, {
     method: 'PATCH',
-    body: JSON.stringify(payload),
+    body: payload,
     ...withAuth(accessToken),
   });
 }
@@ -71,7 +66,7 @@ export function getTeacherClassProgress(classId, accessToken) {
 export function addStudentToClass(payload, accessToken) {
   return apiRequest('/class-members', {
     method: 'POST',
-    body: JSON.stringify(payload),
+    body: payload,
     ...withAuth(accessToken),
   });
 }
