@@ -5,6 +5,7 @@ import {
     File,
     FileText,
     Paperclip,
+    Send,
     Video,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -408,6 +409,7 @@ export default function CourseDetail() {
     title: '',
     content: '',
   });
+  const [showDiscussionForm, setShowDiscussionForm] = useState(false);
   const [discussionError, setDiscussionError] = useState('');
   const [discussionSuccess, setDiscussionSuccess] = useState('');
   const [selectedDiscussionId, setSelectedDiscussionId] = useState(null);
@@ -871,13 +873,10 @@ export default function CourseDetail() {
     }
 
     try {
-      const created = await createDiscussion({
-        class_id: courseId,
-        title,
-        content: discussionForm.content.trim() || undefined,
-      });
+      const created = await createDiscussion({ class_id: courseId, title });
       setDiscussionForm({ title: '', content: '' });
-      setDiscussionSuccess('Đã tạo thảo luận mới.');
+      setShowDiscussionForm(false);
+      setDiscussionSuccess('');
       await loadDiscussions();
       if (created?.id) setSelectedDiscussionId(created.id);
     } catch (err) {
@@ -2967,197 +2966,314 @@ export default function CourseDetail() {
       )}
 
       {activeTab === 'discussions' && (
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
-          {/* Header */}
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Thảo luận</h2>
-            <div className="flex items-center gap-2">
-              {!USE_MOCK_DATA && (
-                <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${socketConnected ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>
-                  <span className={`h-1.5 w-1.5 rounded-full ${socketConnected ? 'animate-pulse bg-emerald-500' : 'bg-slate-400'}`} />
-                  {socketConnected ? 'Trực tuyến' : 'Đang kết nối...'}
+        <section
+          className="overflow-hidden rounded-2xl border border-slate-200 shadow-sm dark:border-slate-800"
+          style={{ height: '620px' }}
+        >
+          <div className="flex h-full">
+            {/* ── LEFT SIDEBAR ──────────────────────────────────────────── */}
+            <div className="flex w-52 flex-shrink-0 flex-col bg-slate-800 dark:bg-slate-950">
+              {/* Sidebar header */}
+              <div className="flex items-center justify-between px-3 py-3">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
+                  Thảo luận
                 </span>
-              )}
-            </div>
-          </div>
-
-          {/* Topic bar: scrollable pills + inline create */}
-          <div className="mt-3 flex items-center gap-2 overflow-x-auto pb-1">
-            <form
-              className="flex flex-shrink-0 items-center gap-1"
-              onSubmit={handleCreateDiscussion}
-            >
-              <input
-                className="h-8 w-40 rounded-full border border-slate-200 bg-slate-50 px-3 text-xs dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                placeholder="+ Chủ đề mới..."
-                value={discussionForm.title}
-                onChange={(event) => handleDiscussionFormChange('title', event.target.value)}
-              />
-              {discussionForm.title.trim() && (
                 <button
-                  type="submit"
-                  className="h-8 rounded-full bg-indigo-600 px-3 text-xs font-semibold text-white"
+                  type="button"
+                  title="Tạo kênh mới"
+                  onClick={() => {
+                    setShowDiscussionForm((v) => !v);
+                    setDiscussionError('');
+                    setDiscussionForm({ title: '', content: '' });
+                  }}
+                  className="flex h-6 w-6 items-center justify-center rounded text-lg font-light text-slate-400 hover:bg-slate-700 hover:text-white"
                 >
-                  Tạo
+                  +
                 </button>
-              )}
-            </form>
-
-            {discussionItems.map((discussion) => {
-              const isActive = selectedDiscussionId === discussion.id;
-              const canDelete =
-                discussion.createdBy === currentUser?.id || currentUser?.role === 'TEACHER';
-              return (
-                <div
-                  key={discussion.id}
-                  className={`group flex flex-shrink-0 items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
-                    isActive
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700'
-                  }`}
-                >
-                  <button type="button" onClick={() => setSelectedDiscussionId(discussion.id)}>
-                    {discussion.title}
-                  </button>
-                  {canDelete && (
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteDiscussion(discussion.id)}
-                      className={`ml-1 rounded-full p-0.5 ${isActive ? 'hover:bg-indigo-700' : 'hover:bg-slate-300 dark:hover:bg-slate-600'}`}
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          {discussionError && (
-            <p className="mt-2 text-xs text-rose-600 dark:text-rose-300">{discussionError}</p>
-          )}
-
-          {/* Chat area */}
-          {selectedDiscussionId ? (
-            <div className="mt-4 flex flex-col gap-3">
-              {/* Messages */}
-              <div className="flex h-96 flex-col overflow-y-auto rounded-xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
-                {isLoadingMessages && (
-                  <p className="text-center text-xs text-slate-400">Đang tải...</p>
-                )}
-                {!isLoadingMessages && discussionMessages.length === 0 && (
-                  <p className="m-auto text-sm text-slate-400">Chưa có tin nhắn. Hãy bắt đầu trò chuyện!</p>
-                )}
-                {discussionMessages.map((message) => {
-                  const isOwn = message.user_id === currentUser?.id;
-                  const canEdit = isOwn;
-                  const canDelete = isOwn || currentUser?.role === 'TEACHER';
-                  const initials = (message.author?.full_name ?? '?')[0].toUpperCase();
-                  return (
-                    <div key={message.id} className="group mb-3 flex gap-2.5">
-                      <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-600 dark:bg-indigo-400/20 dark:text-indigo-300">
-                        {initials}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-baseline gap-2">
-                          <span className="text-xs font-semibold text-slate-800 dark:text-slate-100">
-                            {message.author?.full_name ?? 'Thành viên'}
-                          </span>
-                          <span className="text-xs text-slate-400">
-                            {formatChatTime(message.created_at)}
-                          </span>
-                          <div className="ml-auto hidden items-center gap-1 group-hover:flex">
-                            {canEdit && (
-                              <button
-                                type="button"
-                                onClick={() => handleStartEditMessage(message)}
-                                className="rounded px-1.5 py-0.5 text-xs text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700"
-                              >
-                                Sửa
-                              </button>
-                            )}
-                            {canDelete && (
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteMessage(message.id)}
-                                className="rounded px-1.5 py-0.5 text-xs text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-400/10"
-                              >
-                                Xóa
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                        {editingMessageId === message.id ? (
-                          <form className="mt-1 flex gap-2" onSubmit={handleUpdateMessage}>
-                            <input
-                              className="flex-1 rounded border border-slate-200 px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-                              value={editingMessageContent}
-                              onChange={(e) => setEditingMessageContent(e.target.value)}
-                              autoFocus
-                            />
-                            <button type="submit" className="rounded bg-indigo-600 px-2 py-1 text-xs font-semibold text-white">
-                              Lưu
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setEditingMessageId(null)}
-                              className="rounded border border-slate-200 px-2 py-1 text-xs text-slate-600 dark:border-slate-700 dark:text-slate-300"
-                            >
-                              Hủy
-                            </button>
-                          </form>
-                        ) : (
-                          <p className="mt-0.5 whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-200">
-                            {message.content}
-                          </p>
-                        )}
-                        {editingMessageError && editingMessageId === message.id && (
-                          <p className="mt-1 text-xs text-rose-500">{editingMessageError}</p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-                <div ref={messagesEndRef} />
               </div>
 
-              {/* Message input */}
-              <form
-                className="flex items-end gap-2"
-                onSubmit={handleCreateMessage}
-              >
-                <textarea
-                  className="flex-1 resize-none rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                  placeholder="Nhập tin nhắn... (Enter để gửi, Shift+Enter xuống dòng)"
-                  value={messageForm}
-                  rows={2}
-                  onChange={(e) => setMessageForm(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      handleCreateMessage(e);
-                    }
-                  }}
-                />
-                <button
-                  type="submit"
-                  disabled={!messageForm.trim()}
-                  className="h-10 rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-40"
+              {/* Inline create form */}
+              {showDiscussionForm && (
+                <form
+                  className="border-b border-slate-700 px-2 pb-2"
+                  onSubmit={handleCreateDiscussion}
                 >
-                  Gửi
-                </button>
-              </form>
-              {messageError && (
-                <p className="text-xs text-rose-600 dark:text-rose-300">{messageError}</p>
+                  <input
+                    autoFocus
+                    className="w-full rounded bg-slate-700 px-2 py-1.5 text-sm text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    placeholder="Tên kênh..."
+                    value={discussionForm.title}
+                    onChange={(e) => handleDiscussionFormChange('title', e.target.value)}
+                    onKeyDown={(e) => e.key === 'Escape' && setShowDiscussionForm(false)}
+                    required
+                  />
+                  {discussionError && (
+                    <p className="mt-1 text-xs text-rose-400">{discussionError}</p>
+                  )}
+                  <div className="mt-1.5 flex gap-1.5">
+                    <button
+                      type="submit"
+                      className="flex-1 rounded bg-indigo-600 py-1 text-xs font-semibold text-white hover:bg-indigo-700"
+                    >
+                      Tạo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowDiscussionForm(false)}
+                      className="flex-1 rounded bg-slate-700 py-1 text-xs text-slate-300 hover:bg-slate-600"
+                    >
+                      Hủy
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* Channel list */}
+              <div className="flex-1 overflow-y-auto py-1">
+                {discussionItems.length === 0 && !showDiscussionForm && (
+                  <p className="px-3 py-2 text-xs text-slate-500">
+                    Chưa có kênh nào
+                  </p>
+                )}
+                {discussionItems.map((discussion) => {
+                  const isActive = selectedDiscussionId === discussion.id;
+                  return (
+                    <button
+                      key={discussion.id}
+                      type="button"
+                      onClick={() => setSelectedDiscussionId(discussion.id)}
+                      className={`group flex w-full items-center gap-2 px-3 py-1.5 text-sm transition-colors ${
+                        isActive
+                          ? 'bg-slate-600 text-white'
+                          : 'text-slate-400 hover:bg-slate-700 hover:text-slate-100'
+                      }`}
+                    >
+                      <span className="flex-shrink-0 text-slate-500 group-hover:text-slate-400">
+                        #
+                      </span>
+                      <span className="flex-1 truncate text-left">{discussion.title}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Connection status */}
+              {!USE_MOCK_DATA && (
+                <div className="border-t border-slate-700 px-3 py-2">
+                  <span
+                    className={`inline-flex items-center gap-1.5 text-xs ${
+                      socketConnected ? 'text-emerald-400' : 'text-slate-500'
+                    }`}
+                  >
+                    <span
+                      className={`h-1.5 w-1.5 rounded-full ${
+                        socketConnected ? 'animate-pulse bg-emerald-400' : 'bg-slate-600'
+                      }`}
+                    />
+                    {socketConnected ? 'Trực tuyến' : 'Đang kết nối...'}
+                  </span>
+                </div>
               )}
             </div>
-          ) : (
-            <div className="mt-6 rounded-xl border border-dashed border-slate-200 py-10 text-center text-sm text-slate-400 dark:border-slate-700">
-              {discussionItems.length === 0
-                ? 'Chưa có chủ đề nào. Tạo chủ đề đầu tiên ở trên!'
-                : 'Chọn một chủ đề để bắt đầu trò chuyện'}
-            </div>
-          )}
+
+            {/* ── RIGHT MAIN AREA ──────────────────────────────────────── */}
+            {selectedDiscussionId ? (
+              (() => {
+                const selected = discussionItems.find((d) => d.id === selectedDiscussionId);
+                const canDeleteChannel =
+                  selected?.createdBy === currentUser?.id ||
+                  currentUser?.role === 'TEACHER';
+
+                return (
+                  <div className="flex flex-1 flex-col overflow-hidden bg-white dark:bg-slate-900">
+                    {/* Channel header */}
+                    <div className="flex flex-shrink-0 items-center gap-2 border-b border-slate-200 px-4 py-3 dark:border-slate-800">
+                      <span className="text-xl font-light text-slate-400">#</span>
+                      <h3 className="flex-1 text-base font-bold text-slate-900 dark:text-slate-100">
+                        {selected?.title}
+                      </h3>
+                      {canDeleteChannel && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteDiscussion(selected.id)}
+                          className="rounded px-2 py-1 text-xs text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-400/10 dark:hover:text-rose-300"
+                        >
+                          Xóa kênh
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Messages feed */}
+                    <div className="flex-1 overflow-y-auto px-4 py-4">
+                      {isLoadingMessages && (
+                        <p className="text-center text-sm text-slate-400">Đang tải tin nhắn...</p>
+                      )}
+                      {!isLoadingMessages && discussionMessages.length === 0 && (
+                        <div className="flex h-full flex-col items-center justify-center text-slate-400">
+                          <p className="text-5xl">💬</p>
+                          <p className="mt-4 text-base font-semibold text-slate-600 dark:text-slate-300">
+                            Chào mừng đến kênh <span className="text-indigo-600 dark:text-indigo-300">#{selected?.title}</span>
+                          </p>
+                          <p className="mt-1 text-sm">Hãy bắt đầu cuộc trò chuyện!</p>
+                        </div>
+                      )}
+
+                      {discussionMessages.map((message, index) => {
+                        const prev = discussionMessages[index - 1];
+                        const grouped =
+                          prev?.user_id === message.user_id &&
+                          new Date(message.created_at) - new Date(prev.created_at) <
+                            5 * 60 * 1000;
+                        const isOwn = message.user_id === currentUser?.id;
+                        const canEdit = isOwn;
+                        const canDelete = isOwn || currentUser?.role === 'TEACHER';
+                        const initials = (
+                          message.author?.full_name ?? '?'
+                        )[0].toUpperCase();
+
+                        return (
+                          <div
+                            key={message.id}
+                            className={`group flex gap-3 ${grouped ? 'mt-0.5' : 'mt-5'}`}
+                          >
+                            {/* Avatar column */}
+                            <div className="w-9 flex-shrink-0 pt-0.5">
+                              {!grouped && (
+                                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-500 text-sm font-bold text-white">
+                                  {initials}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Message content */}
+                            <div className="relative min-w-0 flex-1">
+                              {!grouped && (
+                                <div className="flex items-baseline gap-2">
+                                  <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                                    {message.author?.full_name ?? 'Thành viên'}
+                                  </span>
+                                  <span className="text-xs text-slate-400">
+                                    {formatChatTime(message.created_at)}
+                                  </span>
+                                </div>
+                              )}
+
+                              {editingMessageId === message.id ? (
+                                <form
+                                  className="mt-1 flex items-center gap-2"
+                                  onSubmit={handleUpdateMessage}
+                                >
+                                  <input
+                                    autoFocus
+                                    className="flex-1 rounded border border-slate-200 px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                                    value={editingMessageContent}
+                                    onChange={(e) => setEditingMessageContent(e.target.value)}
+                                  />
+                                  <button
+                                    type="submit"
+                                    className="rounded bg-indigo-600 px-2 py-1 text-xs font-semibold text-white"
+                                  >
+                                    Lưu
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingMessageId(null)}
+                                    className="rounded border border-slate-200 px-2 py-1 text-xs dark:border-slate-700 dark:text-slate-300"
+                                  >
+                                    Hủy
+                                  </button>
+                                </form>
+                              ) : (
+                                <p
+                                  className={`whitespace-pre-wrap text-sm text-slate-800 dark:text-slate-200 ${grouped ? '' : 'mt-0.5'}`}
+                                >
+                                  {message.content}
+                                </p>
+                              )}
+
+                              {/* Hover action toolbar */}
+                              {!editingMessageId && (canEdit || canDelete) && (
+                                <div className="absolute -top-8 right-0 hidden items-center gap-0.5 rounded-lg border border-slate-200 bg-white px-1 py-0.5 shadow-md group-hover:flex dark:border-slate-700 dark:bg-slate-800">
+                                  {canEdit && (
+                                    <button
+                                      type="button"
+                                      title="Chỉnh sửa"
+                                      onClick={() => handleStartEditMessage(message)}
+                                      className="rounded p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:hover:bg-slate-700 dark:hover:text-slate-100"
+                                    >
+                                      ✏️
+                                    </button>
+                                  )}
+                                  {canDelete && (
+                                    <button
+                                      type="button"
+                                      title="Xóa tin nhắn"
+                                      onClick={() => handleDeleteMessage(message.id)}
+                                      className="rounded p-1.5 text-rose-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-400/10"
+                                    >
+                                      🗑️
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      <div ref={messagesEndRef} />
+                    </div>
+
+                    {/* Compose box */}
+                    <div className="flex-shrink-0 border-t border-slate-200 px-4 py-3 dark:border-slate-800">
+                      {messageError && (
+                        <p className="mb-1 text-xs text-rose-600 dark:text-rose-300">
+                          {messageError}
+                        </p>
+                      )}
+                      <form
+                        className="flex items-end gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 transition-colors focus-within:border-indigo-300 dark:border-slate-700 dark:bg-slate-800"
+                        onSubmit={handleCreateMessage}
+                      >
+                        <textarea
+                          className="max-h-32 flex-1 resize-none bg-transparent text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none dark:text-slate-100"
+                          placeholder={`Nhắn tin trong #${selected?.title ?? '...'}`}
+                          value={messageForm}
+                          rows={1}
+                          onChange={(e) => setMessageForm(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              handleCreateMessage(e);
+                            }
+                          }}
+                        />
+                        <button
+                          type="submit"
+                          disabled={!messageForm.trim()}
+                          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <Send className="h-4 w-4" />
+                        </button>
+                      </form>
+                      <p className="mt-1 text-right text-xs text-slate-400">
+                        Enter để gửi · Shift+Enter xuống dòng
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()
+            ) : (
+              <div className="flex flex-1 flex-col items-center justify-center bg-white dark:bg-slate-900">
+                <p className="text-5xl">💬</p>
+                <p className="mt-4 text-base font-semibold text-slate-600 dark:text-slate-300">
+                  Chọn một kênh thảo luận
+                </p>
+                <p className="mt-1 text-sm text-slate-400">
+                  hoặc nhấn <kbd className="rounded border border-slate-200 px-1.5 py-0.5 text-xs">+</kbd> để tạo kênh mới
+                </p>
+              </div>
+            )}
+          </div>
         </section>
       )}
     </main>
