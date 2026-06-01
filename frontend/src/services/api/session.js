@@ -1,7 +1,7 @@
 import { clearMockCurrentUser, getMockCurrentUser, setMockCurrentUser } from '../../mocks/auth/mockSession';
 import { authStorageKeys } from './authState';
 
-const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA !== 'false';
+const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA === 'true';
 
 function readStoredUser() {
   const rawUser = localStorage.getItem(authStorageKeys.currentUser);
