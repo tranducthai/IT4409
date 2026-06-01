@@ -1,6 +1,12 @@
 import { apiRequest } from './client';
 import { setCurrentUser } from './session';
 
+export async function getAllUsers() {
+  return apiRequest('/users', {
+    method: 'GET',
+  });
+}
+
 export async function updateCurrentUserProfile(userId, payload) {
   const data = await apiRequest(`/users/${userId}`, {
     method: 'PATCH',

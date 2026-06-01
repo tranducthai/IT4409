@@ -50,7 +50,7 @@ SMTP_PORT=587
 SMTP_USER=your@gmail.com
 SMTP_PASS=app_password
 SMTP_FROM=your@gmail.com
-APP_BASE_URL=http://localhost:8000
+APP_BASE_URL=http://127.0.0.1:8000
 
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_KEY=your_service_role_key
@@ -75,7 +75,7 @@ cp .env.example .env
 De test API that:
 
 ```env
-VITE_API_BASE_URL=http://localhost:8000/api
+VITE_API_BASE_URL=http://127.0.0.1:8000/api
 VITE_USE_MOCK_DATA=false
 VITE_MOCK_SESSION_ROLE=STUDENT
 ```
@@ -122,7 +122,7 @@ npm run start:dev
 Swagger:
 
 ```text
-http://localhost:8000/api/docs
+http://127.0.0.1:8000/api/docs
 ```
 
 Terminal 2:
@@ -157,7 +157,7 @@ Frontend:
 cd frontend
 npm run lint
 npm run build
-VITE_API_BASE_URL=http://localhost:8000/api npm run test:p1
+VITE_API_BASE_URL=http://127.0.0.1:8000/api npm run test:p1
 npm audit --omit=dev
 ```
 
