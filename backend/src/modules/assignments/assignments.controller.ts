@@ -16,7 +16,7 @@ import {
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { buildFileUrl, createDiskStorage } from '../../common/utils/upload.util';
+import { createMemoryStorage, uploadToSupabaseStorage } from '../../common/utils/upload.util';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { UserRole } from '../users/enums/user-role.enum';
@@ -36,10 +36,10 @@ export class AssignmentsController {
     @Post()
     @UseInterceptors(
         FilesInterceptor('files', 10, {
-            storage: createDiskStorage('assignments'),
+            storage: createMemoryStorage(),
         }),
     )
-    create(
+    async create(
         @Req() req: AuthedRequest,
         @Body() dto: CreateAssignmentDto,
         @UploadedFiles() files: Express.Multer.File[] = [],
@@ -47,13 +47,9 @@ export class AssignmentsController {
         if (req.user.role !== UserRole.TEACHER) {
             throw new ForbiddenException('Teacher role required');
         }
-        const attachments = files.map((file) => ({
-            file_url: buildFileUrl('assignments', file.filename),
-            original_name: file.originalname,
-            file_name: file.filename,
-            mime_type: file.mimetype,
-            size: file.size,
-        }));
+        const attachments = await Promise.all(
+            files.map((file) => uploadToSupabaseStorage('assignments', file)),
+        );
         return this.assignmentsService.create(req.user.sub, dto, attachments);
     }
 

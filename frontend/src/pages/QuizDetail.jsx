@@ -12,11 +12,19 @@ import { getCurrentUser } from '../services/api/session';
 import {
     getQuizDetailData,
     getQuizDetailFromApi,
+    getAttemptResult,
     listMyQuizAttempts,
     startQuizAttempt,
     submitQuizAttempt,
     USE_MOCK_DATA,
 } from '../services/dataSource';
+
+function formatCountdown(totalSeconds) {
+  if (totalSeconds <= 0) return '00:00';
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
 
 export default function QuizDetail() {
   const { courseId, quizId } = useParams();
@@ -59,13 +67,36 @@ export default function QuizDetail() {
   });
   const [editingQuestionError, setEditingQuestionError] = useState('');
   const [attemptInfo, setAttemptInfo] = useState(null);
+  const [attemptResult, setAttemptResult] = useState(null);
   const [answers, setAnswers] = useState({});
   const [actionError, setActionError] = useState('');
   const [isStarting, setIsStarting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState(null);
   const [attempts, setAttempts] = useState([]);
+  const [selectedAttemptId, setSelectedAttemptId] = useState(null);
+  const [clockNow, setClockNow] = useState(Date.now());
   const [teacherQuestions, setTeacherQuestions] = useState([]);
+
+  const loadAttemptResult = async (attemptId, options = {}) => {
+    const { silent = false } = options;
+    if (!attemptId) return null;
+    if (!silent) setActionError('');
+
+    try {
+      const result = await getAttemptResult(attemptId);
+      setAttemptResult(result);
+      setSubmitResult(result);
+      setSelectedAttemptId(attemptId);
+      setAnswers({});
+      return result;
+    } catch (err) {
+      if (!silent) {
+        setActionError(err?.message || 'Không tải được kết quả quiz.');
+      }
+      return null;
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -112,21 +143,72 @@ export default function QuizDetail() {
   }, [courseId, quizId, reloadToken]);
 
   useEffect(() => {
-    if (USE_MOCK_DATA || isTeacher || !quizId) return;
+    if (USE_MOCK_DATA || isTeacher || !quizId) {
+      setAttempts([]);
+      setAttemptInfo(null);
+      setAttemptResult(null);
+      setSelectedAttemptId(null);
+      return;
+    }
     let isMounted = true;
     const loadAttempts = async () => {
       try {
         const items = await listMyQuizAttempts(quizId);
-        if (isMounted) setAttempts(items ?? []);
+        if (!isMounted) return;
+
+        const attemptItems = items ?? [];
+        setAttempts(attemptItems);
+
+        const now = Date.now();
+        const activeAttempt = attemptItems.find((item) => {
+          if (item.isSubmitted) return false;
+          if (!item.expiresAt) return true;
+          return Date.parse(item.expiresAt) > now;
+        });
+
+        if (activeAttempt) {
+          setAttemptInfo(activeAttempt);
+          setAttemptResult(null);
+          setSubmitResult(null);
+          setSelectedAttemptId(activeAttempt.attemptId);
+          return;
+        }
+
+        setAttemptInfo(null);
+        const latestSubmitted = attemptItems.find((item) => item.isSubmitted);
+        if (latestSubmitted) {
+          void loadAttemptResult(latestSubmitted.attemptId, { silent: true });
+        } else {
+          setAttemptResult(null);
+          setSubmitResult(null);
+          setSelectedAttemptId(null);
+        }
       } catch {
-        if (isMounted) setAttempts([]);
+        if (isMounted) {
+          setAttempts([]);
+          setAttemptInfo(null);
+        }
       }
     };
     void loadAttempts();
     return () => {
       isMounted = false;
     };
-  }, [quizId, isTeacher]);
+  }, [quizId, isTeacher, reloadToken]);
+
+  useEffect(() => {
+    if (USE_MOCK_DATA || isTeacher || !attemptInfo?.expiresAt) {
+      return undefined;
+    }
+
+    const timer = window.setInterval(() => {
+      setClockNow(Date.now());
+    }, 1000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [attemptInfo?.expiresAt, isTeacher]);
 
   useEffect(() => {
     if (!isTeacher || USE_MOCK_DATA || !quizId) {
@@ -171,7 +253,20 @@ export default function QuizDetail() {
       })),
     [questionItems],
   );
+  const questionById = useMemo(
+    () => new Map(normalizedQuestions.map((question) => [question.id, question])),
+    [normalizedQuestions],
+  );
   const selectedAnswers = useMemo(() => answers, [answers]);
+  const activeAttemptRemainingSeconds = attemptInfo?.expiresAt
+    ? Math.max(0, Math.ceil((Date.parse(attemptInfo.expiresAt) - clockNow) / 1000))
+    : 0;
+  const isAttemptExpired = Boolean(attemptInfo?.expiresAt && activeAttemptRemainingSeconds <= 0);
+  const hasActiveAttempt = Boolean(attemptInfo && !isAttemptExpired);
+  const answeredCount = normalizedQuestions.filter((question) => selectedAnswers[question.id]).length;
+  const allQuestionsAnswered =
+    normalizedQuestions.length > 0 && answeredCount === normalizedQuestions.length;
+  const canAnswerQuiz = hasActiveAttempt && !attemptResult && !submitResult;
 
   if (isLoading) {
     return (
@@ -233,7 +328,11 @@ export default function QuizDetail() {
     try {
       const attempt = await startQuizAttempt(quizId);
       setAttemptInfo(attempt);
+      setAttemptResult(null);
       setSubmitResult(null);
+      setSelectedAttemptId(attempt.attemptId);
+      setAnswers({});
+      setClockNow(Date.now());
     } catch (err) {
       setActionError(err?.message || 'Không bắt đầu được quiz.');
     } finally {
@@ -242,6 +341,11 @@ export default function QuizDetail() {
   };
 
   const handleSelectAnswer = (questionId, value) => {
+    if (!canAnswerQuiz) {
+      setActionError('Bạn cần bắt đầu lượt làm bài còn thời gian trước khi chọn đáp án.');
+      return;
+    }
+    setActionError('');
     setAnswers((prev) => ({
       ...prev,
       [questionId]: value,
@@ -249,15 +353,30 @@ export default function QuizDetail() {
   };
 
   const handleSubmitQuiz = async () => {
-    if (!attemptInfo?.attempt_id) {
+    if (!attemptInfo?.attemptId) {
       setActionError('Bạn cần bắt đầu quiz trước khi nộp.');
       return;
     }
+    if (normalizedQuestions.length === 0) {
+      setActionError('Quiz này chưa có câu hỏi để nộp.');
+      return;
+    }
+    if (!allQuestionsAnswered) {
+      setActionError('Bạn cần trả lời tất cả câu hỏi trước khi nộp.');
+      return;
+    }
+
+    const expiresAt = attemptInfo.expiresAt ? Date.parse(attemptInfo.expiresAt) : null;
+    if (expiresAt && Date.now() > expiresAt) {
+      setActionError('Lượt làm bài này đã hết thời gian.');
+      return;
+    }
+
     setActionError('');
     setIsSubmitting(true);
     try {
       const payload = {
-        attempt_id: attemptInfo.attempt_id,
+        attempt_id: attemptInfo.attemptId,
         answers: normalizedQuestions
           .filter((q) => selectedAnswers[q.id])
           .map((q) => ({
@@ -266,9 +385,11 @@ export default function QuizDetail() {
           })),
       };
       const result = await submitQuizAttempt(quizId, payload);
+      await loadAttemptResult(result.attemptId, { silent: true });
       setSubmitResult(result);
       setAttemptInfo(null);
       setAnswers({});
+      setReloadToken((value) => value + 1);
     } catch (err) {
       setActionError(err?.message || 'Không nộp được quiz.');
     } finally {
@@ -538,31 +659,157 @@ export default function QuizDetail() {
               disabled={isStarting}
               className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
             >
-              {isStarting ? 'Đang bắt đầu...' : 'Bắt đầu làm bài'}
+              {isStarting ? 'Đang bắt đầu...' : attemptInfo && !isAttemptExpired ? 'Tiếp tục làm bài' : 'Bắt đầu làm bài'}
             </button>
           </div>
           {attemptInfo && (
-            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-              Bắt đầu lúc: {new Date(attemptInfo.start_time).toLocaleString('vi-VN')} · Hết hạn: {new Date(attemptInfo.expires_at).toLocaleString('vi-VN')}
-            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+              <span>Bắt đầu lúc: {new Date(attemptInfo.startTime).toLocaleString('vi-VN')}</span>
+              <span>Hết hạn: {new Date(attemptInfo.expiresAt).toLocaleString('vi-VN')}</span>
+              <span className={isAttemptExpired ? 'font-semibold text-rose-600 dark:text-rose-300' : 'font-semibold text-emerald-600 dark:text-emerald-300'}>
+                {isAttemptExpired ? 'Đã hết hạn' : `Còn lại ${formatCountdown(activeAttemptRemainingSeconds)}`}
+              </span>
+              <span className="font-semibold text-slate-600 dark:text-slate-300">
+                Đã trả lời {answeredCount}/{normalizedQuestions.length}
+              </span>
+            </div>
           )}
           {actionError && (
             <p className="mt-2 text-sm text-rose-600 dark:text-rose-200">{actionError}</p>
           )}
           {submitResult && (
             <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-200">
-              Bạn trả lời đúng {submitResult.correct}/{submitResult.total_questions}. Điểm: {submitResult.score}.
+              Bạn trả lời đúng {submitResult.correct}/{submitResult.totalQuestions}. Điểm: {submitResult.score}.
+            </div>
+          )}
+          {attemptResult && (
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500 dark:text-indigo-300">
+                    Kết quả lượt làm bài
+                  </p>
+                  <h3 className="mt-1 text-base font-bold text-slate-900 dark:text-slate-100">
+                    {attemptResult.isSubmitted ? 'Đã nộp bài' : 'Đang xem kết quả'}
+                  </h3>
+                </div>
+                <div className="rounded-lg border border-indigo-200 bg-white px-3 py-2 text-right dark:border-indigo-400/30 dark:bg-slate-900">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Điểm</p>
+                  <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-300">
+                    {Math.round(Number(attemptResult.score ?? 0))}%
+                  </p>
+                </div>
+              </div>
+              <div className="mt-3 grid gap-2 text-sm text-slate-600 dark:text-slate-300 md:grid-cols-3">
+                <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900">
+                  Đúng: {attemptResult.correct}/{attemptResult.totalQuestions}
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900">
+                  Bắt đầu: {attemptResult.startTime ? new Date(attemptResult.startTime).toLocaleString('vi-VN') : 'N/A'}
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900">
+                  Nộp: {attemptResult.endTime ? new Date(attemptResult.endTime).toLocaleString('vi-VN') : 'Chưa nộp'}
+                </div>
+              </div>
+              <div className="mt-4 space-y-2">
+                {(attemptResult.answers ?? []).length > 0 ? (
+                  attemptResult.answers.map((answer) => {
+                    const question = questionById.get(answer.questionId);
+                    return (
+                      <div
+                        key={answer.questionId}
+                        className={`rounded-lg border px-3 py-2 text-sm ${
+                          answer.isCorrect
+                            ? 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-200'
+                            : 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-200'
+                        }`}
+                      >
+                        <div className="font-semibold">
+                          {question?.text ?? `Câu hỏi ${answer.questionId}`}
+                        </div>
+                        <div className="mt-1 text-xs">
+                          Đáp án đã chọn: {answer.selectedAnswer} · {answer.isCorrect ? 'Chính xác' : 'Chưa đúng'}
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="rounded-lg border border-dashed border-slate-300 bg-white px-3 py-4 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
+                    Chưa có dữ liệu trả lời cho lượt làm bài này.
+                  </div>
+                )}
+              </div>
             </div>
           )}
           {attempts.length > 0 && (
-            <div className="mt-3 text-xs text-slate-500 dark:text-slate-400">
-              Lịch sử làm bài: {attempts.length} lần.
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Lịch sử làm bài</h3>
+              <div className="mt-3 space-y-2">
+                {attempts.map((attempt) => {
+                  const expired = !attempt.isSubmitted && attempt.expiresAt
+                    ? Date.parse(attempt.expiresAt) <= clockNow
+                    : false;
+                  const isActive = attempt.attemptId === attemptInfo?.attemptId;
+                  const isSelected = attempt.attemptId === selectedAttemptId;
+                  const status = attempt.isSubmitted
+                    ? 'Đã nộp'
+                    : expired
+                      ? 'Hết hạn'
+                      : isActive
+                        ? 'Đang làm'
+                        : 'Đang mở';
+
+                  return (
+                    <button
+                      key={attempt.attemptId}
+                      type="button"
+                      onClick={() => {
+                        if (attempt.isSubmitted) {
+                          void loadAttemptResult(attempt.attemptId);
+                          return;
+                        }
+                        if (expired) {
+                          setActionError('Lượt làm bài này đã hết hạn.');
+                          return;
+                        }
+                        setAttemptInfo(attempt);
+                        setAttemptResult(null);
+                        setSubmitResult(null);
+                        setSelectedAttemptId(attempt.attemptId);
+                        setAnswers({});
+                        setClockNow(Date.now());
+                      }}
+                      className={`w-full rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
+                        isSelected
+                          ? 'border-indigo-300 bg-indigo-50 text-indigo-700 dark:border-indigo-400/40 dark:bg-indigo-400/10 dark:text-indigo-200'
+                          : 'border-slate-200 bg-white text-slate-700 hover:border-indigo-200 hover:bg-indigo-50/60 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200'
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="font-semibold">
+                          {new Date(attempt.startTime).toLocaleString('vi-VN')}
+                        </span>
+                        <span className="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                          {status}
+                        </span>
+                      </div>
+                      <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        {attempt.isSubmitted
+                          ? `Điểm: ${Math.round(Number(attempt.score ?? 0))}%`
+                          : expired
+                            ? 'Đã quá thời gian làm bài'
+                            : `Hết hạn lúc ${new Date(attempt.expiresAt).toLocaleString('vi-VN')}`}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
           <button
             type="button"
             onClick={handleSubmitQuiz}
-            disabled={isSubmitting}
+            disabled={isSubmitting || !hasActiveAttempt || !allQuestionsAnswered}
             className="mt-3 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
           >
             {isSubmitting ? 'Đang nộp...' : 'Nộp bài'}
@@ -661,13 +908,19 @@ export default function QuizDetail() {
                 {!isTeacher && (
                   <div className="mt-3 flex flex-wrap gap-2">
                     {['A', 'B', 'C', 'D'].map((option) => (
-                      <label key={`${question.id}-${option}`} className="inline-flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+                      <label
+                        key={`${question.id}-${option}`}
+                        className={`inline-flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 ${
+                          canAnswerQuiz ? '' : 'opacity-60'
+                        }`}
+                      >
                         <input
                           type="radio"
                           name={`question-${question.id}`}
                           value={option}
                           checked={selectedAnswers[question.id] === option}
                           onChange={() => handleSelectAnswer(question.id, option)}
+                          disabled={!canAnswerQuiz || isSubmitting}
                         />
                         {option}
                       </label>

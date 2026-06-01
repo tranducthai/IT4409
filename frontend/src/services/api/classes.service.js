@@ -63,6 +63,13 @@ export function getTeacherClassProgress(classId, accessToken) {
   });
 }
 
+export function getMyClassProgress(classId, accessToken) {
+  return apiRequest(`/classes/${classId}/progress/me`, {
+    method: 'GET',
+    ...withAuth(accessToken),
+  });
+}
+
 export function addStudentToClass(payload, accessToken) {
   return apiRequest('/class-members', {
     method: 'POST',

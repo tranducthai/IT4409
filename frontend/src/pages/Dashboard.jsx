@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     addStudentByStudentCode,
-    addStudentToClass,
     approveJoinRequest,
     createClass,
     deleteClass,
@@ -106,7 +105,7 @@ import AdminDashboard from './dashboard/AdminDashboard';
           title: cls.name,
           code: cls.join_code,
           category: cls.type ?? 'Khóa học',
-          image: cls.avatar_url ?? 'https://via.placeholder.com/400x225',
+          image: cls.avatar_url || '/favicon.svg',
         }));
 
         if (isMounted) {
@@ -141,7 +140,7 @@ import AdminDashboard from './dashboard/AdminDashboard';
         title: cls.name,
         code: cls.join_code,
         type: cls.type,
-        image: cls.avatar_url ?? 'https://via.placeholder.com/400x225',
+        image: cls.avatar_url || '/favicon.svg',
       }));
 
       const pendingLists = await Promise.all(
@@ -197,20 +196,6 @@ import AdminDashboard from './dashboard/AdminDashboard';
     await reloadTeacherClasses();
   };
 
-  const handleAddStudent = async ({ class_id, user_id }) => {
-    const accessToken = getAccessToken();
-    await addStudentToClass(
-      {
-        class_id,
-        user_id,
-        role: 'STUDENT',
-        status: 'ACTIVE',
-      },
-      accessToken,
-    );
-    await reloadTeacherClasses();
-  };
-
   const handleApproveRequest = async (requestId) => {
     const accessToken = getAccessToken();
     await approveJoinRequest(requestId, accessToken);
@@ -239,7 +224,7 @@ import AdminDashboard from './dashboard/AdminDashboard';
       title: cls.name,
       code: cls.join_code,
       category: cls.type ?? 'Khóa học',
-      image: cls.avatar_url ?? 'https://via.placeholder.com/400x225',
+      image: cls.avatar_url || '/favicon.svg',
     }));
     setStudentCourses(normalized);
   };

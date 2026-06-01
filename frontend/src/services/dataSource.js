@@ -58,6 +58,7 @@ export function createMockQuiz(quiz) {
 export { getCourseDetailFromApi } from './api/course-detail.service';
 export {
     getQuizDetailFromApi,
+  getAttemptResult,
     listMyQuizAttempts,
     startQuizAttempt,
     submitQuizAttempt

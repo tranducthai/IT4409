@@ -18,7 +18,7 @@ import {
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Request } from 'express';
-import { buildFileUrl, createDiskStorage } from '../../common/utils/upload.util';
+import { createMemoryStorage, uploadToSupabaseStorage } from '../../common/utils/upload.util';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { CreateLessonContentDto } from './dtos/create-lesson-content.dto';
@@ -40,21 +40,15 @@ export class LessonContentsController {
   @Post('upload')
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: createDiskStorage('lesson-contents'),
+      storage: createMemoryStorage(),
     }),
   )
-  upload(@UploadedFile() file?: Express.Multer.File) {
+  async upload(@UploadedFile() file?: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('File is required');
     }
 
-    return {
-      file_url: buildFileUrl('lesson-contents', file.filename),
-      original_name: file.originalname,
-      file_name: file.filename,
-      mime_type: file.mimetype,
-      size: file.size,
-    };
+    return uploadToSupabaseStorage('lesson-contents', file);
   }
 
   @Post('bulk')

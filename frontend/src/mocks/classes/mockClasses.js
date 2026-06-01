@@ -27,7 +27,7 @@ export const mockClasses = [
     id: '1f6b8a4d-c1d4-4f79-90a9-24d8b4f00003',
     name: 'Nhập môn An toàn thông tin',
     description: 'Căn bản về bảo mật thông tin',
-    avatar_url: 'https://via.placeholder.com/400x225',
+    avatar_url: '/favicon.svg',
     type: 'PRIVATE',
     teacher_id: '8b2ca5d8-9f69-4c8f-b1ef-183b6a10a222',
     join_code: 'IT4015E-GHI',

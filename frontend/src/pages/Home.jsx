@@ -32,7 +32,7 @@ export default function Home() {
           title: cls.name,
           code: cls.join_code,
           category: cls.type ?? 'Khóa học',
-          image: cls.avatar_url ?? 'https://via.placeholder.com/400x225',
+          image: cls.avatar_url || '/favicon.svg',
           description: cls.description ?? '',
         }));
         if (isMounted) setCourses(normalized);
