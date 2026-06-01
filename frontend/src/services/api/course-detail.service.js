@@ -58,37 +58,6 @@ async function loadOptionalObject(path, label) {
   }
 }
 
-function normalizeLessonContent(content, quizzes = [], classId) {
-  const source = content ?? {};
-  const displayType = getDisplayType(source);
-  const rawQuizRef = source.quiz_id ?? source.content ?? source.file_url;
-  const matchedQuiz =
-    displayType === 'quiz'
-      ? quizzes.find(
-          (quiz) =>
-            quiz.id === rawQuizRef ||
-            String(rawQuizRef ?? '').includes(quiz.id) ||
-            String(quiz.title ?? '').toLowerCase() ===
-              String(source.title ?? '').toLowerCase(),
-        )
-      : null;
-
-  return {
-    id: source.id,
-    lessonId: source.lesson_id,
-    type: normalizeContentType(source.type),
-    displayType,
-    title: source.title ?? 'Tài nguyên chưa có tiêu đề',
-    content: source.content,
-    fileUrl: source.file_url,
-    openUrl: source.open_url,
-    duration: source.duration,
-    orderIndex: source.order_index ?? 0,
-    quizId: matchedQuiz?.id ?? null,
-    quizUrl: matchedQuiz ? `/courses/${classId}/quizzes/${matchedQuiz.id}` : null,
-  };
-}
-
 function normalizeLessonPrimaryResource(lesson, quizzes = [], classId) {
   if (!lesson || typeof lesson !== 'object') return null;
 
@@ -151,7 +120,7 @@ function buildResourceGroups(sections, quizzes, classId) {
     {
       id: 'lesson-resources',
       title: 'Tài nguyên theo bài học',
-      description: 'Văn bản, PDF, tệp, video và quiz gắn với từng bài học',
+      description: 'Text, PDF, tệp, video và quiz gắn với từng bài học',
       items: lessonResources,
     },
     {
@@ -229,10 +198,9 @@ export async function getCourseDetailFromApi(courseId, options = {}) {
     throw new Error('Không tìm thấy thông tin khóa học.');
   }
 
-  const [sectionsResult, contentsResult, quizzesResult, assignmentsResult, discussionsResult, progressResult] =
+  const [sectionsResult, quizzesResult, assignmentsResult, discussionsResult, progressResult] =
     await Promise.all([
       loadOptionalArray(`/sections/class/${courseId}`, 'Không tải được danh sách phần'),
-      loadOptionalArray(`/lesson-contents/class/${courseId}`, 'Không tải được tài nguyên bài học'),
       loadOptionalArray(`/quizzes/class/${courseId}`, 'Không tải được danh sách quiz'),
       loadOptionalArray(`/assignments/class/${courseId}`, 'Không tải được danh sách BTVN'),
       loadOptionalArray(`/discussions/class/${courseId}`, 'Không tải được thảo luận'),
@@ -264,7 +232,6 @@ export async function getCourseDetailFromApi(courseId, options = {}) {
   const quizzes = quizzesResult.items;
   const warnings = [
     sectionsResult.warning,
-    contentsResult.warning,
     quizzesResult.warning,
     assignmentsResult.warning,
     discussionsResult.warning,
@@ -272,18 +239,10 @@ export async function getCourseDetailFromApi(courseId, options = {}) {
   ].filter(Boolean);
 
   const lessonsBySection = lessonResults.map((result) => result.lessons);
-  const lessonIds = new Set(lessonsBySection.flat().map((lesson) => lesson.id));
   const completedLessonIds = new Set(
     toArray(progressResult.item?.completed_lesson_ids ?? progressResult.item?.completedLessonIds),
   );
-  const contentsByLessonId = contentsResult.items
-    .filter((content) => lessonIds.has(content.lesson_id))
-    .reduce((acc, content) => {
-      const list = acc.get(content.lesson_id) ?? [];
-      list.push(normalizeLessonContent(content, quizzes, courseId));
-      acc.set(content.lesson_id, list);
-      return acc;
-    }, new Map());
+  const contentsByLessonId = new Map();
 
   let focusedLessonAssigned = false;
 

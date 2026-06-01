@@ -2,7 +2,15 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { login as loginAuth } from '../services/api/auth.service';
 import { setAuthTokens } from '../services/api/client';
+import { clearAuthState } from '../services/api/authState';
 import { setCurrentUser } from '../services/api/session';
+
+function dashboardPathForRole(role) {
+  const normalizedRole = String(role ?? '').toUpperCase();
+  if (normalizedRole === 'ADMIN') return '/dashboard/admin';
+  if (normalizedRole === 'TEACHER') return '/dashboard/teacher';
+  return '/dashboard/student';
+}
 
 function Login() {
   const navigate = useNavigate();
@@ -17,18 +25,24 @@ function Login() {
     setIsSubmitting(true);
 
     try {
+      clearAuthState();
       const data = await loginAuth({ email, password });
-      if (data?.user) {
-        setCurrentUser(data.user);
-      }
-      if (data?.accessToken) {
-        setAuthTokens({
-          accessToken: data.accessToken,
-          refreshToken: data.refreshToken,
-        });
-      }
-      navigate('/dashboard');
+      if (!data?.user) throw new Error('API đăng nhập không trả về thông tin người dùng.');
+      if (!data?.accessToken) throw new Error('API đăng nhập không trả về access token.');
+
+      const user = {
+        ...data.user,
+        role: String(data.user.role ?? 'STUDENT').toUpperCase(),
+      };
+
+      setAuthTokens({
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken,
+      });
+      setCurrentUser(user);
+      navigate(dashboardPathForRole(user.role), { replace: true });
     } catch (err) {
+      clearAuthState();
       const message = err?.payload?.message || err?.message || 'Đăng nhập thất bại';
       setError(message);
       setIsSubmitting(false);

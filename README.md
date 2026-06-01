@@ -163,7 +163,64 @@ npm audit --omit=dev
 
 `test:p1` yeu cau backend dang chay va co demo account trong DB.
 
-## 7. Schema du lieu that cho 1 luong demo
+## 7. Du lieu test CS50W
+
+Repo co seed that cho khoa `CS50's Web Programming with Python and JavaScript`.
+File mo ta seed nam o:
+
+```text
+cs50w_seed_course.yaml
+```
+
+Chay seed:
+
+```bash
+cd backend
+npm run seed:cs50w
+```
+
+Seed nay tao lop, GV, nhieu SV, bai hoc, YouTube video, PDF/ZIP tai nguyen, quiz,
+discussion, assignment va submission mau.
+
+Tai nguyen da tai ve local nam o:
+
+```text
+/tmp/cs50w_resources
+```
+
+Khi chay seed, cac file CS50W local se duoc upload len Supabase bucket
+`cs50w-resources`; app se dung URL cloud sau khi upload.
+
+Thong tin lop:
+
+| Truong | Gia tri |
+| --- | --- |
+| Ten lop | `CS50's Web Programming with Python and JavaScript` |
+| Join code | `CS50W-2026` |
+
+Account test, password chung la `Password123!`:
+
+| Case | Email |
+| --- | --- |
+| Giao vien | `teacher.cs50w@7study.local` |
+| SV active chinh | `student.cs50w@7study.local` |
+| SV active frontend | `student.frontend.cs50w@7study.local` |
+| SV active backend | `student.backend.cs50w@7study.local` |
+| SV active QA | `student.qa.cs50w@7study.local` |
+| SV active fullstack | `student.fullstack.cs50w@7study.local` |
+| SV dang cho duyet | `student.pending1.cs50w@7study.local` |
+| SV dang cho duyet | `student.pending2.cs50w@7study.local` |
+| SV bi tu choi | `student.rejected.cs50w@7study.local` |
+
+Luon test nhanh:
+
+1. Login GV, mo lop CS50W.
+2. Vao tab bai hoc, mo YouTube/PDF, xem text inline va lam quiz.
+3. Vao dashboard GV de xem case SV dang cho duyet.
+4. Login SV active, vao lop, danh dau da hoc, lam quiz, gui discussion va nop assignment.
+5. Login SV pending/rejected de kiem tra case chua co quyen vao lop active.
+
+## 8. Schema du lieu that cho 1 luong demo
 
 Nen chuan bi toi thieu 1 giao vien, 1 sinh vien va 1 lop hoc co du noi dung de demo.
 
@@ -247,7 +304,7 @@ Neu demo bai tap:
 - 1 submission cua sinh vien, co file nop bai.
 - 1 lan cham diem/feedback neu can demo flow day du.
 
-## 8. Checklist demo nhanh
+## 9. Checklist demo nhanh
 
 1. Login giao vien.
 2. Vao dashboard, mo lop hoc.
@@ -261,7 +318,7 @@ Neu demo bai tap:
 10. Gui discussion message.
 11. Nop assignment neu demo bai tap.
 
-## 9. Luu y hien tai
+## 10. Luu y hien tai
 
 - `.env` da duoc ignore; chi commit `.env.example`.
 - Frontend chi dung mock role khi `VITE_USE_MOCK_DATA=true`.

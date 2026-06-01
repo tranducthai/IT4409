@@ -83,7 +83,7 @@ const tabOptions = [
 
 const resourceTypeMeta = {
   text: {
-    label: 'Văn bản',
+    label: 'Text',
     icon: FileText,
     badgeClass: 'bg-sky-100 text-sky-700 dark:bg-sky-400/10 dark:text-sky-200',
   },
@@ -110,7 +110,7 @@ const resourceTypeMeta = {
 };
 
 const lessonTypeOptions = [
-  { value: 'text', label: 'Văn bản' },
+  { value: 'text', label: 'Text' },
   { value: 'video', label: 'Video' },
   { value: 'file', label: 'Tệp' },
   { value: 'quiz', label: 'Quiz' },
@@ -179,8 +179,11 @@ function ResourceCard({ resource, compact = false }) {
   const type = resource.displayType ?? resource.type ?? 'file';
   const meta = resourceTypeMeta[type] ?? resourceTypeMeta.file;
   const Icon = meta.icon;
+  const hasInlineText = type === 'text';
   const actionUrl =
-    type === 'quiz'
+    hasInlineText
+      ? null
+      : type === 'quiz'
       ? resource.quizUrl
       : resource.fileUrl ?? resource.openUrl ?? resource.url;
 
@@ -239,7 +242,7 @@ function ResourceCard({ resource, compact = false }) {
               <ExternalLink className="h-3.5 w-3.5" />
             </a>
           )
-        ) : (
+        ) : hasInlineText ? null : (
           <span className="flex-shrink-0 rounded-lg border border-dashed border-slate-200 px-2.5 py-2 text-xs text-slate-400 dark:border-slate-700">
             Chưa có liên kết
           </span>
@@ -1823,7 +1826,7 @@ export default function CourseDetail() {
                               {editingLessonForm.type === 'text' && (
                                 <textarea
                                   className="mt-3 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                                  placeholder="Nội dung văn bản"
+                                  placeholder="Nội dung text"
                                   value={editingLessonForm.content}
                                   onChange={(event) =>
                                     setEditingLessonForm((prev) => ({
@@ -1978,7 +1981,7 @@ export default function CourseDetail() {
                       {lessonForms[section.id]?.type === 'text' && (
                         <textarea
                           className="mt-3 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                          placeholder="Nội dung văn bản"
+                          placeholder="Nội dung text"
                           value={(lessonForms[section.id]?.content ?? '')}
                           onChange={(event) => updateLessonForm(section.id, { content: event.target.value })}
                         />
