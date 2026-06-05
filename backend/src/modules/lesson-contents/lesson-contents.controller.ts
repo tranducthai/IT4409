@@ -18,7 +18,8 @@ import {
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Request } from 'express';
-import { buildFileUrl, createDiskStorage } from '../../common/utils/upload.util';
+import { createMemoryStorage } from '../../common/utils/upload.util';
+import { SupabaseStorageService } from '../../common/storage/supabase-storage.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { CreateLessonContentDto } from './dtos/create-lesson-content.dto';
@@ -30,7 +31,10 @@ type AuthedRequest = Request & { user: JwtPayload };
 
 @Controller('lesson-contents')
 export class LessonContentsController {
-  constructor(private readonly lessonContentsService: LessonContentsService) { }
+  constructor(
+    private readonly lessonContentsService: LessonContentsService,
+    private readonly storageService: SupabaseStorageService,
+  ) { }
 
   @Post()
   create(@Body() dto: CreateLessonContentDto) {
@@ -40,18 +44,20 @@ export class LessonContentsController {
   @Post('upload')
   @UseInterceptors(
     FileInterceptor('file', {
-      storage: createDiskStorage('lesson-contents'),
+      storage: createMemoryStorage(),
     }),
   )
-  upload(@UploadedFile() file?: Express.Multer.File) {
+  async upload(@UploadedFile() file?: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('File is required');
     }
 
+    const { url, fileName } = await this.storageService.upload('lesson-contents', file);
+
     return {
-      file_url: buildFileUrl('lesson-contents', file.filename),
+      file_url: url,
       original_name: file.originalname,
-      file_name: file.filename,
+      file_name: fileName,
       mime_type: file.mimetype,
       size: file.size,
     };

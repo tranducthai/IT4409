@@ -16,7 +16,8 @@ import {
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { buildFileUrl, createDiskStorage } from '../../common/utils/upload.util';
+import { createMemoryStorage } from '../../common/utils/upload.util';
+import { SupabaseStorageService } from '../../common/storage/supabase-storage.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { UserRole } from '../users/enums/user-role.enum';
@@ -29,17 +30,20 @@ type AuthedRequest = Request & { user: JwtPayload };
 @ApiTags('assignments')
 @Controller('assignments')
 export class AssignmentsController {
-    constructor(private readonly assignmentsService: AssignmentsService) { }
+    constructor(
+        private readonly assignmentsService: AssignmentsService,
+        private readonly storageService: SupabaseStorageService,
+    ) { }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('access-token')
     @Post()
     @UseInterceptors(
         FilesInterceptor('files', 10, {
-            storage: createDiskStorage('assignments'),
+            storage: createMemoryStorage(),
         }),
     )
-    create(
+    async create(
         @Req() req: AuthedRequest,
         @Body() dto: CreateAssignmentDto,
         @UploadedFiles() files: Express.Multer.File[] = [],
@@ -47,13 +51,19 @@ export class AssignmentsController {
         if (req.user.role !== UserRole.TEACHER) {
             throw new ForbiddenException('Teacher role required');
         }
-        const attachments = files.map((file) => ({
-            file_url: buildFileUrl('assignments', file.filename),
+
+        const uploaded = await Promise.all(
+            files.map((file) => this.storageService.upload('assignments', file)),
+        );
+
+        const attachments = files.map((file, i) => ({
+            file_url: uploaded[i].url,
             original_name: file.originalname,
-            file_name: file.filename,
+            file_name: uploaded[i].fileName,
             mime_type: file.mimetype,
             size: file.size,
         }));
+
         return this.assignmentsService.create(req.user.sub, dto, attachments);
     }
 

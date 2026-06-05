@@ -3,7 +3,10 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { StorageModule } from './common/storage/storage.module';
 import { AssignmentsModule } from './modules/assignments/assignments.module';
+import { ChatModule } from './modules/chat/chat.module';
+import { ClassResourcesModule } from './modules/class-resources/class-resources.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ClassMembersModule } from './modules/class-members/class-members.module';
 import { ClassesModule } from './modules/classes/classes.module';
@@ -59,6 +62,7 @@ import { WeeksModule } from './modules/weeks/weeks.module';
         };
       },
     }),
+    StorageModule,
     AuthModule,
     UsersModule,
     StudentProfilesModule,
@@ -76,6 +80,8 @@ import { WeeksModule } from './modules/weeks/weeks.module';
     MessagesModule,
     AssignmentsModule,
     SubmissionsModule,
+    ClassResourcesModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [AppService],
