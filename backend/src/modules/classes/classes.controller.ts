@@ -14,6 +14,7 @@ import {
 import { Request } from 'express';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { LessonProgressService } from '../lesson-progress/lesson-progress.service';
 import { UserRole } from '../users/enums/user-role.enum';
 import { ClassesService } from './classes.service';
 import { CreateClassDto } from './dtos/create-class.dto';
@@ -23,7 +24,10 @@ type AuthedRequest = Request & { user: JwtPayload };
 
 @Controller('classes')
 export class ClassesController {
-  constructor(private readonly classesService: ClassesService) { }
+  constructor(
+    private readonly classesService: ClassesService,
+    private readonly lessonProgressService: LessonProgressService,
+  ) { }
 
   @Post()
   create(@Body() dto: CreateClassDto) {
@@ -50,6 +54,19 @@ export class ClassesController {
       throw new ForbiddenException('Teacher role required');
     }
     return this.classesService.getTeacherProgress(id, req.user.sub);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(':id/progress/me')
+  getMyProgress(
+    @Req() req: AuthedRequest,
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    return this.lessonProgressService.getMyClassProgress(
+      id,
+      req.user.sub,
+      req.user.role,
+    );
   }
 
   @Patch(':id')

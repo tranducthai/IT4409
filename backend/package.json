@@ -23,7 +23,8 @@
     "migration:revert": "typeorm-ts-node-commonjs -d src/data-source.ts migration:revert",
     "migration:show": "typeorm-ts-node-commonjs -d src/data-source.ts migration:show",
     "migrate:hash-passwords": "ts-node -r tsconfig-paths/register src/scripts/hash-existing-passwords.ts",
-    "seed:demo": "ts-node -r tsconfig-paths/register src/scripts/seed-demo-data.ts"
+    "seed:demo": "ts-node -r tsconfig-paths/register src/scripts/seed-demo-data.ts",
+    "seed:cs50w": "ts-node -r tsconfig-paths/register src/scripts/seed-cs50w-course.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

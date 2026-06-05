@@ -9,6 +9,7 @@ import { ChatModule } from './modules/chat/chat.module';
 import { ClassResourcesModule } from './modules/class-resources/class-resources.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { ClassMembersModule } from './modules/class-members/class-members.module';
+import { ClassResourcesModule } from './modules/class-resources/class-resources.module';
 import { ClassesModule } from './modules/classes/classes.module';
 import { ContentPagesModule } from './modules/content-pages/content-pages.module';
 import { ContentsModule } from './modules/contents/contents.module';
@@ -69,6 +70,7 @@ import { WeeksModule } from './modules/weeks/weeks.module';
     InstructorProfilesModule,
     ClassesModule,
     ClassMembersModule,
+    ClassResourcesModule,
     SectionsModule,
     LessonsModule,
     LessonContentsModule,

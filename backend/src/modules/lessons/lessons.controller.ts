@@ -7,15 +7,26 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Req,
+  UseGuards,
 } from '@nestjs/common';
+import { Request } from 'express';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { CreateLessonDto } from './dtos/create-lesson.dto';
 import { CreateManyLessonsDto } from './dtos/create-many-lessons.dto';
+import { LessonProgressService } from '../lesson-progress/lesson-progress.service';
 import { UpdateLessonDto } from './dtos/update-lesson.dto';
 import { LessonsService } from './lessons.service';
 
+type AuthedRequest = Request & { user: JwtPayload };
+
 @Controller('lessons')
 export class LessonsController {
-  constructor(private readonly lessonsService: LessonsService) { }
+  constructor(
+    private readonly lessonsService: LessonsService,
+    private readonly lessonProgressService: LessonProgressService,
+  ) { }
 
   @Post()
   create(@Body() dto: CreateLessonDto) {
@@ -40,6 +51,19 @@ export class LessonsController {
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.lessonsService.findOne(id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(':lessonId/progress/me')
+  markCompleted(
+    @Req() req: AuthedRequest,
+    @Param('lessonId', ParseIntPipe) lessonId: number,
+  ) {
+    return this.lessonProgressService.markCompleted(
+      lessonId,
+      req.user.sub,
+      req.user.role,
+    );
   }
 
   @Patch(':id')

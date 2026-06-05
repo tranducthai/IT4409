@@ -46,13 +46,13 @@ VITE_USE_MOCK_DATA=false
 | Course detail | `POST /quizzes` | Yes | Yes | Done | Teacher tao quiz tu CourseDetail. |
 | Course detail | `GET /assignments/class/:classId` | Yes | Yes | Done | Assignment tab da dung API. |
 | Course detail | `GET /discussions/class/:classId` | Yes | No | Missing | Backend co endpoint, CourseDetail chua load discussions tu API. |
-| Quiz taking | `GET /quiz/:quizId` | Yes | Yes | Partial | FE moi hien cau hoi/options, chua co attempt state. |
-| Quiz taking | `POST /quiz/:quizId/start` | Yes | No | Missing | FE co the noi ngay, BE da co endpoint attempt. |
-| Quiz taking | `POST /quiz/:quizId/submit` | Yes | No | Missing | FE co the submit dap an A/B/C/D va hien ket qua. |
-| Quiz taking | `GET /quiz/:quizId/attempts/me` | Yes | No | Missing | FE co the hien lich su lan lam/diem gan nhat. |
-| Quiz taking | `GET /quiz/attempts/:attemptId` | Yes | No | Missing | FE co the hien ket qua chi tiet sau submit. |
-| Lesson progress | `POST/PATCH /lessons/:lessonId/progress/me` | No | No | Missing | Can BE chot contract de danh dau bai hoc hoan thanh. |
-| Progress | `GET /classes/:id/progress/me` or equivalent | No | No | Missing | Frontend dang fallback progress = 0. |
+| Quiz taking | `GET /quiz/:quizId` | Yes | Yes | Done | FE render cau hoi/options, teacher preview, va student mode theo quiz detail. |
+| Quiz taking | `POST /quiz/:quizId/start` | Yes | Yes | Done | FE co start attempt, luu attempt state, va resume attempt dang mo. |
+| Quiz taking | `POST /quiz/:quizId/submit` | Yes | Yes | Done | FE block submit rong, gui answers A/B/C/D, va hien summary sau submit. |
+| Quiz taking | `GET /quiz/:quizId/attempts/me` | Yes | Yes | Done | FE load lich su lam bai va auto hydrate attempt dang mo / result moi nhat. |
+| Quiz taking | `GET /quiz/attempts/:attemptId` | Yes | Yes | Done | FE co view result chi tiet cho mot attempt da nop. |
+| Lesson progress | `POST /lessons/:lessonId/progress/me` | Yes | Yes | Done | BE co table `lesson_progresses`; CourseDetail co nut danh dau da hoc cho student. |
+| Progress | `GET /classes/:id/progress/me` or equivalent | Yes | Yes | Done | CourseDetail load progress that va suy ra status lesson tu completed lesson ids. |
 | Errors | NestJS error shape | Yes | Partial | Partial | Client chua normalize `message` dang array. |
 | Tokens | Authorization header | Yes | Partial | Partial | Refresh da luu user neu backend tra ve; service van truyen token thu cong o nhieu cho. |
 
@@ -72,8 +72,8 @@ Thu tu de fix khuyen nghi, sap xep theo muc do anh huong va do phu thuoc:
   - Co yeu to security/role guard, can cham som truoc khi mo rong flow add/approve.
 5. P2 - Batch 6: Quiz taking
   - La luong chuc nang lon, can them state attempt, submit, history va ket qua.
-6. P2 - Batch 7: Lesson completion and progress
-  - Co the de sau mot nhac, vi hien tai van co fallback 0 va chua chan demo chinh.
+6. P2 - Batch 7: Lesson completion and progress - done
+  - Da co contract progress that va CourseDetail khong con hardcode lesson status = `todo`.
 7. P3 - Batch 8: Real mode verification
   - Chot sau cung de xac nhan toan bo contract va UI hoat dong tren data that.
 
@@ -90,7 +90,7 @@ Muc tieu sau P0:
 Muc tieu sau P1:
 
 - Batch 6 lam quiz taking truoc, vi `QuizDetail.jsx` da co san khung start/submit/attempt history va day la phan co contract backend ro nhat trong P2.
-- Batch 7 lam lesson progress tiep theo, vi hien tai CourseDetail van fallback progress = 0 va chua co endpoint/onboarding state duoc cau hinh ro.
+- Batch 7 da hoan thanh lesson progress, bao gom table luu completion va UI student mark done.
 - Batch 8 giu cho real-mode verification, chi dung de chot toan bo P2 sau khi quiz/progress da on dinh.
 - Neu co rui ro contract, uu tien chot service/api truoc, sau do moi cham vao UI.
 
@@ -446,28 +446,27 @@ Goal: quiz trac nghiem co the lam va nop bai bang endpoint BE hien co.
 
 FE-only scope neu BE giu contract hien tai:
 
-- [ ] Xac nhan contract quiz attempt voi backend trong `backend/src/modules/quiz/quiz.controller.ts` va `backend/src/modules/quiz/quiz.service.ts`.
-  - `POST /quiz/:quizId/start` tra attempt shape nao, `attempt_id` hay `id`.
-  - `POST /quiz/:quizId/submit` nhan payload dap an theo map hay array.
-  - `GET /quiz/:quizId/attempts/me` tra history theo attempt states nao.
-  - `GET /quiz/attempts/:attemptId` co can cho man hinh ket qua chi tiet hay khong.
-- [ ] Dong bo service layer trong `frontend/src/services/api/quiz-detail.service.js` va `frontend/src/services/dataSource.js`.
-  - Giu mot lop normalize chung cho quiz detail, attempt history, va submit result.
-  - Khong de `QuizDetail.jsx` phai biet response thuc te cua backend.
-- [ ] To chuc lai `frontend/src/pages/QuizDetail.jsx` theo cac che do ro rang.
+- [x] Xac nhan contract quiz attempt voi backend trong `backend/src/modules/quiz/quiz.controller.ts` va `backend/src/modules/quiz/quiz.service.ts`.
+  - `POST /quiz/:quizId/start` tra `attempt_id`, `start_time`, `expires_at`, `time_limit`, `time_limit_unit`.
+  - `POST /quiz/:quizId/submit` nhan payload answers array, tra score/result summary.
+  - `GET /quiz/:quizId/attempts/me` tra history theo attempt states va `expires_at`.
+  - `GET /quiz/attempts/:attemptId` tra ket qua chi tiet de hien history/result.
+- [x] Dong bo service layer trong `frontend/src/services/api/quiz-detail.service.js` va `frontend/src/services/dataSource.js`.
+  - Da normalize attempt, submit result, va attempt history sang camelCase.
+  - `QuizDetail.jsx` khong can biet raw snake_case response nua.
+- [x] To chuc lai `frontend/src/pages/QuizDetail.jsx` theo cac che do ro rang.
   - `not-started`, `in-progress`, `submitted`, `expired`, `read-only`.
-  - Teacher chi preview/read-only; student moi co luong start/submit.
-  - Dap an A/B/C/D phai hiem thi/ghi state theo tung cau hoi.
-- [ ] Bo sung timer va submit state.
-  - Timer dua tren `expires_at` hoac contract the hien thoi gian het han.
-  - Disable submit khi dang gui hoac attempt het han.
-  - Hien feedback ro khi start/submit fail.
-- [ ] Hien ket qua va lich su lam quiz.
-  - Sau submit, render score, so cau dung/tong cau, dap an da chon, va cac attempt gan nhat.
-  - Student reload van thay lich su attempt cua minh neu backend tra ve.
-- [ ] Review an toan thong tin dap an.
+  - Teacher chi preview/read-only; student co luong start/submit va history/result.
+  - Dap an A/B/C/D dang duoc ghi state theo tung cau hoi.
+- [x] Bo sung timer va submit state.
+  - Timer dua tren `expires_at` va disable submit khi het gio hoac dang gui.
+  - Co feedback ro khi start/submit fail va chan nop rong.
+- [x] Hien ket qua va lich su lam quiz.
+  - Sau submit, render score, so cau dung/tong cau, dap an da chon, va lich su attempt.
+  - Student reload van thay attempt dang mo / ket qua moi nhat neu backend tra ve.
+- [x] Review an toan thong tin dap an.
   - Khong show `correct_answer` truoc khi submit.
-  - Teacher preview khong duoc vo tinh bien thanh che do lam bai.
+  - Teacher preview khong bien thanh che do lam bai.
 
 Out of FE scope:
 
@@ -475,27 +474,31 @@ Out of FE scope:
 
 Manual test cases:
 
-- [ ] Student mo quiz, start attempt, chon dap an, submit, va thay ket qua.
-- [ ] Student reload trang quiz van thay attempt history.
-- [ ] Teacher mo quiz chi thay preview/read-only, khong co nút submit student flow.
-- [ ] Quiz het han khong cho submit nua va hien message ro rang.
+- [x] Student mo quiz, start attempt, chon dap an, submit, va thay ket qua.
+- [x] Student reload trang quiz van thay attempt history.
+- [x] Teacher mo quiz chi thay preview/read-only, khong co nút submit student flow.
+- [x] Quiz het han khong cho submit nua va hien message ro rang.
 
 Review checklist:
 
-- [ ] Khong lo dap an dung truoc khi submit.
-- [ ] Khong the submit neu chua start attempt.
-- [ ] Khong the submit trong luc dang submit hoac khi attempt da het han.
-- [ ] UI chi co mot source of truth cho quiz attempt state.
+- [x] Khong lo dap an dung truoc khi submit.
+- [x] Khong the submit neu chua start attempt.
+- [x] Khong the submit trong luc dang submit hoac khi attempt da het han.
+- [x] UI chi co mot source of truth cho quiz attempt state.
+
+Validation note:
+
+- Da validate voi live API bang quiz tam co time_limit lon va temp student; start, submit, result, history deu pass.
 
 ### Batch 7: Lesson completion and progress
 
 Goal: tab Tien do khong con hardcode 0 khi real mode.
 
-Current gap:
+Implementation:
 
-- CourseDetail van fallback progress = 0 va toan bo lesson status dang hardcode `todo`.
-- Chua co contract chinh thuc trong frontend de lay progress theo class/lesson.
-- Chua ro nen dat endpoint progress o module `lessons` hay `classes`, nen batch nay can chot contract truoc khi cham UI.
+- [x] Backend co `POST /lessons/:lessonId/progress/me` va `GET /classes/:classId/progress/me`.
+- [x] CourseDetail load progress that, cap nhat progress percent, va suy ra `done` / `in-progress` / `todo` tu completed lesson ids.
+- [x] Student co nut danh dau da hoc; teacher van read-only.
 
 Files expected:
 
@@ -507,36 +510,36 @@ Files expected:
 
 Implementation steps:
 
-- [ ] Chot contract progress backend.
-  - De xuat mot trong hai huong: `POST /lessons/:lessonId/progress/me` + `GET /classes/:classId/progress/me`, hoac mot endpoint progress rieeng theo class.
-  - Xac dinh response toi thieu: lesson status, completed count, total count, progress percent.
-- [ ] Cap nhat service frontend sau khi contract on dinh.
-  - Them service progress rieng neu can, khong de `course-detail.service.js` phai gom qua nhieu responsibility.
-  - Kiem tra cache/reload behavior khi user chuyen qua lai giua course detail va dashboard.
-- [ ] Lam ro state hien thi trong `frontend/src/pages/CourseDetail.jsx`.
-  - `done`, `in-progress`, `todo`, `locked` neu co.
-  - Student co nut "Danh dau da hoc" neu backend ho tro; teacher thi read-only.
-  - Empty/loading/error state phai tach biet voi resource list.
-- [ ] Dong bo dashboard summary neu co endpoint tong hop.
-  - Hien progress ngan gon o card lop/khoa hoc, khong can qua nhieu chi tiet.
-  - Neu chua co summary backend, giu dashboard read-only de tranh lam sai contract.
-- [ ] Kiem tra khong gãy resource/lesson rendering hien co.
-  - Progress khong duoc lam mat sections, lessons, quiz, discussions.
-  - Course detail van phai load duoc ngay ca khi progress endpoint loi.
+- [x] Chot contract progress backend.
+  - Response toi thieu: completed count, total count, progress percent, completed lesson ids.
+- [x] Cap nhat service frontend sau khi contract on dinh.
+  - Course detail goi progress endpoint khi real mode, fallback im lang neu teacher khong lay duoc own progress.
+- [x] Lam ro state hien thi trong `frontend/src/pages/CourseDetail.jsx`.
+  - Student co nut "Danh dau da hoc"; teacher thi read-only.
+  - Empty/loading/error state tach biet voi resource list.
+- [x] Dong bo dashboard summary neu co endpoint tong hop.
+  - Progress hien tren course detail va teacher summary van giu rieng.
+- [x] Kiem tra khong gãy resource/lesson rendering hien co.
+  - Progress khong lam mat sections, lessons, quiz, discussions.
+  - Course detail van load duoc khi progress endpoint fail.
 
 Manual test cases:
 
-- [ ] Student mo course co progress thi thay state lesson thay doi ro rang.
-- [ ] Student danh dau bai hoc xong reload van con state.
-- [ ] Teacher mo course khong bi crash neu progress data chua co hoac fallback.
-- [ ] Khi progress endpoint fail, course detail van hien noi dung chinh.
+- [x] Student mo course co progress thi thay state lesson thay doi ro rang.
+- [x] Student danh dau bai hoc xong reload van con state.
+- [x] Teacher mo course khong bi crash neu progress data chua co hoac fallback.
+- [x] Khi progress endpoint fail, course detail van hien noi dung chinh.
 
 Review checklist:
 
-- [ ] Khong hardcode toan bo lesson status = `todo` nua.
-- [ ] Khong de progress loi lam crash course detail.
-- [ ] Contract progress phai co default ro rang cho user chua co activity.
-- [ ] UI progress phai co loading/empty/error state rieng.
+- [x] Khong hardcode toan bo lesson status = `todo` nua.
+- [x] Khong de progress loi lam crash course detail.
+- [x] Contract progress co default ro rang cho user chua co activity.
+- [x] UI progress co loading/empty/error state rieng.
+
+Validation note:
+
+- Da validate tren live API voi `demo.student.anh@7study.local`: progress truoc `completed=0`, sau khi mark lesson dau tien thi `completed=1`, `progress_percent=33`, `todo=1`.
 
 ### Batch 8: Real mode verification
 

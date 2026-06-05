@@ -3,7 +3,7 @@ import { apiRequest } from './client';
 import { clearAuthState } from './authState';
 import { getCurrentUser, setCurrentUser } from './session';
 
-const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA !== 'false';
+const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA === 'true';
 
 function toMockUser(payload = {}) {
   const normalizedRole = String(payload.role ?? 'STUDENT').toUpperCase();

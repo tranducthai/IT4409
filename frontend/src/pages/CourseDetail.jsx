@@ -8,8 +8,7 @@ import {
     Send,
     Video,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { io } from 'socket.io-client';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
     createAssignment,
@@ -29,12 +28,12 @@ import {
     createDiscussion,
     deleteDiscussion,
     getDiscussionsByClass,
-    updateDiscussion,
 } from '../services/api/discussions.service';
 import { uploadLessonContentFile } from '../services/api/lesson-contents.service';
 import {
     createLesson,
     deleteLesson,
+  markLessonCompleted,
     updateLesson,
 } from '../services/api/lessons.service';
 import {
@@ -48,7 +47,7 @@ import {
     deleteSection,
     updateSection,
 } from '../services/api/sections.service';
-import { API_BASE_URL, getAccessToken, toAbsoluteFileUrl } from '../services/api/client';
+import { toAbsoluteFileUrl } from '../services/api/client';
 import { getCurrentUser } from '../services/api/session';
 import {
     getMySubmissionsByAssignment,
@@ -57,8 +56,6 @@ import {
     submitAssignment,
 } from '../services/api/submissions.service';
 import {
-    createMockQuiz,
-    createQuiz,
     getCourseDetailData,
     getCourseDetailFromApi,
     USE_MOCK_DATA,
@@ -86,7 +83,7 @@ const tabOptions = [
 
 const resourceTypeMeta = {
   text: {
-    label: 'Văn bản',
+    label: 'Text',
     icon: FileText,
     badgeClass: 'bg-sky-100 text-sky-700 dark:bg-sky-400/10 dark:text-sky-200',
   },
@@ -113,7 +110,7 @@ const resourceTypeMeta = {
 };
 
 const lessonTypeOptions = [
-  { value: 'text', label: 'Văn bản' },
+  { value: 'text', label: 'Text' },
   { value: 'video', label: 'Video' },
   { value: 'file', label: 'Tệp' },
   { value: 'quiz', label: 'Quiz' },
@@ -132,14 +129,6 @@ const assignmentStatusMeta = {
     label: 'Chưa đặt hạn',
     className: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
   },
-};
-
-const initialQuizForm = {
-  title: '',
-  description: '',
-  timeLimit: 15,
-  totalQuestions: 10,
-  isRandom: false,
 };
 
 function formatDueDate(value) {
@@ -178,55 +167,6 @@ function formatChatTime(value) {
         d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 }
 
-function createQuizResource(quiz, courseId) {
-  return {
-    id: quiz.id,
-    title: quiz.title ?? 'Quiz chưa có tiêu đề',
-    description: quiz.description ?? '',
-    displayType: 'quiz',
-    quizId: quiz.id,
-    quizUrl: `/courses/${courseId}/quizzes/${quiz.id}`,
-    meta: `${quiz.total_questions ?? quiz.totalQuestions ?? 0} câu hỏi · ${quiz.time_limit ?? quiz.timeLimit ?? 0} phút`,
-  };
-}
-
-function appendQuizToCourseData(data, quiz, courseId) {
-  if (!data) return data;
-
-  const normalizedQuiz = {
-    ...quiz,
-    class_id: quiz.class_id ?? courseId,
-    total_questions: quiz.total_questions ?? quiz.totalQuestions ?? 0,
-    time_limit: quiz.time_limit ?? quiz.timeLimit ?? 0,
-  };
-  const quizResource = createQuizResource(normalizedQuiz, courseId);
-  const resources = (data.resources ?? []).map((group) =>
-    group.id === 'class-quizzes'
-      ? {
-          ...group,
-          items: [quizResource, ...(group.items ?? [])],
-        }
-      : group,
-  );
-  const hasQuizGroup = resources.some((group) => group.id === 'class-quizzes');
-
-  return {
-    ...data,
-    quizzes: [normalizedQuiz, ...(data.quizzes ?? [])],
-    resources: hasQuizGroup
-      ? resources
-      : [
-          ...(data.resources ?? []),
-          {
-            id: 'class-quizzes',
-            title: 'Quiz của lớp',
-            description: 'Danh sách quiz lấy theo class từ API',
-            items: [quizResource],
-          },
-        ],
-  };
-}
-
 function ResourceCard({ resource, compact = false }) {
   if (typeof resource === 'string') {
     return (
@@ -239,8 +179,11 @@ function ResourceCard({ resource, compact = false }) {
   const type = resource.displayType ?? resource.type ?? 'file';
   const meta = resourceTypeMeta[type] ?? resourceTypeMeta.file;
   const Icon = meta.icon;
+  const hasInlineText = type === 'text';
   const actionUrl =
-    type === 'quiz'
+    hasInlineText
+      ? null
+      : type === 'quiz'
       ? resource.quizUrl
       : resource.fileUrl ?? resource.openUrl ?? resource.url;
 
@@ -299,7 +242,7 @@ function ResourceCard({ resource, compact = false }) {
               <ExternalLink className="h-3.5 w-3.5" />
             </a>
           )
-        ) : (
+        ) : hasInlineText ? null : (
           <span className="flex-shrink-0 rounded-lg border border-dashed border-slate-200 px-2.5 py-2 text-xs text-slate-400 dark:border-slate-700">
             Chưa có liên kết
           </span>
@@ -373,10 +316,6 @@ export default function CourseDetail() {
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('lessons');
   const [reloadToken, setReloadToken] = useState(0);
-  const [quizForm, setQuizForm] = useState(initialQuizForm);
-  const [quizFormError, setQuizFormError] = useState('');
-  const [quizFormSuccess, setQuizFormSuccess] = useState('');
-  const [isCreatingQuiz, setIsCreatingQuiz] = useState(false);
   const [sectionForm, setSectionForm] = useState({ title: '', orderIndex: 1 });
   const [sectionFormError, setSectionFormError] = useState('');
   const [sectionFormSuccess, setSectionFormSuccess] = useState('');
@@ -411,19 +350,12 @@ export default function CourseDetail() {
   });
   const [showDiscussionForm, setShowDiscussionForm] = useState(false);
   const [discussionError, setDiscussionError] = useState('');
-  const [discussionSuccess, setDiscussionSuccess] = useState('');
   const [selectedDiscussionId, setSelectedDiscussionId] = useState(null);
   const [discussionMessages, setDiscussionMessages] = useState([]);
   const [discussionMessagesError, setDiscussionMessagesError] = useState('');
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [messageForm, setMessageForm] = useState('');
   const [messageError, setMessageError] = useState('');
-  const [editingDiscussionId, setEditingDiscussionId] = useState(null);
-  const [editingDiscussionForm, setEditingDiscussionForm] = useState({
-    title: '',
-    content: '',
-  });
-  const [editingDiscussionError, setEditingDiscussionError] = useState('');
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [editingMessageContent, setEditingMessageContent] = useState('');
   const [editingMessageError, setEditingMessageError] = useState('');
@@ -453,9 +385,7 @@ export default function CourseDetail() {
   const [teacherProgress, setTeacherProgress] = useState(null);
   const [teacherProgressLoading, setTeacherProgressLoading] = useState(false);
   const [teacherProgressError, setTeacherProgressError] = useState('');
-  const chatSocketRef = useRef(null);
   const messagesEndRef = useRef(null);
-  const [socketConnected, setSocketConnected] = useState(false);
   const [classResources, setClassResources] = useState([]);
   const [classFolders, setClassFolders] = useState([]);
   const [classResourcesLoading, setClassResourcesLoading] = useState(false);
@@ -469,6 +399,8 @@ export default function CourseDetail() {
   const [folderCreating, setFolderCreating] = useState(false);
   const [folderCreateError, setFolderCreateError] = useState('');
   const [showFolderForm, setShowFolderForm] = useState(false);
+  const [lessonProgressLoadingId, setLessonProgressLoadingId] = useState(null);
+  const [lessonProgressError, setLessonProgressError] = useState('');
 
   useEffect(() => {
     let isMounted = true;
@@ -486,7 +418,9 @@ export default function CourseDetail() {
       setIsLoading(true);
       setError('');
       try {
-        const data = await getCourseDetailFromApi(courseId);
+        const data = await getCourseDetailFromApi(courseId, {
+          includeProgress: currentUser?.role === 'STUDENT',
+        });
         if (isMounted) setCourseData(data);
       } catch (err) {
         if (isMounted) {
@@ -503,13 +437,16 @@ export default function CourseDetail() {
     return () => {
       isMounted = false;
     };
-  }, [courseId, currentUser?.id, reloadToken]);
+  }, [courseId, currentUser?.id, currentUser?.role, reloadToken]);
 
   const { course } = courseData ?? {};
   const sectionItems = courseData?.sections ?? [];
   const lessonItems = courseData?.lessons ?? [];
   const resourceItems = courseData?.resources ?? [];
-  const assignmentItems = courseData?.assignments ?? [];
+  const assignmentItems = useMemo(
+    () => courseData?.assignments ?? [],
+    [courseData],
+  );
   const discussionItems = useMemo(
     () => courseData?.discussions ?? [],
     [courseData],
@@ -528,7 +465,7 @@ export default function CourseDetail() {
     [assignmentItems],
   );
   const handleRetry = () => setReloadToken((value) => value + 1);
-  const canManageQuizzes = currentUser?.role === 'TEACHER';
+  const canTrackLessonProgress = currentUser?.role === 'STUDENT';
 
   useEffect(() => {
     setSectionForm((prev) => ({
@@ -664,112 +601,23 @@ export default function CourseDetail() {
     }
   };
 
-  useEffect(() => {
-    if (activeTab !== 'assignments' || USE_MOCK_DATA || !assignmentIds) return;
-    assignmentIds.split(',').filter(Boolean).forEach((id) => {
-      if (!submissionHistory[id]) {
-        void loadSubmissionHistory(id);
-      }
-    });
-  }, [activeTab, assignmentIds]);
-
-  // ── WebSocket chat ──────────────────────────────────────────────────────────
-  useEffect(() => {
-    if (activeTab !== 'discussions' || USE_MOCK_DATA) return;
-
-    const backendOrigin = new URL(API_BASE_URL).origin;
-    const socket = io(`${backendOrigin}/chat`, {
-      auth: { token: getAccessToken() ?? '' },
-      transports: ['websocket', 'polling'],
-    });
-    chatSocketRef.current = socket;
-
-    socket.on('connect', () => setSocketConnected(true));
-    socket.on('disconnect', () => setSocketConnected(false));
-    socket.on('connect_error', () => setSocketConnected(false));
-
-    socket.on('newMessage', (msg) => {
-      setDiscussionMessages((prev) =>
-        prev.find((m) => m.id === msg.id) ? prev : [...prev, msg],
-      );
-    });
-
-    return () => {
-      socket.disconnect();
-      chatSocketRef.current = null;
-      setSocketConnected(false);
-    };
-  }, [activeTab]);
-
-  // Join/leave discussion room
-  useEffect(() => {
-    const socket = chatSocketRef.current;
-    if (!socket || !socketConnected || !selectedDiscussionId) return;
-    socket.emit('joinDiscussion', selectedDiscussionId);
-    return () => {
-      if (socket.connected) socket.emit('leaveDiscussion', selectedDiscussionId);
-    };
-  }, [socketConnected, selectedDiscussionId]);
-  // ────────────────────────────────────────────────────────────────────────────
-
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [discussionMessages]);
 
-  const handleQuizFormChange = (field, value) => {
-    setQuizForm((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-  };
+  const handleMarkLessonCompleted = async (lessonId) => {
+    if (!canTrackLessonProgress) return;
 
-  const handleCreateQuiz = async (event) => {
-    event.preventDefault();
-    setQuizFormError('');
-    setQuizFormSuccess('');
-
-    const title = quizForm.title.trim();
-    if (!title) {
-      setQuizFormError('Vui lòng nhập tiêu đề quiz.');
-      return;
-    }
-
-    const timeLimit = Math.max(1, Number(quizForm.timeLimit) || 1);
-    const totalQuestions = Math.max(0, Number(quizForm.totalQuestions) || 0);
-    const payload = {
-      title,
-      description: quizForm.description.trim() || undefined,
-      time_limit: timeLimit,
-      total_questions: totalQuestions,
-      class_id: courseId,
-      is_random: Boolean(quizForm.isRandom),
-    };
-
-    setIsCreatingQuiz(true);
+    setLessonProgressError('');
+    setLessonProgressLoadingId(lessonId);
     try {
-      if (USE_MOCK_DATA) {
-        const mockQuiz = {
-          id:
-            globalThis.crypto?.randomUUID?.() ??
-            `mock-quiz-${Date.now()}`,
-          ...payload,
-          created_by: currentUser?.id,
-          created_at: new Date().toISOString(),
-        };
-        createMockQuiz(mockQuiz);
-        setCourseData((prev) => appendQuizToCourseData(prev, mockQuiz, courseId));
-      } else {
-        await createQuiz(payload);
-        setReloadToken((value) => value + 1);
-      }
-
-      setQuizForm(initialQuizForm);
-      setQuizFormSuccess('Đã tạo quiz mới.');
+      await markLessonCompleted(lessonId);
+      setReloadToken((value) => value + 1);
     } catch (err) {
-      setQuizFormError(err?.message || 'Không tạo được quiz.');
+      setLessonProgressError(err?.message || 'Không cập nhật được tiến độ bài học.');
     } finally {
-      setIsCreatingQuiz(false);
+      setLessonProgressLoadingId(null);
     }
   };
 
@@ -859,7 +707,6 @@ export default function CourseDetail() {
   const handleCreateDiscussion = async (event) => {
     event.preventDefault();
     setDiscussionError('');
-    setDiscussionSuccess('');
 
     if (USE_MOCK_DATA) {
       setDiscussionError('Chế độ mock chưa hỗ trợ tạo thảo luận.');
@@ -876,47 +723,10 @@ export default function CourseDetail() {
       const created = await createDiscussion({ class_id: courseId, title });
       setDiscussionForm({ title: '', content: '' });
       setShowDiscussionForm(false);
-      setDiscussionSuccess('');
       await loadDiscussions();
       if (created?.id) setSelectedDiscussionId(created.id);
     } catch (err) {
       setDiscussionError(err?.message || 'Không tạo được thảo luận.');
-    }
-  };
-
-  const handleStartEditDiscussion = (discussion) => {
-    setEditingDiscussionId(discussion.id);
-    setEditingDiscussionForm({
-      title: discussion.title ?? '',
-      content: discussion.content ?? '',
-    });
-    setEditingDiscussionError('');
-  };
-
-  const handleUpdateDiscussion = async (event) => {
-    event.preventDefault();
-    setEditingDiscussionError('');
-
-    if (USE_MOCK_DATA) {
-      setEditingDiscussionError('Chế độ mock chưa hỗ trợ chỉnh sửa thảo luận.');
-      return;
-    }
-
-    const title = editingDiscussionForm.title.trim();
-    if (!title) {
-      setEditingDiscussionError('Vui lòng nhập tiêu đề thảo luận.');
-      return;
-    }
-
-    try {
-      await updateDiscussion(editingDiscussionId, {
-        title,
-        content: editingDiscussionForm.content.trim() || undefined,
-      });
-      setEditingDiscussionId(null);
-      await loadDiscussions();
-    } catch (err) {
-      setEditingDiscussionError(err?.message || 'Không cập nhật được thảo luận.');
     }
   };
 
@@ -955,7 +765,7 @@ export default function CourseDetail() {
     }
   };
 
-  const handleCreateMessage = (event) => {
+  const handleCreateMessage = async (event) => {
     event.preventDefault();
     setMessageError('');
 
@@ -967,20 +777,25 @@ export default function CourseDetail() {
     const content = messageForm.trim();
     if (!content) return;
 
-    const socket = chatSocketRef.current;
-    if (!socket || !socket.connected) {
-      setMessageError('Chưa kết nối chat. Vui lòng thử lại.');
-      return;
-    }
-
     setMessageForm('');
-    socket.emit(
-      'sendMessage',
-      { discussionId: selectedDiscussionId, content },
-      (ack) => {
-        if (ack?.error) setMessageError(ack.error);
-      },
-    );
+    try {
+      const created = await createMessage({
+        discussion_id: selectedDiscussionId,
+        content,
+      });
+      if (created?.id) {
+        setDiscussionMessages((prev) =>
+          prev.find((message) => message.id === created.id)
+            ? prev
+            : [...prev, created],
+        );
+      } else {
+        await loadMessages(selectedDiscussionId);
+      }
+    } catch (err) {
+      setMessageForm(content);
+      setMessageError(err?.message || 'Không gửi được tin nhắn.');
+    }
   };
 
   const toIsoDate = (value) => {
@@ -1095,7 +910,7 @@ export default function CourseDetail() {
     }));
   };
 
-  const setSubmissionLoadState = (assignmentId, patch) => {
+  const setSubmissionLoadState = useCallback((assignmentId, patch) => {
     setSubmissionLoading((prev) => ({
       ...prev,
       [assignmentId]: {
@@ -1103,9 +918,9 @@ export default function CourseDetail() {
         ...patch,
       },
     }));
-  };
+  }, []);
 
-  const loadSubmissionHistory = async (assignmentId) => {
+  const loadSubmissionHistory = useCallback(async (assignmentId) => {
     if (USE_MOCK_DATA) return;
     setSubmissionLoadState(assignmentId, { isLoading: true, error: '' });
     try {
@@ -1127,7 +942,16 @@ export default function CourseDetail() {
     } finally {
       setSubmissionLoadState(assignmentId, { isLoading: false });
     }
-  };
+  }, [canManageAssignments, setSubmissionLoadState]);
+
+  useEffect(() => {
+    if (activeTab !== 'assignments' || USE_MOCK_DATA || !assignmentIds) return;
+    assignmentIds.split(',').filter(Boolean).forEach((id) => {
+      if (!submissionHistory[id]) {
+        void loadSubmissionHistory(id);
+      }
+    });
+  }, [activeTab, assignmentIds, loadSubmissionHistory, submissionHistory]);
 
   const handleToggleSubmission = (assignmentId) => {
     updateSubmissionForm(assignmentId, {
@@ -1655,6 +1479,11 @@ export default function CourseDetail() {
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
           <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Bài học</h2>
           <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Danh sách bài học được nhóm theo phần</p>
+          {lessonProgressError && (
+            <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-200">
+              {lessonProgressError}
+            </div>
+          )}
           {canManageLessons && (
             <form
               className="mt-4 rounded-2xl border border-indigo-100 bg-indigo-50 p-4 text-left transition-colors dark:border-indigo-400/30 dark:bg-indigo-400/10"
@@ -1838,6 +1667,16 @@ export default function CourseDetail() {
                                   </button>
                                 </div>
                               )}
+                              {canTrackLessonProgress && lesson.status !== 'done' && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleMarkLessonCompleted(lesson.id)}
+                                  disabled={lessonProgressLoadingId === lesson.id}
+                                  className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300 disabled:cursor-wait disabled:opacity-60 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-200"
+                                >
+                                  {lessonProgressLoadingId === lesson.id ? 'Đang lưu...' : 'Đánh dấu đã học'}
+                                </button>
+                              )}
                             </div>
                           </div>
 
@@ -1853,7 +1692,7 @@ export default function CourseDetail() {
                           </div>
 
                           {lesson.contents?.length > 0 && (
-                            <div className="mt-3 grid gap-2 lg:grid-cols-2">
+                            <div className="mt-3 grid gap-2">
                               {lesson.contents.map((content) => (
                                 <ResourceCard
                                   key={`${lesson.id}-${content.id}`}
@@ -1987,7 +1826,7 @@ export default function CourseDetail() {
                               {editingLessonForm.type === 'text' && (
                                 <textarea
                                   className="mt-3 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                                  placeholder="Nội dung văn bản"
+                                  placeholder="Nội dung text"
                                   value={editingLessonForm.content}
                                   onChange={(event) =>
                                     setEditingLessonForm((prev) => ({
@@ -2142,7 +1981,7 @@ export default function CourseDetail() {
                       {lessonForms[section.id]?.type === 'text' && (
                         <textarea
                           className="mt-3 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                          placeholder="Nội dung văn bản"
+                          placeholder="Nội dung text"
                           value={(lessonForms[section.id]?.content ?? '')}
                           onChange={(event) => updateLessonForm(section.id, { content: event.target.value })}
                         />
@@ -2258,7 +2097,6 @@ export default function CourseDetail() {
               {assignmentItems.map((assignment) => {
                 const mySubmissions = submissionHistory[assignment.id];
                 const hasSubmitted = mySubmissions?.length > 0;
-                const latestSubmission = mySubmissions?.[0];
                 const isSubmissionsVisible = submissionForms[assignment.id]?.showSubmissions ?? false;
 
                 return (
@@ -3057,23 +2895,6 @@ export default function CourseDetail() {
                 })}
               </div>
 
-              {/* Connection status */}
-              {!USE_MOCK_DATA && (
-                <div className="border-t border-slate-700 px-3 py-2">
-                  <span
-                    className={`inline-flex items-center gap-1.5 text-xs ${
-                      socketConnected ? 'text-emerald-400' : 'text-slate-500'
-                    }`}
-                  >
-                    <span
-                      className={`h-1.5 w-1.5 rounded-full ${
-                        socketConnected ? 'animate-pulse bg-emerald-400' : 'bg-slate-600'
-                      }`}
-                    />
-                    {socketConnected ? 'Trực tuyến' : 'Đang kết nối...'}
-                  </span>
-                </div>
-              )}
             </div>
 
             {/* ── RIGHT MAIN AREA ──────────────────────────────────────── */}
@@ -3107,6 +2928,16 @@ export default function CourseDetail() {
                     <div className="flex-1 overflow-y-auto px-4 py-4">
                       {isLoadingMessages && (
                         <p className="text-center text-sm text-slate-400">Đang tải tin nhắn...</p>
+                      )}
+                      {discussionMessagesError && (
+                        <p className="mb-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-200">
+                          {discussionMessagesError}
+                        </p>
+                      )}
+                      {editingMessageError && (
+                        <p className="mb-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-200">
+                          {editingMessageError}
+                        </p>
                       )}
                       {!isLoadingMessages && discussionMessages.length === 0 && (
                         <div className="flex h-full flex-col items-center justify-center text-slate-400">

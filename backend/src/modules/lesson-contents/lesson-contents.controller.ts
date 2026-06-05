@@ -9,17 +9,17 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
-  Req,
   Redirect,
+  Req,
   UploadedFile,
-  UseInterceptors,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiBearerAuth } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { createMemoryStorage } from '../../common/utils/upload.util';
 import { SupabaseStorageService } from '../../common/storage/supabase-storage.service';
+import { createMemoryStorage, uploadToSupabaseStorage } from '../../common/utils/upload.util';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { CreateLessonContentDto } from './dtos/create-lesson-content.dto';
@@ -52,15 +52,18 @@ export class LessonContentsController {
       throw new BadRequestException('File is required');
     }
 
-    const { url, fileName } = await this.storageService.upload('lesson-contents', file);
+    const { url, fileName } = await this.storageService.upload(
+      'lesson-contents',
+      file,
+    );
 
     return {
-      file_url: url,
       original_name: file.originalname,
       file_name: fileName,
       mime_type: file.mimetype,
       size: file.size,
     };
+    return uploadToSupabaseStorage('lesson-contents', file);
   }
 
   @Post('bulk')

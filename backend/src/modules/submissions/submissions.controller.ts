@@ -17,8 +17,8 @@ import {
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { createMemoryStorage } from '../../common/utils/upload.util';
 import { SupabaseStorageService } from '../../common/storage/supabase-storage.service';
+import { createMemoryStorage } from '../../common/utils/upload.util';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { UserRole } from '../users/enums/user-role.enum';
@@ -54,7 +54,12 @@ export class SubmissionsController {
                 if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
                     cb(null, true);
                 } else {
-                    cb(new BadRequestException('Chỉ chấp nhận file PDF hoặc Word (.doc, .docx)'), false);
+                    cb(
+                        new BadRequestException(
+                            'Chỉ chấp nhận file PDF hoặc Word (.doc, .docx)',
+                        ),
+                        false,
+                    );
                 }
             },
         }),
@@ -81,7 +86,12 @@ export class SubmissionsController {
             size: file.size,
         }));
 
-        return this.submissionsService.submit(assignmentId, req.user.sub, dto, payload);
+        return this.submissionsService.submit(
+            assignmentId,
+            req.user.sub,
+            dto,
+            payload,
+        );
     }
 
     @UseGuards(JwtAuthGuard)
@@ -94,7 +104,10 @@ export class SubmissionsController {
         if (req.user.role !== UserRole.TEACHER) {
             throw new ForbiddenException('Teacher role required');
         }
-        return this.submissionsService.findByAssignmentForTeacher(assignmentId, req.user.sub);
+        return this.submissionsService.findByAssignmentForTeacher(
+            assignmentId,
+            req.user.sub,
+        );
     }
 
     @UseGuards(JwtAuthGuard)
@@ -107,7 +120,10 @@ export class SubmissionsController {
         if (req.user.role !== UserRole.STUDENT) {
             throw new ForbiddenException('Student role required');
         }
-        return this.submissionsService.findMyByAssignment(assignmentId, req.user.sub);
+        return this.submissionsService.findMyByAssignment(
+            assignmentId,
+            req.user.sub,
+        );
     }
 
     @Post()
@@ -144,7 +160,12 @@ export class SubmissionsController {
         if (req.user.role !== UserRole.TEACHER) {
             throw new ForbiddenException('Teacher role required');
         }
-        return this.submissionsService.gradeSubmission(req.user.sub, id, dto.score, dto.feedback);
+        return this.submissionsService.gradeSubmission(
+            req.user.sub,
+            id,
+            dto.score,
+            dto.feedback,
+        );
     }
 
     @Delete(':id')
