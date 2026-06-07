@@ -15,7 +15,7 @@ import {
     mockCourseCards,
 } from '../mocks/courses/mockCourses';
 
-export const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA !== 'false';
+export const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA === 'true';
 
 export function getHomeCourses() {
   return mockCourseCards;
@@ -58,9 +58,9 @@ export function createMockQuiz(quiz) {
 export { getCourseDetailFromApi } from './api/course-detail.service';
 export {
     getQuizDetailFromApi,
+  getAttemptResult,
     listMyQuizAttempts,
     startQuizAttempt,
     submitQuizAttempt
 } from './api/quiz-detail.service';
 export { createQuiz } from './api/quizzes.service';
-

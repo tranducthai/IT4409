@@ -23,6 +23,13 @@ function addMinutes(value: Date, minutes: number) {
   return new Date(value.getTime() + minutes * 60_000);
 }
 
+function normalizeDbTimestamp(value: Date) {
+  // PostgreSQL `timestamp without time zone` is parsed by node-postgres as local
+  // time. The database stores UTC wall-clock values, so restore the intended UTC
+  // instant before doing quiz expiry math.
+  return new Date(value.getTime() - value.getTimezoneOffset() * 60_000);
+}
+
 @Injectable()
 export class QuizService {
   constructor(
@@ -73,7 +80,8 @@ export class QuizService {
     });
 
     if (existing) {
-      const expiresAt = addMinutes(existing.start_time, quiz.time_limit);
+      const startTime = normalizeDbTimestamp(existing.start_time);
+      const expiresAt = addMinutes(startTime, quiz.time_limit);
       const now = new Date();
 
       // If an attempt is open but already expired, close it and start a new one.
@@ -82,15 +90,15 @@ export class QuizService {
           { id: existing.id },
           {
             end_time:
-              now.getTime() <= existing.start_time.getTime()
-                ? new Date(existing.start_time.getTime() + 1)
+              now.getTime() <= startTime.getTime()
+                ? new Date(startTime.getTime() + 1)
                 : now,
           },
         );
       } else {
         return {
           attempt_id: existing.id,
-          start_time: existing.start_time,
+          start_time: startTime,
           expires_at: expiresAt,
           time_limit: quiz.time_limit,
           time_limit_unit: 'minutes' as const,
@@ -106,11 +114,12 @@ export class QuizService {
         score: null,
       }),
     );
+    const startTime = normalizeDbTimestamp(attempt.start_time);
 
     return {
       attempt_id: attempt.id,
-      start_time: attempt.start_time,
-      expires_at: addMinutes(attempt.start_time, quiz.time_limit),
+      start_time: startTime,
+      expires_at: addMinutes(startTime, quiz.time_limit),
       time_limit: quiz.time_limit,
       time_limit_unit: 'minutes' as const,
     };
@@ -133,7 +142,8 @@ export class QuizService {
       throw new ConflictException('Attempt already submitted');
 
     const now = new Date();
-    const expiresAt = addMinutes(attempt.start_time, quiz.time_limit);
+    const startTime = normalizeDbTimestamp(attempt.start_time);
+    const expiresAt = addMinutes(startTime, quiz.time_limit);
     if (now.getTime() > expiresAt.getTime()) {
       throw new ForbiddenException('Time limit exceeded');
     }
@@ -185,8 +195,8 @@ export class QuizService {
     if (toSave.length) await this.quizAnswerRepo.save(toSave);
 
     const endTime =
-      now.getTime() <= attempt.start_time.getTime()
-        ? new Date(attempt.start_time.getTime() + 1)
+      now.getTime() <= startTime.getTime()
+        ? new Date(startTime.getTime() + 1)
         : now;
 
     await this.attemptRepo.update(
@@ -221,10 +231,10 @@ export class QuizService {
       id: a.id,
       quiz_id: a.quiz_id,
       score: a.score,
-      start_time: a.start_time,
+      start_time: normalizeDbTimestamp(a.start_time),
       end_time: a.end_time,
       is_submitted: a.end_time !== null,
-      expires_at: addMinutes(a.start_time, quiz.time_limit),
+      expires_at: addMinutes(normalizeDbTimestamp(a.start_time), quiz.time_limit),
     }));
   }
 
@@ -245,16 +255,22 @@ export class QuizService {
     const selected = await this.quizAnswerRepo.find({
       where: { attempt_id: attempt.id },
     });
+    const totalQuestions = await this.questionRepo.count({
+      where: { quiz_id: attempt.quiz_id },
+    });
+    const correctCount = selected.filter((answer) => answer.is_correct).length;
 
     return {
       attempt_id: attempt.id,
       quiz_id: attempt.quiz_id,
       score: attempt.score,
       score_unit: 'percent' as const,
-      start_time: attempt.start_time,
+      start_time: normalizeDbTimestamp(attempt.start_time),
       end_time: attempt.end_time,
       is_submitted: attempt.end_time !== null,
-      expires_at: addMinutes(attempt.start_time, quiz.time_limit),
+      expires_at: addMinutes(normalizeDbTimestamp(attempt.start_time), quiz.time_limit),
+      total_questions: totalQuestions,
+      correct: correctCount,
       answers: selected.map((a) => ({
         question_id: a.question_id,
         selected_answer: a.selected_answer,

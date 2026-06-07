@@ -37,6 +37,11 @@ export class MessagesService {
         }
     }
 
+    async createAndReturn(userId: string, dto: CreateMessageDto) {
+        const message = await this.create(userId, dto);
+        return this.messagesRepository.findByIdWithAuthor(message.id);
+    }
+
     async create(userId: string, dto: CreateMessageDto) {
         const discussion = await this.discussionRepo.findOne({
             where: { id: dto.discussion_id },
@@ -47,6 +52,7 @@ export class MessagesService {
             discussion_id: dto.discussion_id,
             user_id: userId,
             content: dto.content,
+            image_url: dto.image_url ?? null,
         });
     }
 

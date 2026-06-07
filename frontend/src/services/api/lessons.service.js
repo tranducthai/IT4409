@@ -21,3 +21,9 @@ export function updateLesson(lessonId, payload) {
 export function deleteLesson(lessonId) {
   return apiRequest(`/lessons/${lessonId}`, { method: 'DELETE' });
 }
+
+export function markLessonCompleted(lessonId) {
+  return apiRequest(`/lessons/${lessonId}/progress/me`, {
+    method: 'POST',
+  });
+}

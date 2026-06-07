@@ -1,10 +1,14 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { Class } from '../classes/entities/class.entity';
 import { ClassesRepository } from '../classes/repositories/classes.repository';
+import { StudentProfile } from '../student-profiles/entities/student-profile.entity';
 import { CreateClassMemberDto } from './dtos/create-class-member.dto';
 import { RequestJoinClassDto } from './dtos/request-join-class.dto';
 import { UpdateClassMemberDto } from './dtos/update-class-member.dto';
@@ -18,22 +22,170 @@ export class ClassMembersService {
   constructor(
     private readonly classMembersRepository: ClassMembersRepository,
     private readonly classesRepository: ClassesRepository,
+    @InjectRepository(StudentProfile)
+    private readonly studentProfileRepo: Repository<StudentProfile>,
   ) { }
 
-  create(dto: CreateClassMemberDto) {
-    const payload: Partial<ClassMember> = {
+  // ── Teacher: add student directly by user UUID (legacy) ───────────────────
+  async create(requesterId: string, dto: CreateClassMemberDto) {
+    const cls = await this.classesRepository.findById(dto.class_id);
+    if (!cls) throw new NotFoundException('Class not found');
+    if (cls.teacher_id !== requesterId) {
+      throw new ForbiddenException('You can only add students to your own classes');
+    }
+    if (!cls.is_active) throw new ConflictException('Class is inactive');
+
+    const existing = await this.classMembersRepository.findOneByClassAndUser(dto.class_id, dto.user_id);
+    if (existing) throw new ConflictException('Already requested or joined');
+
+    return this.classMembersRepository.createOne({
       class_id: dto.class_id,
       user_id: dto.user_id,
-      role: dto.role,
-      status: dto.status,
+      role: ClassMemberRole.Student,
+      status: ClassMemberStatus.Active,
       joined_at: dto.joined_at ? new Date(dto.joined_at) : new Date(),
-    };
-    return this.classMembersRepository.createOne(payload);
+    });
   }
 
-  findAll() {
-    return this.classMembersRepository.findAll();
+  // ── Teacher: add student by MSSV (student_code) ──────────────────────────
+  async addStudentByCode(teacherId: string, classId: string, studentCode: string) {
+    const cls = await this.classesRepository.findById(classId);
+    if (!cls) throw new NotFoundException('Không tìm thấy lớp học');
+    if (cls.teacher_id !== teacherId) throw new ForbiddenException('Bạn không phải giảng viên lớp này');
+    if (!cls.is_active) throw new ConflictException('Lớp học không còn hoạt động');
+
+    const profile = await this.studentProfileRepo.findOne({
+      where: { student_code: studentCode.trim() },
+    });
+    if (!profile) throw new NotFoundException(`Không tìm thấy sinh viên với MSSV "${studentCode}"`);
+
+    const existing = await this.classMembersRepository.findOneByClassAndUser(classId, profile.user_id);
+    if (existing) {
+      if (existing.status === ClassMemberStatus.Active) {
+        throw new ConflictException('Sinh viên đã ở trong lớp');
+      }
+      // If pending/rejected, activate directly
+      return this.classMembersRepository.updateOne(existing.id, {
+        status: ClassMemberStatus.Active,
+        joined_at: new Date(),
+      });
+    }
+
+    return this.classMembersRepository.createOne({
+      class_id: classId,
+      user_id: profile.user_id,
+      role: ClassMemberRole.Student,
+      status: ClassMemberStatus.Active,
+      joined_at: new Date(),
+    });
   }
+
+  // ── Teacher: bulk add students by MSSV list ──────────────────────────────
+  async bulkAddStudentsByCodes(teacherId: string, classId: string, studentCodes: string[]) {
+    const cls = await this.classesRepository.findById(classId);
+    if (!cls) throw new NotFoundException('Không tìm thấy lớp học');
+    if (cls.teacher_id !== teacherId) throw new ForbiddenException('Bạn không phải giảng viên lớp này');
+    if (!cls.is_active) throw new ConflictException('Lớp học không còn hoạt động');
+
+    const added: string[] = [];
+    const alreadyInClass: string[] = [];
+    const notFound: string[] = [];
+
+    for (const raw of studentCodes) {
+      const code = raw.trim();
+      if (!code) continue;
+
+      const profile = await this.studentProfileRepo.findOne({ where: { student_code: code } });
+      if (!profile) {
+        notFound.push(code);
+        continue;
+      }
+
+      const existing = await this.classMembersRepository.findOneByClassAndUser(classId, profile.user_id);
+      if (existing) {
+        if (existing.status === ClassMemberStatus.Active) {
+          alreadyInClass.push(code);
+          continue;
+        }
+        await this.classMembersRepository.updateOne(existing.id, {
+          status: ClassMemberStatus.Active,
+          joined_at: new Date(),
+        });
+      } else {
+        await this.classMembersRepository.createOne({
+          class_id: classId,
+          user_id: profile.user_id,
+          role: ClassMemberRole.Student,
+          status: ClassMemberStatus.Active,
+          joined_at: new Date(),
+        });
+      }
+      added.push(code);
+    }
+
+    return { added: added.length, added_codes: added, already_in_class: alreadyInClass, not_found: notFound };
+  }
+
+  // ── Student: request join by join_code ────────────────────────────────────
+  async requestJoinClass(studentId: string, dto: RequestJoinClassDto): Promise<ClassMember> {
+    const cls = await this.classesRepository.findByJoinCode(dto.join_code.trim().toUpperCase());
+    if (!cls) throw new NotFoundException(`Không tìm thấy lớp với mã "${dto.join_code}"`);
+    if (!cls.is_active) throw new ConflictException('Lớp học không còn hoạt động');
+
+    const existing = await this.classMembersRepository.findOneByClassAndUser(cls.id, studentId);
+    if (existing) {
+      if (existing.status === ClassMemberStatus.Active) throw new ConflictException('Bạn đã là thành viên lớp này');
+      if (existing.status === ClassMemberStatus.Pending) throw new ConflictException('Yêu cầu của bạn đang chờ duyệt');
+      // If rejected, allow re-request
+      return this.classMembersRepository.updateOne(existing.id, {
+        status: ClassMemberStatus.Pending,
+        joined_at: new Date(),
+      }) as unknown as ClassMember;
+    }
+
+    return this.classMembersRepository.createOne({
+      class_id: cls.id,
+      user_id: studentId,
+      role: ClassMemberRole.Student,
+      status: ClassMemberStatus.Pending,
+      joined_at: new Date(),
+    });
+  }
+
+  // ── Teacher: approve pending request ─────────────────────────────────────
+  async approveJoinRequest(teacherId: string, classMemberId: string): Promise<ClassMember | null> {
+    const member = await this.classMembersRepository.findByIdWithClass(classMemberId);
+    if (!member) throw new NotFoundException('Không tìm thấy yêu cầu');
+    if (member.role !== ClassMemberRole.Student) throw new ConflictException('Only student requests can be approved');
+    if (member.status !== ClassMemberStatus.Pending) throw new ConflictException('Yêu cầu không ở trạng thái chờ duyệt');
+    if (!member.class || member.class.teacher_id !== teacherId) throw new ForbiddenException('Bạn không phải giảng viên lớp này');
+
+    return this.classMembersRepository.updateOne(classMemberId, {
+      status: ClassMemberStatus.Active,
+      joined_at: new Date(),
+    });
+  }
+
+  // ── Teacher: reject pending request ──────────────────────────────────────
+  async rejectJoinRequest(teacherId: string, classMemberId: string) {
+    const member = await this.classMembersRepository.findByIdWithClass(classMemberId);
+    if (!member) throw new NotFoundException('Không tìm thấy yêu cầu');
+    if (member.status !== ClassMemberStatus.Pending) throw new ConflictException('Yêu cầu không ở trạng thái chờ duyệt');
+    if (!member.class || member.class.teacher_id !== teacherId) throw new ForbiddenException('Bạn không phải giảng viên lớp này');
+
+    await this.classMembersRepository.removeOne(classMemberId);
+    return { rejected: true };
+  }
+
+  // ── Teacher: list pending requests ───────────────────────────────────────
+  async listPendingRequests(teacherId: string, classId: string) {
+    const cls = await this.classesRepository.findById(classId);
+    if (!cls || cls.teacher_id !== teacherId) throw new NotFoundException('Class not found');
+    return this.classMembersRepository.findPendingRequestsByClassId(classId);
+  }
+
+  // ── Misc ──────────────────────────────────────────────────────────────────
+  findAll() { return this.classMembersRepository.findAll(); }
 
   async findOne(id: string) {
     const item = await this.classMembersRepository.findById(id);
@@ -49,8 +201,7 @@ export class ClassMembersService {
     if (dto.user_id !== undefined) payload.user_id = dto.user_id;
     if (dto.role !== undefined) payload.role = dto.role;
     if (dto.status !== undefined) payload.status = dto.status;
-    if (dto.joined_at !== undefined)
-      payload.joined_at = new Date(dto.joined_at);
+    if (dto.joined_at !== undefined) payload.joined_at = new Date(dto.joined_at);
     return this.classMembersRepository.updateOne(id, payload);
   }
 
@@ -67,87 +218,15 @@ export class ClassMembersService {
 
   listStudentClasses(studentId: string): Promise<Class[]> {
     return this.classMembersRepository
-      .findManyByUserRoleStatus(
-        studentId,
-        ClassMemberRole.Student,
-        ClassMemberStatus.Active,
-      )
+      .findManyByUserRoleStatus(studentId, ClassMemberRole.Student, ClassMemberStatus.Active)
       .then((members) => members.map((m) => m.class));
   }
 
-  async requestJoinClass(
-    studentId: string,
-    dto: RequestJoinClassDto,
-  ): Promise<ClassMember> {
-    const cls = await this.classesRepository.findById(dto.class_id);
-    if (!cls) throw new NotFoundException('Class not found');
-    if (!cls.is_active) throw new ConflictException('Class is inactive');
-
-    const existing = await this.classMembersRepository.findOneByClassAndUser(
-      dto.class_id,
-      studentId,
-    );
-    if (existing) throw new ConflictException('Already requested or joined');
-
-    const payload: Partial<ClassMember> = {
-      class_id: dto.class_id,
-      user_id: studentId,
-      role: ClassMemberRole.Student,
-      status: ClassMemberStatus.Pending,
-      joined_at: new Date(),
-    };
-
-    return this.classMembersRepository.createOne(payload);
-  }
-
-  async approveJoinRequest(
-    teacherId: string,
-    classMemberId: string,
-  ): Promise<ClassMember | null> {
-    const member = await this.classMembersRepository.findByIdWithClass(
-      classMemberId,
-    );
-    if (!member) throw new NotFoundException('ClassMember not found');
-
-    if (member.role !== ClassMemberRole.Student) {
-      throw new ConflictException('Only student requests can be approved');
-    }
-
-    if (member.status !== ClassMemberStatus.Pending) {
-      throw new ConflictException('Request is not pending');
-    }
-
-    if (!member.class || member.class.teacher_id !== teacherId) {
-      throw new NotFoundException('Class not found');
-    }
-
-    return this.classMembersRepository.updateOne(classMemberId, {
-      status: ClassMemberStatus.Active,
-      joined_at: new Date(),
-    });
-  }
-
-  async listPendingRequests(teacherId: string, classId: string) {
-    const cls = await this.classesRepository.findById(classId);
-    if (!cls || cls.teacher_id !== teacherId) {
-      throw new NotFoundException('Class not found');
-    }
-
-    return this.classMembersRepository.findPendingRequestsByClassId(classId);
-  }
-
   async ensureActiveStudent(classId: string, studentId: string) {
-    const member = await this.classMembersRepository.findOneByClassAndUser(
-      classId,
-      studentId,
-    );
+    const member = await this.classMembersRepository.findOneByClassAndUser(classId, studentId);
     if (!member) throw new NotFoundException('Class membership not found');
-    if (member.role !== ClassMemberRole.Student) {
-      throw new ConflictException('Only students can submit assignments');
-    }
-    if (member.status !== ClassMemberStatus.Active) {
-      throw new ConflictException('Student is not active in this class');
-    }
+    if (member.role !== ClassMemberRole.Student) throw new ConflictException('Only students can submit assignments');
+    if (member.status !== ClassMemberStatus.Active) throw new ConflictException('Student is not active in this class');
     return member;
   }
 }

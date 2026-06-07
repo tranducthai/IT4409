@@ -21,6 +21,8 @@ export class QuizzesService {
     return this.quizzesRepository.createOne({
       ...dto,
       created_by: teacherId,
+      open_time: dto.open_time ? new Date(dto.open_time) : null,
+      close_time: dto.close_time ? new Date(dto.close_time) : null,
     });
   }
 
@@ -49,7 +51,13 @@ export class QuizzesService {
       throw new ForbiddenException('Class not owned by teacher');
     }
 
-    return this.quizzesRepository.updateOne(id, dto);
+    const { open_time, close_time, ...rest } = dto;
+    const updatePayload = {
+      ...rest,
+      ...(open_time !== undefined ? { open_time: open_time ? new Date(open_time) : null } : {}),
+      ...(close_time !== undefined ? { close_time: close_time ? new Date(close_time) : null } : {}),
+    };
+    return this.quizzesRepository.updateOne(id, updatePayload);
   }
 
   async remove(teacherId: string, id: string) {

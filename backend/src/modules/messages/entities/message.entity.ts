@@ -31,6 +31,9 @@ export class Message {
     @Column({ type: 'text' })
     content: string;
 
+    @Column({ type: 'text', nullable: true })
+    image_url: string | null;
+
     @CreateDateColumn({ type: 'timestamp' })
     created_at: Date;
 }

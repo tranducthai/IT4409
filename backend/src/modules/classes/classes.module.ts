@@ -4,6 +4,7 @@ import { Assignment } from '../assignments/entities/assignment.entity';
 import { AssignmentsRepository } from '../assignments/repositories/assignments.repository';
 import { ClassMember } from '../class-members/entities/class-member.entity';
 import { ClassMembersRepository } from '../class-members/repositories/class-members.repository';
+import { LessonProgressModule } from '../lesson-progress/lesson-progress.module';
 import { QuizAttempt } from '../quiz-attempts/entities/quiz-attempt.entity';
 import { QuizAttemptsRepository } from '../quiz-attempts/repositories/quiz-attempts.repository';
 import { Quiz } from '../quizzes/entities/quiz.entity';
@@ -18,6 +19,7 @@ import { ClassesRepository } from './repositories/classes.repository';
 
 @Module({
   imports: [
+    LessonProgressModule,
     TypeOrmModule.forFeature([
       Class,
       ClassMember,

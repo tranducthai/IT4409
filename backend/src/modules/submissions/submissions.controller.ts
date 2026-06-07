@@ -1,4 +1,5 @@
 import {
+    BadRequestException,
     Body,
     Controller,
     Delete,
@@ -16,7 +17,8 @@ import {
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { buildFileUrl, createDiskStorage } from '../../common/utils/upload.util';
+import { SupabaseStorageService } from '../../common/storage/supabase-storage.service';
+import { createMemoryStorage } from '../../common/utils/upload.util';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { UserRole } from '../users/enums/user-role.enum';
@@ -28,20 +30,41 @@ import { SubmissionsService } from './submissions.service';
 
 type AuthedRequest = Request & { user: JwtPayload };
 
+const ALLOWED_MIME_TYPES = [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+];
+
 @ApiTags('submissions')
 @Controller('submissions')
 export class SubmissionsController {
-    constructor(private readonly submissionsService: SubmissionsService) { }
+    constructor(
+        private readonly submissionsService: SubmissionsService,
+        private readonly storageService: SupabaseStorageService,
+    ) { }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('access-token')
     @Post('assignment/:assignmentId')
     @UseInterceptors(
         FilesInterceptor('files', 10, {
-            storage: createDiskStorage('submissions'),
+            storage: createMemoryStorage(),
+            fileFilter: (_req, file, cb) => {
+                if (ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+                    cb(null, true);
+                } else {
+                    cb(
+                        new BadRequestException(
+                            'Chỉ chấp nhận file PDF hoặc Word (.doc, .docx)',
+                        ),
+                        false,
+                    );
+                }
+            },
         }),
     )
-    submit(
+    async submit(
         @Req() req: AuthedRequest,
         @Param('assignmentId', ParseUUIDPipe) assignmentId: string,
         @Body() dto: SubmitAssignmentDto,
@@ -50,13 +73,19 @@ export class SubmissionsController {
         if (req.user.role !== UserRole.STUDENT) {
             throw new ForbiddenException('Student role required');
         }
-        const payload = files.map((file) => ({
-            file_url: buildFileUrl('submissions', file.filename),
+
+        const uploaded = await Promise.all(
+            files.map((file) => this.storageService.upload('submissions', file)),
+        );
+
+        const payload = files.map((file, i) => ({
+            file_url: uploaded[i].url,
             original_name: file.originalname,
-            file_name: file.filename,
+            file_name: uploaded[i].fileName,
             mime_type: file.mimetype,
             size: file.size,
         }));
+
         return this.submissionsService.submit(
             assignmentId,
             req.user.sub,

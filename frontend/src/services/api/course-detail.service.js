@@ -1,6 +1,6 @@
-import { apiRequest } from './client';
+import { apiRequest, toAbsoluteFileUrl } from './client';
 
-const defaultCourseImage = 'https://via.placeholder.com/400x225';
+const defaultCourseImage = '/favicon.svg';
 
 function toArray(value) {
   if (Array.isArray(value?.data)) return value.data.filter(Boolean);
@@ -44,34 +44,80 @@ async function loadOptionalArray(path, label) {
   }
 }
 
-function normalizeLessonContent(content, quizzes = [], classId) {
-  const source = content ?? {};
-  const displayType = getDisplayType(source);
-  const rawQuizRef = source.quiz_id ?? source.content ?? source.file_url;
-  const matchedQuiz =
-    displayType === 'quiz'
-      ? quizzes.find(
-          (quiz) =>
-            quiz.id === rawQuizRef ||
-            String(rawQuizRef ?? '').includes(quiz.id) ||
-            String(quiz.title ?? '').toLowerCase() ===
-              String(source.title ?? '').toLowerCase(),
-        )
-      : null;
+async function loadOptionalObject(path, label) {
+  try {
+    return {
+      item: await apiRequest(path),
+      warning: '',
+    };
+  } catch (error) {
+    return {
+      item: null,
+      warning: getFailureMessage(label, error),
+    };
+  }
+}
+
+function normalizeLessonContent(raw, quizzes = [], classId) {
+  const displayType = getDisplayType(raw);
+  const quizId = raw.quiz_id ?? null;
+  const matchedQuiz = quizId ? quizzes.find((q) => q.id === quizId) : null;
 
   return {
-    id: source.id,
-    lessonId: source.lesson_id,
-    type: normalizeContentType(source.type),
+    id: raw.id,
+    lessonId: raw.lesson_id,
+    type: normalizeContentType(raw.type),
     displayType,
-    title: source.title ?? 'Tài nguyên chưa có tiêu đề',
-    content: source.content,
-    fileUrl: source.file_url,
-    openUrl: source.open_url,
-    duration: source.duration,
-    orderIndex: source.order_index ?? 0,
-    quizId: matchedQuiz?.id ?? null,
-    quizUrl: matchedQuiz ? `/courses/${classId}/quizzes/${matchedQuiz.id}` : null,
+    title: raw.title ?? 'Nội dung',
+    description: raw.description ?? null,
+    content: raw.content ?? null,
+    fileUrl: raw.file_url ? toAbsoluteFileUrl(raw.file_url) : null,
+    openUrl: raw.open_url ?? null,
+    duration: raw.duration ?? null,
+    orderIndex: raw.order_index ?? 0,
+    quizId,
+    quizUrl: quizId ? `/courses/${classId}/quizzes/${quizId}` : null,
+    meta:
+      displayType === 'quiz' && matchedQuiz
+        ? `${matchedQuiz.total_questions ?? 0} câu hỏi · ${matchedQuiz.time_limit ?? 0} phút`
+        : undefined,
+  };
+}
+
+function normalizeLessonPrimaryResource(lesson, quizzes = [], classId) {
+  if (!lesson || typeof lesson !== 'object') return null;
+
+  const displayType = getDisplayType(lesson);
+  const quizId = lesson.quiz_id ?? null;
+  const matchedQuiz = quizId ? quizzes.find((quiz) => quiz.id === quizId) : null;
+  const hasOpenablePayload =
+    displayType === 'quiz'
+      ? Boolean(quizId)
+      : Boolean(lesson.file_url || lesson.content);
+
+  if (!hasOpenablePayload) return null;
+
+  return {
+    id: `lesson-${lesson.id}-primary-${displayType}`,
+    lessonId: lesson.id,
+    type: normalizeContentType(lesson.type),
+    displayType,
+    title:
+      displayType === 'quiz'
+        ? matchedQuiz?.title ?? lesson.title ?? 'Quiz của bài học'
+        : lesson.title ?? 'Tài nguyên bài học',
+    description: displayType === 'quiz' ? matchedQuiz?.description ?? lesson.description : lesson.description,
+    content: lesson.content,
+    fileUrl: lesson.file_url ? toAbsoluteFileUrl(lesson.file_url) : null,
+    openUrl: null,
+    duration: lesson.duration,
+    orderIndex: -1,
+    quizId,
+    quizUrl: quizId ? `/courses/${classId}/quizzes/${quizId}` : null,
+    meta:
+      displayType === 'quiz' && matchedQuiz
+        ? `${matchedQuiz.total_questions ?? 0} câu hỏi · ${matchedQuiz.time_limit ?? 0} phút`
+        : undefined,
   };
 }
 
@@ -100,7 +146,7 @@ function buildResourceGroups(sections, quizzes, classId) {
     {
       id: 'lesson-resources',
       title: 'Tài nguyên theo bài học',
-      description: 'Văn bản, PDF, tệp, video và quiz gắn với từng bài học',
+      description: 'Text, PDF, tệp, video và quiz gắn với từng bài học',
       items: lessonResources,
     },
     {
@@ -120,7 +166,7 @@ function normalizeCourse(course) {
     title: course.name ?? course.title ?? 'Khóa học chưa có tiêu đề',
     code: course.join_code ?? course.code ?? String(course.id ?? '').slice(-6),
     category: course.type ?? 'Khóa học',
-    image: course.avatar_url ?? course.image ?? defaultCourseImage,
+    image: course.avatar_url || course.image || defaultCourseImage,
     description: course.description ?? '',
     startDate: course.created_at?.slice?.(0, 10) ?? '',
   };
@@ -148,7 +194,7 @@ function normalizeAssignment(assignment) {
     status: getAssignmentStatus(assignment),
     attachments: toArray(assignment.attachments).map((attachment) => ({
       id: attachment.id,
-      fileUrl: attachment.file_url,
+      fileUrl: toAbsoluteFileUrl(attachment.file_url),
       originalName: attachment.original_name ?? attachment.file_name ?? 'File đính kèm',
       mimeType: attachment.mime_type,
       size: attachment.size,
@@ -169,7 +215,8 @@ function normalizeDiscussion(item) {
   };
 }
 
-export async function getCourseDetailFromApi(courseId) {
+export async function getCourseDetailFromApi(courseId, options = {}) {
+  const { includeProgress = false } = options;
   const course = await apiRequest(`/classes/${courseId}`);
   const normalizedCourse = normalizeCourse(course);
 
@@ -177,13 +224,16 @@ export async function getCourseDetailFromApi(courseId) {
     throw new Error('Không tìm thấy thông tin khóa học.');
   }
 
-  const [sectionsResult, contentsResult, quizzesResult, assignmentsResult, discussionsResult] =
+  const [sectionsResult, quizzesResult, assignmentsResult, discussionsResult, progressResult, lessonContentsResult] =
     await Promise.all([
       loadOptionalArray(`/sections/class/${courseId}`, 'Không tải được danh sách phần'),
-      loadOptionalArray('/lesson-contents', 'Không tải được tài nguyên bài học'),
       loadOptionalArray(`/quizzes/class/${courseId}`, 'Không tải được danh sách quiz'),
       loadOptionalArray(`/assignments/class/${courseId}`, 'Không tải được danh sách BTVN'),
       loadOptionalArray(`/discussions/class/${courseId}`, 'Không tải được thảo luận'),
+      includeProgress
+        ? loadOptionalObject(`/classes/${courseId}/progress/me`, 'Không tải được tiến độ học tập')
+        : Promise.resolve({ item: null, warning: '' }),
+      loadOptionalArray(`/lesson-contents/class/${courseId}`, 'Không tải được nội dung bài học'),
     ]);
 
   const rawSections = sectionsResult.items;
@@ -207,31 +257,44 @@ export async function getCourseDetailFromApi(courseId) {
   );
 
   const quizzes = quizzesResult.items;
+
   const warnings = [
     sectionsResult.warning,
-    contentsResult.warning,
     quizzesResult.warning,
     assignmentsResult.warning,
     discussionsResult.warning,
+    lessonContentsResult.warning,
     ...lessonResults.map((result) => result.warning),
   ].filter(Boolean);
 
   const lessonsBySection = lessonResults.map((result) => result.lessons);
-  const lessonIds = new Set(lessonsBySection.flat().map((lesson) => lesson.id));
-  const contentsByLessonId = contentsResult.items
-    .filter((content) => lessonIds.has(content.lesson_id))
-    .reduce((acc, content) => {
-      const list = acc.get(content.lesson_id) ?? [];
-      list.push(normalizeLessonContent(content, quizzes, courseId));
-      acc.set(content.lesson_id, list);
-      return acc;
-    }, new Map());
+  const completedLessonIds = new Set(
+    toArray(progressResult.item?.completed_lesson_ids ?? progressResult.item?.completedLessonIds),
+  );
+
+  // Group lesson-contents by lesson_id (normalized)
+  const contentsByLessonId = new Map();
+  for (const raw of lessonContentsResult.items) {
+    const lessonId = raw.lesson_id;
+    if (!lessonId) continue;
+    if (!contentsByLessonId.has(lessonId)) contentsByLessonId.set(lessonId, []);
+    contentsByLessonId.get(lessonId).push(normalizeLessonContent(raw, quizzes, courseId));
+  }
+
+  let focusedLessonAssigned = false;
 
   const sections = rawSections.map((section, index) => {
     const lessons = (lessonsBySection[index] ?? []).map((lesson) => {
-      const contents = (contentsByLessonId.get(lesson.id) ?? []).sort(
-        (left, right) => left.orderIndex - right.orderIndex,
+      const apiContents = (contentsByLessonId.get(lesson.id) ?? []).sort(
+        (left, right) => (left.orderIndex ?? 0) - (right.orderIndex ?? 0),
       );
+      const primaryResource = normalizeLessonPrimaryResource(lesson, quizzes, courseId);
+      const contents = primaryResource ? [primaryResource, ...apiContents] : apiContents;
+      const status = completedLessonIds.has(lesson.id)
+        ? 'done'
+        : !focusedLessonAssigned
+          ? ((focusedLessonAssigned = true), 'in-progress')
+          : 'todo';
 
       return {
         id: lesson.id,
@@ -247,7 +310,7 @@ export async function getCourseDetailFromApi(courseId) {
         contentCount: contents.length,
         contentTypes: contents.map((item) => item.displayType),
         contents,
-        status: 'todo',
+        status,
       };
     });
 
@@ -261,6 +324,9 @@ export async function getCourseDetailFromApi(courseId) {
   });
 
   const flatLessons = sections.flatMap((section) => section.lessons);
+  const completedCount = completedLessonIds.size;
+  const hasRemainingLessons = flatLessons.length > completedCount;
+  const inProgressCount = hasRemainingLessons ? 1 : 0;
 
   return {
     course: normalizedCourse,
@@ -272,10 +338,14 @@ export async function getCourseDetailFromApi(courseId) {
     assignments: assignmentsResult.items.map(normalizeAssignment).filter(Boolean),
     warnings,
     progress: {
-      progressPercent: 0,
-      completed: 0,
-      inProgress: 0,
-      todo: flatLessons.length,
+      progressPercent:
+        flatLessons.length > 0
+          ? Math.round((completedCount / flatLessons.length) * 100)
+          : 0,
+      completed: completedCount,
+      inProgress: inProgressCount,
+      todo: Math.max(0, flatLessons.length - completedCount - inProgressCount),
+      completedLessonIds: Array.from(completedLessonIds),
     },
   };
 }

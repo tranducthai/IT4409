@@ -26,6 +26,44 @@ function normalizeQuestion(question) {
   };
 }
 
+function normalizeAttempt(attempt) {
+  if (!attempt || typeof attempt !== 'object') return null;
+
+  return {
+    attemptId: attempt.attempt_id ?? attempt.id ?? null,
+    quizId: attempt.quiz_id ?? null,
+    score: attempt.score ?? null,
+    startTime: attempt.start_time ?? null,
+    endTime: attempt.end_time ?? null,
+    isSubmitted: Boolean(attempt.is_submitted ?? attempt.end_time),
+    expiresAt: attempt.expires_at ?? null,
+    timeLimit: attempt.time_limit ?? null,
+    timeLimitUnit: attempt.time_limit_unit ?? null,
+  };
+}
+
+function normalizeAttemptResult(result) {
+  if (!result || typeof result !== 'object') return null;
+
+  return {
+    attemptId: result.attempt_id ?? result.id ?? null,
+    quizId: result.quiz_id ?? null,
+    score: result.score ?? null,
+    scoreUnit: result.score_unit ?? 'percent',
+    startTime: result.start_time ?? null,
+    endTime: result.end_time ?? null,
+    isSubmitted: Boolean(result.is_submitted ?? result.end_time),
+    expiresAt: result.expires_at ?? null,
+    totalQuestions: result.total_questions ?? 0,
+    correct: result.correct ?? 0,
+    answers: toArray(result.answers).map((answer) => ({
+      questionId: answer.question_id,
+      selectedAnswer: answer.selected_answer,
+      isCorrect: Boolean(answer.is_correct),
+    })),
+  };
+}
+
 export async function getQuizDetailFromApi(quizId) {
   const quiz = await apiRequest(`/quiz/${quizId}`);
 
@@ -37,20 +75,29 @@ export async function getQuizDetailFromApi(quizId) {
     timeLimit: quiz.time_limit ?? 0,
     totalQuestions: quiz.total_questions ?? toArray(quiz.questions).length,
     questions: toArray(quiz.questions).map(normalizeQuestion),
+    openTime: quiz.open_time ?? null,
+    closeTime: quiz.close_time ?? null,
+    isRandom: Boolean(quiz.is_random),
   };
 }
 
 export function startQuizAttempt(quizId) {
-  return apiRequest(`/quiz/${quizId}/start`, { method: 'POST' });
+  return apiRequest(`/quiz/${quizId}/start`, { method: 'POST' }).then(normalizeAttempt);
 }
 
 export function submitQuizAttempt(quizId, payload) {
   return apiRequest(`/quiz/${quizId}/submit`, {
     method: 'POST',
     body: JSON.stringify(payload),
-  });
+  }).then(normalizeAttemptResult);
 }
 
 export function listMyQuizAttempts(quizId) {
-  return apiRequest(`/quiz/${quizId}/attempts/me`, { method: 'GET' });
+  return apiRequest(`/quiz/${quizId}/attempts/me`, { method: 'GET' }).then((items) =>
+    toArray(items).map(normalizeAttempt),
+  );
+}
+
+export function getAttemptResult(attemptId) {
+  return apiRequest(`/quiz/attempts/${attemptId}`, { method: 'GET' }).then(normalizeAttemptResult);
 }

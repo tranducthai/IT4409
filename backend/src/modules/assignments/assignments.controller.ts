@@ -16,7 +16,8 @@ import {
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
-import { buildFileUrl, createDiskStorage } from '../../common/utils/upload.util';
+import { SupabaseStorageService } from '../../common/storage/supabase-storage.service';
+import { createMemoryStorage } from '../../common/utils/upload.util';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { UserRole } from '../users/enums/user-role.enum';
@@ -29,17 +30,18 @@ type AuthedRequest = Request & { user: JwtPayload };
 @ApiTags('assignments')
 @Controller('assignments')
 export class AssignmentsController {
-    constructor(private readonly assignmentsService: AssignmentsService) { }
+    constructor(
+        private readonly assignmentsService: AssignmentsService,
+        private readonly storageService: SupabaseStorageService,
+    ) { }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('access-token')
     @Post()
     @UseInterceptors(
-        FilesInterceptor('files', 10, {
-            storage: createDiskStorage('assignments'),
-        }),
+        FilesInterceptor('files', 10, { storage: createMemoryStorage() }),
     )
-    create(
+    async create(
         @Req() req: AuthedRequest,
         @Body() dto: CreateAssignmentDto,
         @UploadedFiles() files: Express.Multer.File[] = [],
@@ -47,10 +49,13 @@ export class AssignmentsController {
         if (req.user.role !== UserRole.TEACHER) {
             throw new ForbiddenException('Teacher role required');
         }
-        const attachments = files.map((file) => ({
-            file_url: buildFileUrl('assignments', file.filename),
+        const uploaded = await Promise.all(
+            files.map((f) => this.storageService.upload('assignments', f)),
+        );
+        const attachments = files.map((file, i) => ({
+            file_url: uploaded[i].url,
             original_name: file.originalname,
-            file_name: file.filename,
+            file_name: uploaded[i].fileName,
             mime_type: file.mimetype,
             size: file.size,
         }));
@@ -58,9 +63,7 @@ export class AssignmentsController {
     }
 
     @Get()
-    findAll() {
-        return this.assignmentsService.findAll();
-    }
+    findAll() { return this.assignmentsService.findAll(); }
 
     @Get('class/:classId')
     findByClass(@Param('classId', ParseUUIDPipe) classId: string) {
@@ -80,9 +83,7 @@ export class AssignmentsController {
         @Param('id', ParseUUIDPipe) id: string,
         @Body() dto: UpdateAssignmentDto,
     ) {
-        if (req.user.role !== UserRole.TEACHER) {
-            throw new ForbiddenException('Teacher role required');
-        }
+        if (req.user.role !== UserRole.TEACHER) throw new ForbiddenException('Teacher role required');
         return this.assignmentsService.update(req.user.sub, id, dto);
     }
 
@@ -90,9 +91,7 @@ export class AssignmentsController {
     @ApiBearerAuth('access-token')
     @Delete(':id')
     remove(@Req() req: AuthedRequest, @Param('id', ParseUUIDPipe) id: string) {
-        if (req.user.role !== UserRole.TEACHER) {
-            throw new ForbiddenException('Teacher role required');
-        }
+        if (req.user.role !== UserRole.TEACHER) throw new ForbiddenException('Teacher role required');
         return this.assignmentsService.remove(req.user.sub, id);
     }
 }

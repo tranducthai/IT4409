@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-    addStudentToClass,
+    addStudentByStudentCode,
     approveJoinRequest,
+    bulkAddStudentsByCodes,
     createClass,
     deleteClass,
     getPendingClassRequests,
     getStudentClasses,
     getTeacherClasses,
+    rejectJoinRequest,
+    requestJoinByCode,
     updateClass,
 } from '../services/api/classes.service';
 import { getAccessToken } from '../services/api/client';
@@ -103,7 +106,7 @@ import AdminDashboard from './dashboard/AdminDashboard';
           title: cls.name,
           code: cls.join_code,
           category: cls.type ?? 'Khóa học',
-          image: cls.avatar_url ?? 'https://via.placeholder.com/400x225',
+          image: cls.avatar_url || '/favicon.svg',
         }));
 
         if (isMounted) {
@@ -138,11 +141,15 @@ import AdminDashboard from './dashboard/AdminDashboard';
         title: cls.name,
         code: cls.join_code,
         type: cls.type,
-        image: cls.avatar_url ?? 'https://via.placeholder.com/400x225',
+        image: cls.avatar_url || '/favicon.svg',
       }));
 
       const pendingLists = await Promise.all(
-        (classes ?? []).map((cls) => getPendingClassRequests(cls.id, accessToken)),
+        (classes ?? []).map((cls) =>
+          getPendingClassRequests(cls.id, accessToken)
+            .then((reqs) => (reqs ?? []).map((r) => ({ ...r, class_name: cls.name, class_id: cls.id })))
+            .catch(() => []),
+        ),
       );
       const normalizedPending = pendingLists.flat();
 
@@ -190,24 +197,42 @@ import AdminDashboard from './dashboard/AdminDashboard';
     await reloadTeacherClasses();
   };
 
-  const handleAddStudent = async ({ class_id, user_id }) => {
-    const accessToken = getAccessToken();
-    await addStudentToClass(
-      {
-        class_id,
-        user_id,
-        role: 'STUDENT',
-        status: 'ACTIVE',
-      },
-      accessToken,
-    );
-    await reloadTeacherClasses();
-  };
-
   const handleApproveRequest = async (requestId) => {
     const accessToken = getAccessToken();
     await approveJoinRequest(requestId, accessToken);
     await reloadTeacherClasses();
+  };
+
+  const handleRejectRequest = async (requestId) => {
+    const accessToken = getAccessToken();
+    await rejectJoinRequest(requestId, accessToken);
+    await reloadTeacherClasses();
+  };
+
+  const handleAddStudentByCode = async ({ class_id, student_code }) => {
+    const accessToken = getAccessToken();
+    await addStudentByStudentCode(class_id, student_code, accessToken);
+    await reloadTeacherClasses();
+  };
+
+  const handleBulkAddStudents = async (classId, studentCodes) => {
+    const accessToken = getAccessToken();
+    return bulkAddStudentsByCodes(classId, studentCodes, accessToken);
+  };
+
+  const handleJoinByCode = async (joinCode) => {
+    const accessToken = getAccessToken();
+    await requestJoinByCode(joinCode, accessToken);
+    // reload student classes
+    const classes = await getStudentClasses(accessToken);
+    const normalized = (classes ?? []).map((cls) => ({
+      id: cls.id,
+      title: cls.name,
+      code: cls.join_code,
+      category: cls.type ?? 'Khóa học',
+      image: cls.avatar_url || '/favicon.svg',
+    }));
+    setStudentCourses(normalized);
   };
 
   return (
@@ -225,8 +250,10 @@ import AdminDashboard from './dashboard/AdminDashboard';
           onCreateClass={handleCreateClass}
           onUpdateClass={handleUpdateClass}
           onDeleteClass={handleDeleteClass}
-          onAddStudent={handleAddStudent}
+          onAddStudentByCode={handleAddStudentByCode}
+          onBulkAddStudents={handleBulkAddStudents}
           onApproveRequest={handleApproveRequest}
+          onRejectRequest={handleRejectRequest}
           isLoading={isLoadingTeacher}
           error={teacherError}
         />
@@ -235,6 +262,7 @@ import AdminDashboard from './dashboard/AdminDashboard';
           courses={studentCourses}
           isLoading={isLoadingStudent}
           error={studentError}
+          onJoinByCode={handleJoinByCode}
         />
       )}
     </main>

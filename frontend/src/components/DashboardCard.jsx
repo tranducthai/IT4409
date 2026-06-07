@@ -4,7 +4,7 @@ export default function DashboardCard({ course }) {
   return (
     <div className="mb-4 flex w-full flex-col gap-5 overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900 md:flex-row md:items-center">
       <div className="h-40 w-full flex-shrink-0 md:h-28 md:w-48">
-        <img src={course.image} className="h-full w-full rounded-xl bg-slate-100 object-cover dark:bg-slate-800" alt={course.title} />
+        <img src={course.image || '/favicon.svg'} className="h-full w-full rounded-xl bg-slate-100 object-cover dark:bg-slate-800" alt={course.title} />
       </div>
       <div className="min-w-0 flex-grow">
         <h3 className="text-xl font-bold text-gray-800 dark:text-slate-100">{course.title}</h3>

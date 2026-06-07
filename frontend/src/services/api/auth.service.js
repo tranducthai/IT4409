@@ -3,7 +3,7 @@ import { apiRequest } from './client';
 import { clearAuthState } from './authState';
 import { getCurrentUser, setCurrentUser } from './session';
 
-const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA !== 'false';
+const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA === 'true';
 
 function toMockUser(payload = {}) {
   const normalizedRole = String(payload.role ?? 'STUDENT').toUpperCase();
@@ -52,7 +52,7 @@ export async function login(credentials) {
 
   const data = await apiRequest('/auth/login', {
     method: 'POST',
-    body: JSON.stringify(credentials),
+    body: credentials,
   });
 
   const normalized = mapBackendAuthResponse(data);
@@ -78,7 +78,7 @@ export async function register(payload) {
 
   const data = await apiRequest('/auth/register', {
     method: 'POST',
-    body: JSON.stringify(normalizedPayload),
+    body: normalizedPayload,
   });
 
   const normalized = mapBackendAuthResponse(data);
@@ -93,10 +93,10 @@ export async function changePassword(payload) {
 
   return apiRequest('/auth/change-password', {
     method: 'PATCH',
-    body: JSON.stringify({
+    body: {
       oldPassword: payload.oldPassword,
       newPassword: payload.newPassword,
-    }),
+    },
   });
 }
 
@@ -120,8 +120,18 @@ export async function getCurrentUserFromApi() {
   }
 }
 
+export async function forgotPassword(email) {
+  if (USE_MOCK_DATA) return { sent: true };
+  return apiRequest('/auth/forgot-password', { method: 'POST', body: { email } });
+}
+
+export async function resetPassword(token, newPassword) {
+  if (USE_MOCK_DATA) return { changed: true };
+  return apiRequest('/auth/reset-password', { method: 'POST', body: { token, newPassword } });
+}
+
 export function logout() {
   clearAuthState();
 }
 
-export default { login, register, changePassword, getCurrentUserFromApi, logout };
+export default { login, register, changePassword, getCurrentUserFromApi, logout, forgotPassword, resetPassword };

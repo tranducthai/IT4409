@@ -17,6 +17,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { UserRole } from '../users/enums/user-role.enum';
 import { CreateQuestionDto } from './dtos/create-question.dto';
+import { CreateQuestionsBulkDto } from './dtos/create-questions-bulk.dto';
 import { UpdateQuestionDto } from './dtos/update-question.dto';
 import { QuestionsService } from './questions.service';
 
@@ -34,6 +35,16 @@ export class QuestionsController {
       throw new ForbiddenException('Teacher role required');
     }
     return this.questionsService.create(req.user.sub, dto);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post('bulk')
+  createBulk(@Req() req: AuthedRequest, @Body() dto: CreateQuestionsBulkDto) {
+    if (req.user.role !== UserRole.TEACHER) {
+      throw new ForbiddenException('Teacher role required');
+    }
+    return this.questionsService.createMany(req.user.sub, dto);
   }
 
   @Get()

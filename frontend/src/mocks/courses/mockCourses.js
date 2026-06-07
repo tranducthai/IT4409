@@ -7,7 +7,7 @@ import {
   mockSections,
 } from '../classes/mockClasses';
 
-const defaultCourseImage = 'https://via.placeholder.com/400x225';
+const defaultCourseImage = '/favicon.svg';
 
 const mockAssignments = [
   {

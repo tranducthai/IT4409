@@ -1,4 +1,4 @@
-import { IsString, IsUUID } from 'class-validator';
+import { IsOptional, IsString, IsUUID } from 'class-validator';
 
 export class CreateMessageDto {
     @IsUUID()
@@ -6,4 +6,8 @@ export class CreateMessageDto {
 
     @IsString()
     content: string;
+
+    @IsOptional()
+    @IsString()
+    image_url?: string;
 }

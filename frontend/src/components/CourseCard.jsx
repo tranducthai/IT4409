@@ -7,7 +7,7 @@ const CourseCard = ({ course }) => {
       className="action-btn flex h-full flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm hover:border-indigo-200 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-indigo-400/60"
     >
       <div className="relative h-40 bg-slate-100 dark:bg-slate-800">
-        <img src={course.image} className="h-full w-full object-contain p-4" alt={course.title} />
+        <img src={course.image || '/favicon.svg'} className="h-full w-full object-contain p-4" alt={course.title} />
         <div className="absolute right-2 top-2 rounded bg-indigo-900/85 px-2 py-0.5 text-[10px] font-bold uppercase text-white">
           {course.code}
         </div>

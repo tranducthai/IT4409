@@ -26,6 +26,68 @@ export function getAccessToken() {
   return localStorage.getItem(authStorageKeys.accessToken);
 }
 
+function isFormData(value) {
+  return typeof FormData !== 'undefined' && value instanceof FormData;
+}
+
+function isPlainObject(value) {
+  if (!value || typeof value !== 'object') return false;
+  if (value instanceof FormData) return false;
+  if (Array.isArray(value)) return false;
+  if (value instanceof Blob) return false;
+  if (value instanceof ArrayBuffer) return false;
+  return Object.getPrototypeOf(value) === Object.prototype;
+}
+
+function normalizeRequestBody(options = {}) {
+  if (!Object.prototype.hasOwnProperty.call(options, 'body')) {
+    return { body: undefined, headers: options.headers ?? {} };
+  }
+
+  const headers = { ...(options.headers ?? {}) };
+  const body = options.body;
+
+  if (body == null) {
+    return { body, headers };
+  }
+
+  if (isFormData(body)) {
+    delete headers['Content-Type'];
+    delete headers['content-type'];
+    return { body, headers };
+  }
+
+  if (typeof body === 'string') {
+    if (!headers['Content-Type'] && !headers['content-type']) {
+      headers['Content-Type'] = 'application/json';
+    }
+    return { body, headers };
+  }
+
+  if (isPlainObject(body)) {
+    if (!headers['Content-Type'] && !headers['content-type']) {
+      headers['Content-Type'] = 'application/json';
+    }
+    return { body: JSON.stringify(body), headers };
+  }
+
+  return { body, headers };
+}
+
+function formatApiErrorMessage(data, status) {
+  const message = data?.message;
+  if (Array.isArray(message)) {
+    return message.filter(Boolean).join(', ') || `API request failed with status ${status}`;
+  }
+  if (typeof message === 'string' && message.trim()) return message;
+  if (typeof data?.error === 'string' && data.error.trim()) return data.error;
+  if (Array.isArray(data?.error)) {
+    return data.error.filter(Boolean).join(', ') || `API request failed with status ${status}`;
+  }
+
+  return `API request failed with status ${status}`;
+}
+
 async function tryRefreshToken() {
   const refreshToken = localStorage.getItem(authStorageKeys.refreshToken);
   if (!refreshToken) return null;
@@ -51,15 +113,13 @@ async function tryRefreshToken() {
 
 export async function apiRequest(path, options = {}) {
   const token = getAccessToken();
-  const headers = {
-    'Content-Type': 'application/json',
-    ...(options.headers ?? {}),
-  };
+  const { body, headers } = normalizeRequestBody(options);
 
   if (token) headers.Authorization = `Bearer ${token}`;
 
   let response = await fetch(`${API_BASE_URL}${path}`, {
     ...options,
+    body,
     headers,
   });
 
@@ -85,7 +145,7 @@ export async function apiRequest(path, options = {}) {
   const data = hasBody ? await response.json().catch(() => null) : null;
 
   if (!response.ok) {
-    const message = data?.message ?? data?.error ?? `API request failed with status ${response.status}`;
+    const message = formatApiErrorMessage(data, response.status);
     throw new ApiError(message, response.status, data);
   }
 
@@ -97,6 +157,9 @@ export async function apiUpload(path, formData, options = {}) {
   const headers = {
     ...(options.headers ?? {}),
   };
+
+  delete headers['Content-Type'];
+  delete headers['content-type'];
 
   if (token) headers.Authorization = `Bearer ${token}`;
 
@@ -130,7 +193,7 @@ export async function apiUpload(path, formData, options = {}) {
   const data = hasBody ? await response.json().catch(() => null) : null;
 
   if (!response.ok) {
-    const message = data?.message ?? data?.error ?? `API request failed with status ${response.status}`;
+    const message = formatApiErrorMessage(data, response.status);
     throw new ApiError(message, response.status, data);
   }
 
@@ -138,3 +201,14 @@ export async function apiUpload(path, formData, options = {}) {
 }
 
 export { API_BASE_URL };
+
+export function toAbsoluteFileUrl(path) {
+  if (!path) return '';
+  if (path.startsWith('http://') || path.startsWith('https://')) return path;
+  try {
+    const origin = new URL(API_BASE_URL).origin;
+    return `${origin}${path}`;
+  } catch {
+    return path;
+  }
+}

@@ -31,6 +31,7 @@ export class AssignmentsRepository {
     findManyByClassId(class_id: string) {
         return this.repo.find({
             where: { class_id },
+            relations: { attachments: true },
             order: { created_at: 'DESC' },
         });
     }

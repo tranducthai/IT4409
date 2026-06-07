@@ -1,5 +1,6 @@
 import {
   IsBoolean,
+  IsDateString,
   IsInt,
   IsOptional,
   IsString,
@@ -26,4 +27,12 @@ export class CreateQuizDto {
   @IsOptional()
   @IsBoolean()
   is_random?: boolean;
+
+  @IsOptional()
+  @IsDateString()
+  open_time?: string;
+
+  @IsOptional()
+  @IsDateString()
+  close_time?: string;
 }

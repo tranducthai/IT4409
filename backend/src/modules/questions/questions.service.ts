@@ -2,6 +2,7 @@ import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/commo
 import { ClassesRepository } from '../classes/repositories/classes.repository';
 import { QuizzesRepository } from '../quizzes/repositories/quizzes.repository';
 import { CreateQuestionDto } from './dtos/create-question.dto';
+import { CreateQuestionsBulkDto } from './dtos/create-questions-bulk.dto';
 import { UpdateQuestionDto } from './dtos/update-question.dto';
 import { QuestionsRepository } from './repositories/questions.repository';
 
@@ -27,6 +28,16 @@ export class QuestionsService {
   async create(teacherId: string, dto: CreateQuestionDto) {
     await this.ensureTeacherOwnsQuiz(teacherId, dto.quiz_id);
     return this.questionsRepository.createOne(dto);
+  }
+
+  async createMany(teacherId: string, dto: CreateQuestionsBulkDto) {
+    await this.ensureTeacherOwnsQuiz(teacherId, dto.quiz_id);
+    const created = await Promise.all(
+      dto.questions.map((q) =>
+        this.questionsRepository.createOne({ ...q, quiz_id: dto.quiz_id }),
+      ),
+    );
+    return created;
   }
 
   findAll() {
