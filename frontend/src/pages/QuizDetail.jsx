@@ -10,9 +10,9 @@ import {
 import { deleteQuiz, updateQuiz } from '../services/api/quizzes.service';
 import { getCurrentUser } from '../services/api/session';
 import {
+    getAttemptResult,
     getQuizDetailData,
     getQuizDetailFromApi,
-    getAttemptResult,
     listMyQuizAttempts,
     startQuizAttempt,
     submitQuizAttempt,
