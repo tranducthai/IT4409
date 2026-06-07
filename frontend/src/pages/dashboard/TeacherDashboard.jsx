@@ -34,11 +34,12 @@ export default function TeacherDashboard({
   const [newClass, setNewClass] = useState({
     name: '',
     description: '',
-    avatar_url: '',
     type: 'OPEN',
     join_code: createJoinCode(),
     is_active: true,
   });
+  const [newClassAvatarFile, setNewClassAvatarFile] = useState(null);
+  const [newClassAvatarPreview, setNewClassAvatarPreview] = useState('');
   const [studentCodeForms, setStudentCodeForms] = useState({});
   const [studentCodeErrors, setStudentCodeErrors] = useState({});
   const [studentCodeSuccess, setStudentCodeSuccess] = useState({});
@@ -209,7 +210,7 @@ export default function TeacherDashboard({
           className="mt-4 grid gap-3 md:grid-cols-2"
           onSubmit={(e) => {
             e.preventDefault();
-            onCreateClass?.(newClass);
+            onCreateClass?.({ ...newClass, avatarFile: newClassAvatarFile });
           }}
         >
           <input
@@ -235,12 +236,31 @@ export default function TeacherDashboard({
               <option key={item.value} value={item.value}>{item.label}</option>
             ))}
           </select>
-          <input
-            className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-            placeholder="URL ảnh đại diện"
-            value={newClass.avatar_url}
-            onChange={(e) => setNewClass((prev) => ({ ...prev, avatar_url: e.target.value }))}
-          />
+          <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950">
+            {newClassAvatarPreview ? (
+              <img src={newClassAvatarPreview} alt="preview" className="h-8 w-8 rounded-md object-cover" />
+            ) : (
+              <div className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-200 dark:bg-slate-700">
+                <svg className="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+            )}
+            <span className="truncate text-slate-500 dark:text-slate-400">
+              {newClassAvatarFile ? newClassAvatarFile.name : 'Chọn ảnh đại diện lớp...'}
+            </span>
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                setNewClassAvatarFile(file);
+                setNewClassAvatarPreview(URL.createObjectURL(file));
+              }}
+            />
+          </label>
           <textarea
             className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 md:col-span-2"
             placeholder="Mô tả"
@@ -305,7 +325,7 @@ export default function TeacherDashboard({
                   </div>
                 </div>
 
-                {/* Edit name / join_code */}
+                {/* Edit name / join_code / avatar */}
                 <div className="mt-3 grid gap-2 text-xs">
                   <input
                     className="rounded-lg border border-slate-200 px-2 py-1 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
@@ -325,6 +345,26 @@ export default function TeacherDashboard({
                       if (val && val !== course.code) onUpdateClass?.(course.id, { join_code: val });
                     }}
                   />
+                  <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-slate-300 px-2 py-1.5 text-slate-500 hover:border-indigo-400 hover:text-indigo-600 dark:border-slate-600 dark:hover:border-indigo-400">
+                    {course.image && course.image !== '/favicon.svg' ? (
+                      <img src={course.image} alt="avatar" className="h-5 w-5 rounded object-cover" />
+                    ) : (
+                      <svg className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    )}
+                    <span>Đổi ảnh đại diện lớp</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) onUpdateClass?.(course.id, { avatarFile: file });
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
                 </div>
 
                 {/* Add student by MSSV */}

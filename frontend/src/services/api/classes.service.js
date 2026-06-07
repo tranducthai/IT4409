@@ -56,6 +56,12 @@ export function deleteClass(classId, accessToken) {
   });
 }
 
+export function uploadClassAvatar(classId, file) {
+  const form = new FormData();
+  form.append('file', file);
+  return apiRequest(`/classes/${classId}/avatar`, { method: 'POST', body: form });
+}
+
 export function getTeacherClassProgress(classId, accessToken) {
   return apiRequest(`/classes/${classId}/teacher-progress`, {
     method: 'GET',

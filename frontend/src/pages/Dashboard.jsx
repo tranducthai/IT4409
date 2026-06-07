@@ -11,6 +11,7 @@ import {
     rejectJoinRequest,
     requestJoinByCode,
     updateClass,
+    uploadClassAvatar,
 } from '../services/api/classes.service';
 import { getAccessToken } from '../services/api/client';
 import { getCurrentUser } from '../services/api/session';
@@ -176,17 +177,27 @@ import AdminDashboard from './dashboard/AdminDashboard';
 
    const handleCreateClass = async (payload) => {
      const accessToken = getAccessToken();
+     const { avatarFile, ...rest } = payload;
      const normalizedPayload = normalizeClassPayload({
-       ...payload,
+       ...rest,
        teacher_id: userId,
      });
-     await createClass(normalizedPayload, accessToken);
+     const created = await createClass(normalizedPayload, accessToken);
+     if (avatarFile && created?.id) {
+       await uploadClassAvatar(created.id, avatarFile);
+     }
      await reloadTeacherClasses();
    };
 
    const handleUpdateClass = async (classId, payload) => {
      const accessToken = getAccessToken();
-     const normalizedPayload = normalizeClassUpdatePayload(payload);
+     const { avatarFile, ...rest } = payload;
+     if (avatarFile) {
+       await uploadClassAvatar(classId, avatarFile);
+       await reloadTeacherClasses();
+       return;
+     }
+     const normalizedPayload = normalizeClassUpdatePayload(rest);
      const updated = await updateClass(classId, normalizedPayload, accessToken);
      const nextName = updated?.name ?? normalizedPayload.name;
      const nextJoinCode = updated?.join_code ?? normalizedPayload.join_code;

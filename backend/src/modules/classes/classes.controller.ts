@@ -9,11 +9,16 @@ import {
   Patch,
   Post,
   Req,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { Request } from 'express';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { SupabaseStorageService } from '../../common/storage/supabase-storage.service';
+import { createMemoryStorage } from '../../common/utils/upload.util';
 import { LessonProgressService } from '../lesson-progress/lesson-progress.service';
 import { UserRole } from '../users/enums/user-role.enum';
 import { ClassesService } from './classes.service';
@@ -27,6 +32,7 @@ export class ClassesController {
   constructor(
     private readonly classesService: ClassesService,
     private readonly lessonProgressService: LessonProgressService,
+    private readonly storageService: SupabaseStorageService,
   ) { }
 
   @Post()
@@ -75,6 +81,16 @@ export class ClassesController {
     @Body() dto: UpdateClassDto,
   ) {
     return this.classesService.update(id, dto);
+  }
+
+  @Post(':id/avatar')
+  @UseInterceptors(FileInterceptor('file', { storage: createMemoryStorage() }))
+  async uploadAvatar(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    const { url } = await this.storageService.upload('class-avatars', file);
+    return this.classesService.update(id, { avatar_url: url });
   }
 
   @Delete(':id')

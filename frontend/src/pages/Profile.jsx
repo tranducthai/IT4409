@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Camera, Mail, Save, ShieldCheck, UserRound } from 'lucide-react';
 import { getCurrentUser, setCurrentUser } from '../services/api/session';
-import { updateCurrentUserProfile } from '../services/api/users.service';
+import { updateCurrentUserProfile, uploadUserAvatar } from '../services/api/users.service';
 import { USE_MOCK_DATA } from '../services/dataSource';
 
 const roleLabels = {
@@ -24,21 +24,22 @@ export default function Profile() {
   const currentUser = getCurrentUser();
   const [form, setForm] = useState({
     full_name: currentUser?.full_name ?? currentUser?.name ?? '',
-    avatar_url: currentUser?.avatar_url ?? '',
   });
+  const [avatarUrl, setAvatarUrl] = useState(currentUser?.avatar_url ?? '');
+  const [avatarFile, setAvatarFile] = useState(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const fileInputRef = useRef(null);
 
   const role = String(currentUser?.role ?? 'STUDENT').toUpperCase();
   const displayName = form.full_name.trim() || 'Người dùng';
-  const avatarUrl = form.avatar_url.trim();
 
-  const handleChange = (field, value) => {
-    setForm((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+  const handleAvatarFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarFile(file);
+    setAvatarUrl(URL.createObjectURL(file));
   };
 
   const handleSubmit = async (event) => {
@@ -53,20 +54,18 @@ export default function Profile() {
 
     setIsSaving(true);
     try {
-      const payload = {
-        full_name: form.full_name.trim(),
-        avatar_url: avatarUrl || null,
-      };
-
       if (USE_MOCK_DATA) {
-        setCurrentUser({
-          ...currentUser,
-          ...payload,
-        });
+        setCurrentUser({ ...currentUser, full_name: form.full_name.trim() });
       } else {
-        await updateCurrentUserProfile(currentUser.id, payload);
+        if (avatarFile) {
+          await uploadUserAvatar(currentUser.id, avatarFile);
+          setAvatarFile(null);
+        }
+        await updateCurrentUserProfile(currentUser.id, {
+          full_name: form.full_name.trim(),
+          avatar_url: avatarFile ? undefined : (avatarUrl || null),
+        });
       }
-
       setMessage('Đã cập nhật hồ sơ.');
     } catch (err) {
       setError(err?.message || 'Không cập nhật được hồ sơ.');
@@ -92,17 +91,34 @@ export default function Profile() {
       <section className="grid gap-6 text-left lg:grid-cols-[320px_1fr]">
         <aside className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
           <div className="flex flex-col items-center text-center">
-            {avatarUrl ? (
-              <img
-                src={avatarUrl}
-                alt={displayName}
-                className="h-24 w-24 rounded-2xl border border-slate-200 object-cover dark:border-slate-700"
-              />
-            ) : (
-              <div className="flex h-24 w-24 items-center justify-center rounded-2xl bg-indigo-600 text-2xl font-bold text-white">
-                {getInitials(displayName)}
-              </div>
-            )}
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="group relative"
+              title="Đổi ảnh đại diện"
+            >
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={displayName}
+                  className="h-24 w-24 rounded-2xl border border-slate-200 object-cover dark:border-slate-700"
+                />
+              ) : (
+                <div className="flex h-24 w-24 items-center justify-center rounded-2xl bg-indigo-600 text-2xl font-bold text-white">
+                  {getInitials(displayName)}
+                </div>
+              )}
+              <span className="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/40 opacity-0 transition group-hover:opacity-100">
+                <Camera className="h-6 w-6 text-white" />
+              </span>
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleAvatarFileChange}
+            />
             <h2 className="mt-4 break-words text-xl font-bold text-slate-900 dark:text-slate-100">
               {displayName}
             </h2>
@@ -145,17 +161,22 @@ export default function Profile() {
           </div>
 
           <div>
-            <label htmlFor="profile-avatar" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
+            <label className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-200">
               <Camera className="h-4 w-4" />
-              URL ảnh đại diện
+              Ảnh đại diện
             </label>
-            <input
-              id="profile-avatar"
-              className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-              placeholder="https://..."
-              value={form.avatar_url}
-              onChange={(event) => handleChange('avatar_url', event.target.value)}
-            />
+            <div className="mt-1 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                Chọn ảnh...
+              </button>
+              <span className="truncate text-sm text-slate-400">
+                {avatarFile ? avatarFile.name : 'Chưa chọn ảnh'}
+              </span>
+            </div>
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">

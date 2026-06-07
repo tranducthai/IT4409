@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { StorageModule } from '../../common/storage/storage.module';
 import { Assignment } from '../assignments/entities/assignment.entity';
 import { AssignmentsRepository } from '../assignments/repositories/assignments.repository';
 import { ClassMember } from '../class-members/entities/class-member.entity';
@@ -20,6 +21,7 @@ import { ClassesRepository } from './repositories/classes.repository';
 @Module({
   imports: [
     LessonProgressModule,
+    StorageModule,
     TypeOrmModule.forFeature([
       Class,
       ClassMember,

@@ -19,3 +19,11 @@ export async function updateCurrentUserProfile(userId, payload) {
   if (data) setCurrentUser(data);
   return data;
 }
+
+export async function uploadUserAvatar(userId, file) {
+  const form = new FormData();
+  form.append('file', file);
+  const data = await apiRequest(`/users/${userId}/avatar`, { method: 'POST', body: form });
+  if (data) setCurrentUser(data);
+  return data;
+}
