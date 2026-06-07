@@ -178,6 +178,16 @@ function formatChatTime(value) {
         d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 }
 
+function compareOrderIndex(left, right) {
+  const leftOrder = Number(left?.order_index ?? left?.orderIndex ?? 0);
+  const rightOrder = Number(right?.order_index ?? right?.orderIndex ?? 0);
+  if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+
+  const leftCreated = new Date(left?.created_at ?? left?.createdAt ?? 0).getTime();
+  const rightCreated = new Date(right?.created_at ?? right?.createdAt ?? 0).getTime();
+  return (Number.isNaN(leftCreated) ? 0 : leftCreated) - (Number.isNaN(rightCreated) ? 0 : rightCreated);
+}
+
 function parseQuizCsvText(text) {
   const rows = text.split(/\r?\n/).map((line) => {
     const cells = [];
@@ -444,6 +454,7 @@ export default function CourseDetail() {
   const [classResourcesError, setClassResourcesError] = useState('');
   const [currentFolderId, setCurrentFolderId] = useState(null);
   const [resourceUploadFile, setResourceUploadFile] = useState(null);
+  const [resourceOrderIndex, setResourceOrderIndex] = useState(1);
   const [resourceUploading, setResourceUploading] = useState(false);
   const [resourceUploadError, setResourceUploadError] = useState('');
   const [resourceUploadSuccess, setResourceUploadSuccess] = useState('');
@@ -655,15 +666,32 @@ export default function CourseDetail() {
     return () => { isMounted = false; };
   }, [activeTab, courseId, reloadToken]);
 
+  useEffect(() => {
+    const currentFiles = classResources.filter(
+      (resource) => resource.folder_id === currentFolderId,
+    );
+    const maxOrder = currentFiles.reduce(
+      (max, resource) => Math.max(max, Number(resource.order_index) || 0),
+      0,
+    );
+    setResourceOrderIndex(maxOrder + 1);
+  }, [classResources, currentFolderId]);
+
   const handleResourceUpload = async (event) => {
     event.preventDefault();
     if (!resourceUploadFile) return;
+    const orderIndex = Math.max(1, Number(resourceOrderIndex) || 1);
     setResourceUploading(true);
     setResourceUploadError('');
     setResourceUploadSuccess('');
     try {
-      const created = await uploadClassResource(courseId, resourceUploadFile, currentFolderId);
-      setClassResources((prev) => [created, ...prev]);
+      await uploadClassResource(courseId, resourceUploadFile, currentFolderId, orderIndex);
+      const [files, folders] = await Promise.all([
+        getClassResources(courseId),
+        getClassFolders(courseId),
+      ]);
+      setClassResources(files ?? []);
+      setClassFolders(folders ?? []);
       setResourceUploadFile(null);
       setResourceUploadSuccess('Tải lên thành công.');
       event.target.reset();
@@ -2587,6 +2615,16 @@ export default function CourseDetail() {
                 onChange={(e) => setResourceUploadFile(e.target.files?.[0] ?? null)}
                 required
               />
+              <input
+                type="number"
+                min="1"
+                className="w-28 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                value={resourceOrderIndex}
+                onChange={(e) => setResourceOrderIndex(e.target.value)}
+                placeholder="Thứ tự"
+                aria-label="Thứ tự tài nguyên"
+                required
+              />
               <button
                 type="submit"
                 disabled={resourceUploading || !resourceUploadFile}
@@ -2657,9 +2695,9 @@ export default function CourseDetail() {
 
           {/* File list */}
           {!classResourcesLoading && (() => {
-            const visibleFiles = classResources.filter(
-              (r) => r.folder_id === currentFolderId,
-            );
+            const visibleFiles = classResources
+              .filter((r) => r.folder_id === currentFolderId)
+              .sort(compareOrderIndex);
             if (visibleFiles.length === 0 && (!currentFolderId ? classFolders.length === 0 : true)) {
               return (
                 <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400">
@@ -2694,6 +2732,7 @@ export default function CourseDetail() {
                         </a>
                         <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                           {resource.uploader?.full_name ?? 'Thành viên'} · {sizeLabel} ·{' '}
+                          Thứ tự {resource.order_index ?? 1} ·{' '}
                           {resource.created_at ? new Date(resource.created_at).toLocaleDateString('vi-VN') : ''}
                         </p>
                       </div>
