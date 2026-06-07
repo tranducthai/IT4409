@@ -31,6 +31,7 @@ import {
     getClassResources,
     uploadClassResource,
 } from '../services/api/class-resources.service';
+import { createChatSocket, sendChatMessage } from '../services/api/chat-socket.service';
 import {
     createDiscussion,
     deleteDiscussion,
@@ -406,6 +407,7 @@ export default function CourseDetail() {
   const [messageImagePreview, setMessageImagePreview] = useState('');
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const imageInputRef = useRef(null);
+  const chatSocketRef = useRef(null);
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [editingMessageContent, setEditingMessageContent] = useState('');
   const [editingMessageError, setEditingMessageError] = useState('');
@@ -518,6 +520,15 @@ export default function CourseDetail() {
   const handleRetry = () => setReloadToken((value) => value + 1);
   const canTrackLessonProgress = currentUser?.role === 'STUDENT';
 
+  const appendDiscussionMessage = useCallback((message) => {
+    if (!message?.id) return;
+    setDiscussionMessages((prev) =>
+      prev.find((item) => item.id === message.id)
+        ? prev
+        : [...prev, message],
+    );
+  }, []);
+
   useEffect(() => {
     setSectionForm((prev) => ({
       ...prev,
@@ -547,6 +558,49 @@ export default function CourseDetail() {
       void loadMessages(selectedDiscussionId);
     }
   }, [selectedDiscussionId]);
+
+  useEffect(() => {
+    if (USE_MOCK_DATA || activeTab !== 'discussions' || !selectedDiscussionId) {
+      setSocketConnected(false);
+      return undefined;
+    }
+
+    const socket = createChatSocket();
+    if (!socket) {
+      setSocketConnected(false);
+      return undefined;
+    }
+
+    chatSocketRef.current = socket;
+
+    const handleConnect = () => {
+      setSocketConnected(true);
+      socket.emit('joinDiscussion', selectedDiscussionId);
+    };
+    const handleDisconnect = () => setSocketConnected(false);
+    const handleConnectError = () => setSocketConnected(false);
+    const handleNewMessage = (message) => {
+      if (message?.discussion_id !== selectedDiscussionId) return;
+      appendDiscussionMessage(message);
+    };
+
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
+    socket.on('connect_error', handleConnectError);
+    socket.on('newMessage', handleNewMessage);
+    socket.connect();
+
+    return () => {
+      socket.emit('leaveDiscussion', selectedDiscussionId);
+      socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
+      socket.off('connect_error', handleConnectError);
+      socket.off('newMessage', handleNewMessage);
+      socket.disconnect();
+      if (chatSocketRef.current === socket) chatSocketRef.current = null;
+      setSocketConnected(false);
+    };
+  }, [activeTab, appendDiscussionMessage, selectedDiscussionId]);
 
   useEffect(() => {
     if (!canManageAssignments || activeTab !== 'progress' || USE_MOCK_DATA) {
@@ -892,19 +946,27 @@ export default function CourseDetail() {
     setMessageImagePreview('');
 
     try {
-      const created = await createMessage({
-        discussion_id: selectedDiscussionId,
-        content: content || ' ',
-        image_url: sentImageUrl || undefined,
-      });
-      if (created?.id) {
-        setDiscussionMessages((prev) =>
-          prev.find((message) => message.id === created.id)
-            ? prev
-            : [...prev, created],
-        );
+      const socket = chatSocketRef.current;
+      if (socket?.connected) {
+        const response = await sendChatMessage(socket, {
+          discussionId: selectedDiscussionId,
+          content: content || ' ',
+          imageUrl: sentImageUrl || undefined,
+        });
+        if (response?.message?.id) {
+          appendDiscussionMessage(response.message);
+        }
       } else {
-        await loadMessages(selectedDiscussionId);
+        const created = await createMessage({
+          discussion_id: selectedDiscussionId,
+          content: content || ' ',
+          image_url: sentImageUrl || undefined,
+        });
+        if (created?.id) {
+          appendDiscussionMessage(created);
+        } else {
+          await loadMessages(selectedDiscussionId);
+        }
       }
     } catch (err) {
       setMessageForm(content);
