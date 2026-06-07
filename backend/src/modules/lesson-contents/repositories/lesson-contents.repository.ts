@@ -8,7 +8,7 @@ export class LessonContentsRepository {
   constructor(
     @InjectRepository(Lesson)
     private readonly repo: Repository<Lesson>,
-  ) { }
+  ) {}
 
   findAll() {
     return this.repo.find();
@@ -18,8 +18,8 @@ export class LessonContentsRepository {
     return this.repo
       .createQueryBuilder('lesson')
       .leftJoinAndSelect('lesson.section', 'section')
-      .leftJoinAndSelect('section.class', 'class')
-      .where('class.id = :classId', { classId })
+      .leftJoinAndSelect('section.class', 'courseClass')
+      .where('courseClass.id = :classId', { classId })
       .orderBy('section.order_index', 'ASC')
       .addOrderBy('lesson.order_index', 'ASC')
       .getMany();
