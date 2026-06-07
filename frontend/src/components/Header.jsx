@@ -14,6 +14,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { logout as logoutAuth } from '../services/api/auth.service';
 import { getCurrentUser } from '../services/api/session';
 import { useTheme } from '../context/theme';
+import NotificationBell from './NotificationBell';
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -86,7 +87,8 @@ export default function Header() {
           </button>
 
           {isLearningArea ? (
-            <div ref={menuRef} className="relative flex items-center gap-3 md:gap-6">
+            <div ref={menuRef} className="relative flex items-center gap-3 md:gap-4">
+              <NotificationBell />
               <span className="hidden font-medium text-slate-700 dark:text-slate-300 md:inline">
                 {currentRole === 'ADMIN' ? 'Quản trị' : 'Khóa học của tôi'}
               </span>

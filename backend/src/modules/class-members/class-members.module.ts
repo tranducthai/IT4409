@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Class } from '../classes/entities/class.entity';
 import { ClassesRepository } from '../classes/repositories/classes.repository';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { StudentProfile } from '../student-profiles/entities/student-profile.entity';
 import { ClassMembersController } from './class-members.controller';
 import { ClassMembersService } from './class-members.service';
@@ -9,9 +10,9 @@ import { ClassMember } from './entities/class-member.entity';
 import { ClassMembersRepository } from './repositories/class-members.repository';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([ClassMember, Class, StudentProfile])],
+  imports: [TypeOrmModule.forFeature([ClassMember, Class, StudentProfile]), NotificationsModule],
   controllers: [ClassMembersController],
   providers: [ClassMembersService, ClassMembersRepository, ClassesRepository],
-  exports: [ClassMembersService],
+  exports: [ClassMembersService, ClassMembersRepository],
 })
 export class ClassMembersModule { }

@@ -30,6 +30,9 @@ export class Notification {
     @Column({ type: 'text', nullable: true })
     message: string | null;
 
+    @Column({ type: 'varchar', nullable: true })
+    link: string | null;
+
     @Column({ type: 'boolean', default: false })
     is_read: boolean;
 

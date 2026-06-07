@@ -22,6 +22,7 @@ import { SectionsModule } from './modules/sections/sections.module';
 import { StudentProfilesModule } from './modules/student-profiles/student-profiles.module';
 import { SubmissionsModule } from './modules/submissions/submissions.module';
 import { UsersModule } from './modules/users/users.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 import { WeeksModule } from './modules/weeks/weeks.module';
 
 @Module({
@@ -77,6 +78,7 @@ import { WeeksModule } from './modules/weeks/weeks.module';
     AssignmentsModule,
     SubmissionsModule,
     ChatModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

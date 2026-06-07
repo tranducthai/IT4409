@@ -70,6 +70,14 @@ export class ClassMembersRepository {
       .getMany();
   }
 
+  async findActiveStudentIdsByClassId(class_id: string): Promise<string[]> {
+    const rows = await this.repo.find({
+      where: { class_id, role: ClassMemberRole.Student, status: ClassMemberStatus.Active },
+      select: ['user_id'],
+    });
+    return rows.map((r) => r.user_id);
+  }
+
   countActiveStudentsByClass(class_id: string) {
     return this.repo
       .createQueryBuilder('cm')

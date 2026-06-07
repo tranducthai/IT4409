@@ -1,5 +1,8 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ClassMembersRepository } from '../class-members/repositories/class-members.repository';
 import { ClassesService } from '../classes/classes.service';
+import { NotificationType } from '../notifications/enums/notification-type.enum';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateAssignmentDto } from './dtos/create-assignment.dto';
 import { UpdateAssignmentDto } from './dtos/update-assignment.dto';
 import { AssignmentAttachmentsRepository } from './repositories/assignment-attachments.repository';
@@ -11,6 +14,8 @@ export class AssignmentsService {
         private readonly assignmentsRepository: AssignmentsRepository,
         private readonly assignmentAttachmentsRepository: AssignmentAttachmentsRepository,
         private readonly classesService: ClassesService,
+        private readonly classMembersRepository: ClassMembersRepository,
+        private readonly notificationsService: NotificationsService,
     ) { }
 
     async create(teacherId: string, dto: CreateAssignmentDto, attachments: {
@@ -39,7 +44,22 @@ export class AssignmentsService {
             );
         }
 
-        return this.assignmentsRepository.findByIdWithAttachments(assignment.id);
+        const result = await this.assignmentsRepository.findByIdWithAttachments(assignment.id);
+
+        const studentIds = await this.classMembersRepository.findActiveStudentIdsByClassId(dto.class_id);
+        await Promise.all(
+            studentIds.map((sid) =>
+                this.notificationsService.send(
+                    sid,
+                    NotificationType.ASSIGNMENT,
+                    'Bài tập mới',
+                    `Lớp học có bài tập mới: ${dto.title}`,
+                    `/classes/${dto.class_id}/assignments/${assignment.id}`,
+                ),
+            ),
+        );
+
+        return result;
     }
 
     findAll() {

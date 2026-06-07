@@ -8,6 +8,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Class } from '../classes/entities/class.entity';
 import { ClassesRepository } from '../classes/repositories/classes.repository';
+import { NotificationType } from '../notifications/enums/notification-type.enum';
+import { NotificationsService } from '../notifications/notifications.service';
 import { StudentProfile } from '../student-profiles/entities/student-profile.entity';
 import { CreateClassMemberDto } from './dtos/create-class-member.dto';
 import { RequestJoinClassDto } from './dtos/request-join-class.dto';
@@ -24,6 +26,7 @@ export class ClassMembersService {
     private readonly classesRepository: ClassesRepository,
     @InjectRepository(StudentProfile)
     private readonly studentProfileRepo: Repository<StudentProfile>,
+    private readonly notificationsService: NotificationsService,
   ) { }
 
   // ── Teacher: add student directly by user UUID (legacy) ───────────────────
@@ -137,19 +140,35 @@ export class ClassMembersService {
       if (existing.status === ClassMemberStatus.Active) throw new ConflictException('Bạn đã là thành viên lớp này');
       if (existing.status === ClassMemberStatus.Pending) throw new ConflictException('Yêu cầu của bạn đang chờ duyệt');
       // If rejected, allow re-request
-      return this.classMembersRepository.updateOne(existing.id, {
+      const updated = await this.classMembersRepository.updateOne(existing.id, {
         status: ClassMemberStatus.Pending,
         joined_at: new Date(),
       }) as unknown as ClassMember;
+      this.notificationsService.send(
+        cls.teacher_id,
+        NotificationType.JOIN_REQUEST,
+        'Yêu cầu tham gia lớp học',
+        `Có học sinh mới yêu cầu tham gia lớp "${cls.name}"`,
+        `/classes/${cls.id}/members`,
+      ).catch(() => undefined);
+      return updated;
     }
 
-    return this.classMembersRepository.createOne({
+    const member = await this.classMembersRepository.createOne({
       class_id: cls.id,
       user_id: studentId,
       role: ClassMemberRole.Student,
       status: ClassMemberStatus.Pending,
       joined_at: new Date(),
     });
+    this.notificationsService.send(
+      cls.teacher_id,
+      NotificationType.JOIN_REQUEST,
+      'Yêu cầu tham gia lớp học',
+      `Có học sinh mới yêu cầu tham gia lớp "${cls.name}"`,
+      `/classes/${cls.id}/members`,
+    ).catch(() => undefined);
+    return member;
   }
 
   // ── Teacher: approve pending request ─────────────────────────────────────
@@ -160,10 +179,18 @@ export class ClassMembersService {
     if (member.status !== ClassMemberStatus.Pending) throw new ConflictException('Yêu cầu không ở trạng thái chờ duyệt');
     if (!member.class || member.class.teacher_id !== teacherId) throw new ForbiddenException('Bạn không phải giảng viên lớp này');
 
-    return this.classMembersRepository.updateOne(classMemberId, {
+    const updated = await this.classMembersRepository.updateOne(classMemberId, {
       status: ClassMemberStatus.Active,
       joined_at: new Date(),
     });
+    this.notificationsService.send(
+      member.user_id,
+      NotificationType.JOIN_APPROVED,
+      'Yêu cầu tham gia lớp được duyệt',
+      `Bạn đã được duyệt vào lớp "${member.class.name}"`,
+      `/classes/${member.class_id}`,
+    ).catch(() => undefined);
+    return updated;
   }
 
   // ── Teacher: reject pending request ──────────────────────────────────────
@@ -173,7 +200,17 @@ export class ClassMembersService {
     if (member.status !== ClassMemberStatus.Pending) throw new ConflictException('Yêu cầu không ở trạng thái chờ duyệt');
     if (!member.class || member.class.teacher_id !== teacherId) throw new ForbiddenException('Bạn không phải giảng viên lớp này');
 
+    const className = member.class.name;
+    const userId = member.user_id;
+    const classId = member.class_id;
     await this.classMembersRepository.removeOne(classMemberId);
+    this.notificationsService.send(
+      userId,
+      NotificationType.JOIN_REJECTED,
+      'Yêu cầu tham gia lớp bị từ chối',
+      `Yêu cầu tham gia lớp "${className}" của bạn đã bị từ chối`,
+      `/classes/${classId}`,
+    ).catch(() => undefined);
     return { rejected: true };
   }
 
