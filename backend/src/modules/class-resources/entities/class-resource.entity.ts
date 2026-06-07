@@ -25,7 +25,10 @@ export class ClassResource {
   @Column({ type: 'uuid', nullable: true })
   folder_id: string | null;
 
-  @ManyToOne(() => ClassResourceFolder, { nullable: true, onDelete: 'SET NULL' })
+  @ManyToOne(() => ClassResourceFolder, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
   @JoinColumn({ name: 'folder_id' })
   folder: ClassResourceFolder | null;
 
@@ -50,6 +53,9 @@ export class ClassResource {
 
   @Column({ type: 'integer' })
   size: number;
+
+  @Column({ type: 'integer', default: 1 })
+  order_index: number;
 
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;

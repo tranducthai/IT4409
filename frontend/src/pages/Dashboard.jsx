@@ -187,8 +187,34 @@ import AdminDashboard from './dashboard/AdminDashboard';
    const handleUpdateClass = async (classId, payload) => {
      const accessToken = getAccessToken();
      const normalizedPayload = normalizeClassUpdatePayload(payload);
-     await updateClass(classId, normalizedPayload, accessToken);
-     await reloadTeacherClasses();
+     const updated = await updateClass(classId, normalizedPayload, accessToken);
+     const nextName = updated?.name ?? normalizedPayload.name;
+     const nextJoinCode = updated?.join_code ?? normalizedPayload.join_code;
+     const nextType = updated?.type ?? normalizedPayload.type;
+     const nextImage = updated?.avatar_url ?? normalizedPayload.avatar_url;
+
+     setTeacherCourses((prev) =>
+       prev.map((course) =>
+         course.id === classId
+           ? {
+               ...course,
+               title: nextName ?? course.title,
+               code: nextJoinCode ?? course.code,
+               type: nextType ?? course.type,
+               image: nextImage || course.image,
+             }
+           : course,
+       ),
+     );
+     if (nextName) {
+       setTeacherPending((prev) =>
+         prev.map((request) =>
+           request.class_id === classId
+             ? { ...request, class_name: nextName }
+             : request,
+         ),
+       );
+     }
    };
 
   const handleDeleteClass = async (classId) => {

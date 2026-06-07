@@ -31,6 +31,7 @@ import {
     getClassResources,
     uploadClassResource,
 } from '../services/api/class-resources.service';
+import { createChatSocket, sendChatMessage } from '../services/api/chat-socket.service';
 import {
     createDiscussion,
     deleteDiscussion,
@@ -70,18 +71,6 @@ import {
     getCourseDetailFromApi,
     USE_MOCK_DATA,
 } from '../services/dataSource';
-
-const statusStyles = {
-  done: 'bg-emerald-100 text-emerald-700',
-  'in-progress': 'bg-amber-100 text-amber-700',
-  todo: 'bg-slate-100 text-slate-600',
-};
-
-const statusLabels = {
-  done: 'Đã học',
-  'in-progress': 'Đang học',
-  todo: 'Chưa học',
-};
 
 const tabOptions = [
   { key: 'lessons', label: 'Bài học' },
@@ -175,6 +164,16 @@ function formatChatTime(value) {
     : d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) +
         ' ' +
         d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+}
+
+function compareOrderIndex(left, right) {
+  const leftOrder = Number(left?.order_index ?? left?.orderIndex ?? 0);
+  const rightOrder = Number(right?.order_index ?? right?.orderIndex ?? 0);
+  if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+
+  const leftCreated = new Date(left?.created_at ?? left?.createdAt ?? 0).getTime();
+  const rightCreated = new Date(right?.created_at ?? right?.createdAt ?? 0).getTime();
+  return (Number.isNaN(leftCreated) ? 0 : leftCreated) - (Number.isNaN(rightCreated) ? 0 : rightCreated);
 }
 
 function parseQuizCsvText(text) {
@@ -353,13 +352,14 @@ export default function CourseDetail() {
   const [courseData, setCourseData] = useState(() =>
     USE_MOCK_DATA ? getCourseDetailData(courseId, currentUser?.id) : null,
   );
+  const courseDataRef = useRef(courseData);
   const [isLoading, setIsLoading] = useState(!USE_MOCK_DATA);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('lessons');
   const [reloadToken, setReloadToken] = useState(0);
   const [sectionForm, setSectionForm] = useState({ title: '', orderIndex: 1 });
   const [sectionFormError, setSectionFormError] = useState('');
-  const [sectionFormSuccess, setSectionFormSuccess] = useState('');
+  const [, setSectionFormSuccess] = useState('');
   const [editingSectionId, setEditingSectionId] = useState(null);
   const [editingSectionForm, setEditingSectionForm] = useState({
     title: '',
@@ -398,7 +398,7 @@ export default function CourseDetail() {
   const [discussionError, setDiscussionError] = useState('');
   const [selectedDiscussionId, setSelectedDiscussionId] = useState(null);
   const [discussionMessages, setDiscussionMessages] = useState([]);
-  const [discussionMessagesError, setDiscussionMessagesError] = useState('');
+  const [, setDiscussionMessagesError] = useState('');
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [messageForm, setMessageForm] = useState('');
   const [messageError, setMessageError] = useState('');
@@ -406,9 +406,10 @@ export default function CourseDetail() {
   const [messageImagePreview, setMessageImagePreview] = useState('');
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const imageInputRef = useRef(null);
+  const chatSocketRef = useRef(null);
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [editingMessageContent, setEditingMessageContent] = useState('');
-  const [editingMessageError, setEditingMessageError] = useState('');
+  const [, setEditingMessageError] = useState('');
   const [assignmentForm, setAssignmentForm] = useState({
     title: '',
     description: '',
@@ -438,10 +439,13 @@ export default function CourseDetail() {
 
   const [classResources, setClassResources] = useState([]);
   const [classFolders, setClassFolders] = useState([]);
+  const classResourcesRef = useRef([]);
+  const classFoldersRef = useRef([]);
   const [classResourcesLoading, setClassResourcesLoading] = useState(false);
   const [classResourcesError, setClassResourcesError] = useState('');
   const [currentFolderId, setCurrentFolderId] = useState(null);
   const [resourceUploadFile, setResourceUploadFile] = useState(null);
+  const [resourceOrderIndex, setResourceOrderIndex] = useState(1);
   const [resourceUploading, setResourceUploading] = useState(false);
   const [resourceUploadError, setResourceUploadError] = useState('');
   const [resourceUploadSuccess, setResourceUploadSuccess] = useState('');
@@ -452,6 +456,18 @@ export default function CourseDetail() {
   const [lessonProgressLoadingId, setLessonProgressLoadingId] = useState(null);
   const [lessonProgressError, setLessonProgressError] = useState('');
   const [socketConnected, setSocketConnected] = useState(false);
+
+  useEffect(() => {
+    courseDataRef.current = courseData;
+  }, [courseData]);
+
+  useEffect(() => {
+    classResourcesRef.current = classResources;
+  }, [classResources]);
+
+  useEffect(() => {
+    classFoldersRef.current = classFolders;
+  }, [classFolders]);
 
   useEffect(() => {
     let isMounted = true;
@@ -466,7 +482,10 @@ export default function CourseDetail() {
     }
 
     const loadCourseDetail = async () => {
-      setIsLoading(true);
+      const currentCourseId = courseDataRef.current?.course?.id;
+      const shouldBlock = !courseDataRef.current || currentCourseId !== courseId;
+      if (shouldBlock) setIsLoading(true);
+      else setIsLoading(false);
       setError('');
       try {
         const data = await getCourseDetailFromApi(courseId, {
@@ -475,11 +494,11 @@ export default function CourseDetail() {
         if (isMounted) setCourseData(data);
       } catch (err) {
         if (isMounted) {
-          setCourseData(null);
+          if (shouldBlock) setCourseData(null);
           setError(err?.message || 'Không tải được chi tiết khóa học.');
         }
       } finally {
-        if (isMounted) setIsLoading(false);
+        if (isMounted && shouldBlock) setIsLoading(false);
       }
     };
 
@@ -518,6 +537,15 @@ export default function CourseDetail() {
   const handleRetry = () => setReloadToken((value) => value + 1);
   const canTrackLessonProgress = currentUser?.role === 'STUDENT';
 
+  const appendDiscussionMessage = useCallback((message) => {
+    if (!message?.id) return;
+    setDiscussionMessages((prev) =>
+      prev.find((item) => item.id === message.id)
+        ? prev
+        : [...prev, message],
+    );
+  }, []);
+
   useEffect(() => {
     setSectionForm((prev) => ({
       ...prev,
@@ -547,6 +575,49 @@ export default function CourseDetail() {
       void loadMessages(selectedDiscussionId);
     }
   }, [selectedDiscussionId]);
+
+  useEffect(() => {
+    if (USE_MOCK_DATA || activeTab !== 'discussions' || !selectedDiscussionId) {
+      setSocketConnected(false);
+      return undefined;
+    }
+
+    const socket = createChatSocket();
+    if (!socket) {
+      setSocketConnected(false);
+      return undefined;
+    }
+
+    chatSocketRef.current = socket;
+
+    const handleConnect = () => {
+      setSocketConnected(true);
+      socket.emit('joinDiscussion', selectedDiscussionId);
+    };
+    const handleDisconnect = () => setSocketConnected(false);
+    const handleConnectError = () => setSocketConnected(false);
+    const handleNewMessage = (message) => {
+      if (message?.discussion_id !== selectedDiscussionId) return;
+      appendDiscussionMessage(message);
+    };
+
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
+    socket.on('connect_error', handleConnectError);
+    socket.on('newMessage', handleNewMessage);
+    socket.connect();
+
+    return () => {
+      socket.emit('leaveDiscussion', selectedDiscussionId);
+      socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
+      socket.off('connect_error', handleConnectError);
+      socket.off('newMessage', handleNewMessage);
+      socket.disconnect();
+      if (chatSocketRef.current === socket) chatSocketRef.current = null;
+      setSocketConnected(false);
+    };
+  }, [activeTab, appendDiscussionMessage, selectedDiscussionId]);
 
   useEffect(() => {
     if (!canManageAssignments || activeTab !== 'progress' || USE_MOCK_DATA) {
@@ -580,7 +651,11 @@ export default function CourseDetail() {
     if (activeTab !== 'resources' || USE_MOCK_DATA) return;
     let isMounted = true;
     const load = async () => {
-      setClassResourcesLoading(true);
+      const shouldBlock =
+        classResourcesRef.current.length === 0 &&
+        classFoldersRef.current.length === 0;
+      if (shouldBlock) setClassResourcesLoading(true);
+      else setClassResourcesLoading(false);
       setClassResourcesError('');
       try {
         const [files, folders] = await Promise.all([
@@ -594,22 +669,39 @@ export default function CourseDetail() {
       } catch (err) {
         if (isMounted) setClassResourcesError(err?.message || 'Không tải được tài nguyên.');
       } finally {
-        if (isMounted) setClassResourcesLoading(false);
+        if (isMounted && shouldBlock) setClassResourcesLoading(false);
       }
     };
     void load();
     return () => { isMounted = false; };
   }, [activeTab, courseId, reloadToken]);
 
+  useEffect(() => {
+    const currentFiles = classResources.filter(
+      (resource) => resource.folder_id === currentFolderId,
+    );
+    const maxOrder = currentFiles.reduce(
+      (max, resource) => Math.max(max, Number(resource.order_index) || 0),
+      0,
+    );
+    setResourceOrderIndex(maxOrder + 1);
+  }, [classResources, currentFolderId]);
+
   const handleResourceUpload = async (event) => {
     event.preventDefault();
     if (!resourceUploadFile) return;
+    const orderIndex = Math.max(1, Number(resourceOrderIndex) || 1);
     setResourceUploading(true);
     setResourceUploadError('');
     setResourceUploadSuccess('');
     try {
-      const created = await uploadClassResource(courseId, resourceUploadFile, currentFolderId);
-      setClassResources((prev) => [created, ...prev]);
+      await uploadClassResource(courseId, resourceUploadFile, currentFolderId, orderIndex);
+      const [files, folders] = await Promise.all([
+        getClassResources(courseId),
+        getClassFolders(courseId),
+      ]);
+      setClassResources(files ?? []);
+      setClassFolders(folders ?? []);
       setResourceUploadFile(null);
       setResourceUploadSuccess('Tải lên thành công.');
       event.target.reset();
@@ -892,19 +984,27 @@ export default function CourseDetail() {
     setMessageImagePreview('');
 
     try {
-      const created = await createMessage({
-        discussion_id: selectedDiscussionId,
-        content: content || ' ',
-        image_url: sentImageUrl || undefined,
-      });
-      if (created?.id) {
-        setDiscussionMessages((prev) =>
-          prev.find((message) => message.id === created.id)
-            ? prev
-            : [...prev, created],
-        );
+      const socket = chatSocketRef.current;
+      if (socket?.connected) {
+        const response = await sendChatMessage(socket, {
+          discussionId: selectedDiscussionId,
+          content: content || ' ',
+          imageUrl: sentImageUrl || undefined,
+        });
+        if (response?.message?.id) {
+          appendDiscussionMessage(response.message);
+        }
       } else {
-        await loadMessages(selectedDiscussionId);
+        const created = await createMessage({
+          discussion_id: selectedDiscussionId,
+          content: content || ' ',
+          image_url: sentImageUrl || undefined,
+        });
+        if (created?.id) {
+          appendDiscussionMessage(created);
+        } else {
+          await loadMessages(selectedDiscussionId);
+        }
       }
     } catch (err) {
       setMessageForm(content);
@@ -1503,7 +1603,7 @@ export default function CourseDetail() {
     );
   }
 
-  if (error) {
+  if (error && !course) {
     return (
       <main className="mx-auto w-full max-w-7xl flex-grow px-4 py-12 md:px-8">
         <div className="rounded-2xl border border-rose-200 bg-rose-50 px-6 py-14 text-center text-rose-700 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-200">
@@ -1621,6 +1721,21 @@ export default function CourseDetail() {
           </div>
         </div>
       </div>
+
+      {error && (
+        <div className="mb-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 transition-colors dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-200">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span>{error}</span>
+            <button
+              type="button"
+              onClick={handleRetry}
+              className="action-btn rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-700"
+            >
+              Tải lại
+            </button>
+          </div>
+        </div>
+      )}
 
       {warningItems.length > 0 && (
         <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 transition-colors dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-100">
@@ -2525,6 +2640,16 @@ export default function CourseDetail() {
                 onChange={(e) => setResourceUploadFile(e.target.files?.[0] ?? null)}
                 required
               />
+              <input
+                type="number"
+                min="1"
+                className="w-28 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                value={resourceOrderIndex}
+                onChange={(e) => setResourceOrderIndex(e.target.value)}
+                placeholder="Thứ tự"
+                aria-label="Thứ tự tài nguyên"
+                required
+              />
               <button
                 type="submit"
                 disabled={resourceUploading || !resourceUploadFile}
@@ -2595,9 +2720,9 @@ export default function CourseDetail() {
 
           {/* File list */}
           {!classResourcesLoading && (() => {
-            const visibleFiles = classResources.filter(
-              (r) => r.folder_id === currentFolderId,
-            );
+            const visibleFiles = classResources
+              .filter((r) => r.folder_id === currentFolderId)
+              .sort(compareOrderIndex);
             if (visibleFiles.length === 0 && (!currentFolderId ? classFolders.length === 0 : true)) {
               return (
                 <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-400">
@@ -2632,6 +2757,7 @@ export default function CourseDetail() {
                         </a>
                         <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
                           {resource.uploader?.full_name ?? 'Thành viên'} · {sizeLabel} ·{' '}
+                          Thứ tự {resource.order_index ?? 1} ·{' '}
                           {resource.created_at ? new Date(resource.created_at).toLocaleDateString('vi-VN') : ''}
                         </p>
                       </div>

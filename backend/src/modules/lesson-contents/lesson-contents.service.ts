@@ -1,5 +1,4 @@
 import {
-  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -9,12 +8,16 @@ import { Repository } from 'typeorm';
 import { Class } from '../classes/entities/class.entity';
 import { ClassMember } from '../class-members/entities/class-member.entity';
 import { ClassMemberStatus } from '../class-members/enums/class-member-status.enum';
+import { Lesson } from '../lessons/entities/lesson.entity';
 import { CreateLessonContentDto } from './dtos/create-lesson-content.dto';
 import { CreateManyLessonContentsDto } from './dtos/create-many-lesson-contents.dto';
 import { UpdateLessonContentDto } from './dtos/update-lesson-content.dto';
 import { LessonContentType } from './enums/lesson-content-type.enum';
 import { LessonContentsRepository } from './repositories/lesson-contents.repository';
-import { Lesson } from '../lessons/entities/lesson.entity';
+
+type LessonContentCompat = Partial<Lesson> & {
+  lesson_id?: number;
+};
 
 @Injectable()
 export class LessonContentsService {
@@ -24,7 +27,7 @@ export class LessonContentsService {
     private readonly classRepository: Repository<Class>,
     @InjectRepository(ClassMember)
     private readonly classMemberRepository: Repository<ClassMember>,
-  ) { }
+  ) {}
 
   create(dto: CreateLessonContentDto) {
     return this.lessonContentsRepository.createOne(dto);
@@ -35,23 +38,26 @@ export class LessonContentsService {
     return items.map((i) => this.toResponse(i));
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private toResponse(item: any) {
+  private toResponse(item: LessonContentCompat) {
     return {
-      id: item['id'],
-      lesson_id: item['lesson_id'],
-      type: item['type'],
-      title: item['title'],
-      file_url: item['file_url'],
-      content: item['content'],
-      duration: item['duration'],
-      order_index: item['order_index'],
-      quiz_id: item['quiz_id'],
-      open_url: `/api/lesson-contents/${item['id']}/open`,
+      id: item.id,
+      lesson_id: item.lesson_id,
+      type: item.type,
+      title: item.title,
+      file_url: item.file_url,
+      content: item.content,
+      duration: item.duration,
+      order_index: item.order_index,
+      quiz_id: item.quiz_id,
+      open_url: `/api/lesson-contents/${item.id}/open`,
     };
   }
 
-  private async ensureClassAccess(classId: string, userId: string, role: string) {
+  private async ensureClassAccess(
+    classId: string,
+    userId: string,
+    role: string,
+  ) {
     const cls = await this.classRepository.findOne({ where: { id: classId } });
     if (!cls) throw new NotFoundException('Class not found');
 
@@ -67,7 +73,9 @@ export class LessonContentsService {
     });
 
     if (!member || member.status !== ClassMemberStatus.Active) {
-      throw new ForbiddenException('You are not an active member of this class');
+      throw new ForbiddenException(
+        'You are not an active member of this class',
+      );
     }
 
     return cls;
@@ -75,7 +83,8 @@ export class LessonContentsService {
 
   async findByClassId(classId: string, userId: string, role: string) {
     await this.ensureClassAccess(classId, userId, role);
-    const items = await this.lessonContentsRepository.findManyByClassId(classId);
+    const items =
+      await this.lessonContentsRepository.findManyByClassId(classId);
     return items.map((i) => this.toResponse(i));
   }
 

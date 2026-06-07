@@ -30,6 +30,16 @@ function getFailureMessage(label, error) {
   return error?.message ? `${label}: ${error.message}` : label;
 }
 
+function compareOrderIndex(left, right) {
+  const leftOrder = Number(left?.order_index ?? left?.orderIndex ?? 0);
+  const rightOrder = Number(right?.order_index ?? right?.orderIndex ?? 0);
+  if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+
+  const leftId = String(left?.id ?? '');
+  const rightId = String(right?.id ?? '');
+  return leftId.localeCompare(rightId);
+}
+
 async function loadOptionalArray(path, label) {
   try {
     return {
@@ -236,7 +246,7 @@ export async function getCourseDetailFromApi(courseId, options = {}) {
       loadOptionalArray(`/lesson-contents/class/${courseId}`, 'Không tải được nội dung bài học'),
     ]);
 
-  const rawSections = sectionsResult.items;
+  const rawSections = [...sectionsResult.items].sort(compareOrderIndex);
   const lessonResults = await Promise.all(
     rawSections.map(async (section) => {
       try {
@@ -284,35 +294,37 @@ export async function getCourseDetailFromApi(courseId, options = {}) {
   let focusedLessonAssigned = false;
 
   const sections = rawSections.map((section, index) => {
-    const lessons = (lessonsBySection[index] ?? []).map((lesson) => {
-      const apiContents = (contentsByLessonId.get(lesson.id) ?? []).sort(
-        (left, right) => (left.orderIndex ?? 0) - (right.orderIndex ?? 0),
-      );
-      const primaryResource = normalizeLessonPrimaryResource(lesson, quizzes, courseId);
-      const contents = primaryResource ? [primaryResource, ...apiContents] : apiContents;
-      const status = completedLessonIds.has(lesson.id)
-        ? 'done'
-        : !focusedLessonAssigned
-          ? ((focusedLessonAssigned = true), 'in-progress')
-          : 'todo';
+    const lessons = (lessonsBySection[index] ?? [])
+      .map((lesson) => {
+        const apiContents = (contentsByLessonId.get(lesson.id) ?? []).sort(
+          compareOrderIndex,
+        );
+        const primaryResource = normalizeLessonPrimaryResource(lesson, quizzes, courseId);
+        const contents = primaryResource ? [primaryResource, ...apiContents] : apiContents;
+        const status = completedLessonIds.has(lesson.id)
+          ? 'done'
+          : !focusedLessonAssigned
+            ? ((focusedLessonAssigned = true), 'in-progress')
+            : 'todo';
 
-      return {
-        id: lesson.id,
-        title: lesson.title ?? 'Bài học chưa có tiêu đề',
-        description: lesson.description ?? '',
-        duration: lesson.duration ? `${lesson.duration} phút` : 'Chưa cập nhật',
-        durationValue: lesson.duration ?? null,
-        orderIndex: lesson.order_index ?? 0,
-        type: lesson.type ?? null,
-        fileUrl: lesson.file_url ?? null,
-        content: lesson.content ?? null,
-        quizId: lesson.quiz_id ?? null,
-        contentCount: contents.length,
-        contentTypes: contents.map((item) => item.displayType),
-        contents,
-        status,
-      };
-    });
+        return {
+          id: lesson.id,
+          title: lesson.title ?? 'Bài học chưa có tiêu đề',
+          description: lesson.description ?? '',
+          duration: lesson.duration ? `${lesson.duration} phút` : 'Chưa cập nhật',
+          durationValue: lesson.duration ?? null,
+          orderIndex: lesson.order_index ?? 0,
+          type: lesson.type ?? null,
+          fileUrl: lesson.file_url ?? null,
+          content: lesson.content ?? null,
+          quizId: lesson.quiz_id ?? null,
+          contentCount: contents.length,
+          contentTypes: contents.map((item) => item.displayType),
+          contents,
+          status,
+        };
+      })
+      .sort(compareOrderIndex);
 
     return {
       id: section.id,

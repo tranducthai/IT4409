@@ -9,14 +9,7 @@ import { LessonContentsService } from './lesson-contents.service';
 import { LessonContentsRepository } from './repositories/lesson-contents.repository';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([
-      Lesson,
-      Section,
-      Class,
-      ClassMember,
-    ]),
-  ],
+  imports: [TypeOrmModule.forFeature([Lesson, Section, Class, ClassMember])],
   controllers: [LessonContentsController],
   providers: [LessonContentsService, LessonContentsRepository],
   exports: [LessonContentsService],

@@ -2,10 +2,11 @@ import { apiRequest, apiUpload } from './client';
 
 // ── Files ─────────────────────────────────────────────────────────────────────
 
-export function uploadClassResource(classId, file, folderId = null) {
+export function uploadClassResource(classId, file, folderId = null, orderIndex = 1) {
   const formData = new FormData();
   formData.append('file', file);
   if (folderId) formData.append('folder_id', folderId);
+  formData.append('order_index', String(Math.max(1, Number(orderIndex) || 1)));
   return apiUpload(`/class-resources/class/${classId}/upload`, formData);
 }
 

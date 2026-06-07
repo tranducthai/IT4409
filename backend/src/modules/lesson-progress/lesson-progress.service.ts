@@ -1,4 +1,8 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Class } from '../classes/entities/class.entity';
@@ -20,7 +24,11 @@ export class LessonProgressService {
     private readonly classMemberRepository: Repository<ClassMember>,
   ) {}
 
-  private async ensureStudentAccess(classId: string, userId: string, role: string) {
+  private async ensureStudentAccess(
+    classId: string,
+    userId: string,
+    role: string,
+  ) {
     if (role !== 'STUDENT') {
       throw new ForbiddenException('Student role required');
     }
@@ -36,7 +44,9 @@ export class LessonProgressService {
     });
 
     if (!member || member.status !== ClassMemberStatus.Active) {
-      throw new ForbiddenException('You are not an active member of this class');
+      throw new ForbiddenException(
+        'You are not an active member of this class',
+      );
     }
 
     return cls;
@@ -46,7 +56,7 @@ export class LessonProgressService {
     const lesson = await this.lessonRepository
       .createQueryBuilder('lesson')
       .leftJoinAndSelect('lesson.section', 'section')
-      .leftJoinAndSelect('section.class', 'class')
+      .leftJoinAndSelect('section.class', 'courseClass')
       .where('lesson.id = :lessonId', { lessonId })
       .getOne();
 
@@ -102,8 +112,8 @@ export class LessonProgressService {
     const lessons = await this.lessonRepository
       .createQueryBuilder('lesson')
       .leftJoin('lesson.section', 'section')
-      .leftJoin('section.class', 'class')
-      .where('class.id = :classId', { classId })
+      .leftJoin('section.class', 'courseClass')
+      .where('courseClass.id = :classId', { classId })
       .orderBy('section.order_index', 'ASC')
       .addOrderBy('lesson.order_index', 'ASC')
       .getMany();
@@ -124,7 +134,8 @@ export class LessonProgressService {
     const completed = completedLessonIds.length;
     const inProgress = totalLessons > completed ? 1 : 0;
     const todo = Math.max(0, totalLessons - completed - inProgress);
-    const progressPercent = totalLessons > 0 ? Math.round((completed / totalLessons) * 100) : 0;
+    const progressPercent =
+      totalLessons > 0 ? Math.round((completed / totalLessons) * 100) : 0;
 
     return {
       class_id: cls.id,
