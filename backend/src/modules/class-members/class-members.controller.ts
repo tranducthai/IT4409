@@ -12,7 +12,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { IsString } from 'class-validator';
+import { IsArray, IsString } from 'class-validator';
 import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
@@ -25,6 +25,12 @@ import { UpdateClassMemberDto } from './dtos/update-class-member.dto';
 class AddByCodeBody {
   @IsString()
   student_code: string;
+}
+
+class BulkAddByCodesBody {
+  @IsArray()
+  @IsString({ each: true })
+  student_codes: string[];
 }
 
 type AuthedRequest = Request & { user: JwtPayload };
@@ -84,6 +90,19 @@ export class ClassMembersController {
   ) {
     if (req.user.role !== UserRole.TEACHER) throw new ForbiddenException('Teacher role required');
     return this.classMembersService.addStudentByCode(req.user.sub, classId, body.student_code);
+  }
+
+  // ── Teacher: bulk add students by MSSV list (CSV import) ──────────────
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Post('classes/:classId/bulk-add')
+  bulkAddByCodes(
+    @Req() req: AuthedRequest,
+    @Param('classId', new ParseUUIDPipe()) classId: string,
+    @Body() body: BulkAddByCodesBody,
+  ) {
+    if (req.user.role !== UserRole.TEACHER) throw new ForbiddenException('Teacher role required');
+    return this.classMembersService.bulkAddStudentsByCodes(req.user.sub, classId, body.student_codes);
   }
 
   // ── Teacher: add student by user UUID (legacy) ─────────────────────────

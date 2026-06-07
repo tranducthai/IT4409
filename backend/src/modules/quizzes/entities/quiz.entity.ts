@@ -41,6 +41,12 @@ export class Quiz {
   @Column({ type: 'boolean', default: false })
   is_random: boolean;
 
+  @Column({ type: 'timestamp', nullable: true })
+  open_time: Date | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  close_time: Date | null;
+
   @CreateDateColumn({ type: 'timestamp' })
   created_at: Date;
 

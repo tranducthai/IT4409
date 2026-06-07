@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     addStudentByStudentCode,
     approveJoinRequest,
+    bulkAddStudentsByCodes,
     createClass,
     deleteClass,
     getPendingClassRequests,
@@ -214,6 +215,11 @@ import AdminDashboard from './dashboard/AdminDashboard';
     await reloadTeacherClasses();
   };
 
+  const handleBulkAddStudents = async (classId, studentCodes) => {
+    const accessToken = getAccessToken();
+    return bulkAddStudentsByCodes(classId, studentCodes, accessToken);
+  };
+
   const handleJoinByCode = async (joinCode) => {
     const accessToken = getAccessToken();
     await requestJoinByCode(joinCode, accessToken);
@@ -245,6 +251,7 @@ import AdminDashboard from './dashboard/AdminDashboard';
           onUpdateClass={handleUpdateClass}
           onDeleteClass={handleDeleteClass}
           onAddStudentByCode={handleAddStudentByCode}
+          onBulkAddStudents={handleBulkAddStudents}
           onApproveRequest={handleApproveRequest}
           onRejectRequest={handleRejectRequest}
           isLoading={isLoadingTeacher}

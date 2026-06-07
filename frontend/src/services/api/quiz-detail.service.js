@@ -75,6 +75,9 @@ export async function getQuizDetailFromApi(quizId) {
     timeLimit: quiz.time_limit ?? 0,
     totalQuestions: quiz.total_questions ?? toArray(quiz.questions).length,
     questions: toArray(quiz.questions).map(normalizeQuestion),
+    openTime: quiz.open_time ?? null,
+    closeTime: quiz.close_time ?? null,
+    isRandom: Boolean(quiz.is_random),
   };
 }
 

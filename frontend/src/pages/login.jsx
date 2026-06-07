@@ -108,14 +108,12 @@ function Login() {
           </div>
 
           <div className="text-right">
-            <button
-              type="button"
-              disabled
-              className="text-sm font-medium text-slate-400 dark:text-slate-500"
-              title="Chưa có luồng khôi phục mật khẩu"
+            <Link
+              to="/forgot-password"
+              className="text-sm font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-300"
             >
               Quên mật khẩu?
-            </button>
+            </Link>
           </div>
 
           <button

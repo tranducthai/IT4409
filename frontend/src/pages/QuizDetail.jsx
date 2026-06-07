@@ -19,6 +19,118 @@ import {
     USE_MOCK_DATA,
 } from '../services/dataSource';
 
+function parseCsvRows(text) {
+  const rows = [];
+  let row = [];
+  let value = '';
+  let inQuotes = false;
+
+  const pushValue = () => {
+    row.push(value.trim());
+    value = '';
+  };
+
+  const pushRow = () => {
+    if (row.some((cell) => cell !== '')) {
+      rows.push(row);
+    }
+    row = [];
+  };
+
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+    const next = text[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && next === '"') {
+        value += '"';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (!inQuotes && char === ',') {
+      pushValue();
+      continue;
+    }
+
+    if (!inQuotes && (char === '\n' || char === '\r')) {
+      pushValue();
+      pushRow();
+      if (char === '\r' && next === '\n') {
+        i += 1;
+      }
+      continue;
+    }
+
+    value += char;
+  }
+
+  pushValue();
+  if (row.length > 0) {
+    pushRow();
+  }
+
+  return rows;
+}
+
+function parseQuizQuestionCsv(text) {
+  const rows = parseCsvRows(text).map((row) => row.slice(0, 6));
+  if (!rows.length) {
+    throw new Error('File CSV trống. Vui lòng nhập dữ liệu câu hỏi.');
+  }
+
+  let dataRows = rows;
+  const firstRow = rows[0] ?? [];
+  const firstRowCorrect = String(firstRow[5] ?? '')
+    .trim()
+    .toUpperCase();
+  const firstRowLabel = firstRow.join(' ').toLowerCase();
+  const looksLikeHeader =
+    !['A', 'B', 'C', 'D'].includes(firstRowCorrect) &&
+    /(question|câu hỏi|cau hoi|answer|đáp án|dap an|correct)/.test(firstRowLabel);
+
+  if (looksLikeHeader) {
+    dataRows = rows.slice(1);
+  }
+
+  const questions = dataRows.map((row, index) => {
+    if (row.length < 6) {
+      throw new Error(`Dòng ${index + 1} không đủ 6 cột.`);
+    }
+
+    const [questionText, optionA, optionB, optionC, optionD, rawCorrect] = row;
+    const correctAnswer = String(rawCorrect ?? '')
+      .trim()
+      .toUpperCase();
+
+    if (!questionText || !optionA || !optionB || !optionC || !optionD || !correctAnswer) {
+      throw new Error(`Dòng ${index + 1} có cột trống. Vui lòng điền đủ 6 cột.`);
+    }
+
+    if (!['A', 'B', 'C', 'D'].includes(correctAnswer)) {
+      throw new Error(`Dòng ${index + 1} có đáp án đúng không hợp lệ. Chỉ nhận A/B/C/D.`);
+    }
+
+    return {
+      question_text: questionText,
+      option_a: optionA,
+      option_b: optionB,
+      option_c: optionC,
+      option_d: optionD,
+      correct_answer: correctAnswer,
+    };
+  });
+
+  if (!questions.length) {
+    throw new Error('Không tìm thấy câu hỏi hợp lệ trong file CSV.');
+  }
+
+  return questions;
+}
+
 function formatCountdown(totalSeconds) {
   if (totalSeconds <= 0) return '00:00';
   const minutes = Math.floor(totalSeconds / 60);
@@ -43,6 +155,8 @@ export default function QuizDetail() {
     timeLimit: 10,
     totalQuestions: 0,
     isRandom: false,
+    openTime: '',
+    closeTime: '',
   });
   const [quizFormError, setQuizFormError] = useState('');
   const [quizFormSuccess, setQuizFormSuccess] = useState('');
@@ -56,6 +170,7 @@ export default function QuizDetail() {
   });
   const [questionError, setQuestionError] = useState('');
   const [questionSuccess, setQuestionSuccess] = useState('');
+  const [isImportingCsv, setIsImportingCsv] = useState(false);
   const [editingQuestionId, setEditingQuestionId] = useState(null);
   const [editingQuestionForm, setEditingQuestionForm] = useState({
     questionText: '',
@@ -123,6 +238,8 @@ export default function QuizDetail() {
             timeLimit: data.timeLimit ?? 0,
             totalQuestions: data.totalQuestions ?? data.questions?.length ?? 0,
             isRandom: Boolean(data.isRandom),
+            openTime: data.openTime ? new Date(data.openTime).toISOString().slice(0, 16) : '',
+            closeTime: data.closeTime ? new Date(data.closeTime).toISOString().slice(0, 16) : '',
           });
         }
       } catch (err) {
@@ -412,6 +529,8 @@ export default function QuizDetail() {
         time_limit: Math.max(1, Number(quizForm.timeLimit) || 1),
         total_questions: Math.max(0, Number(quizForm.totalQuestions) || 0),
         is_random: Boolean(quizForm.isRandom),
+        open_time: quizForm.openTime ? new Date(quizForm.openTime).toISOString() : null,
+        close_time: quizForm.closeTime ? new Date(quizForm.closeTime).toISOString() : null,
       });
       setQuizFormSuccess('Đã cập nhật quiz.');
       setReloadToken((value) => value + 1);
@@ -471,6 +590,46 @@ export default function QuizDetail() {
       setReloadToken((value) => value + 1);
     } catch (err) {
       setQuestionError(err?.message || 'Không tạo được câu hỏi.');
+    }
+  };
+
+  const handleImportQuestionCsv = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    setQuestionError('');
+    setQuestionSuccess('');
+
+    if (USE_MOCK_DATA) {
+      setQuestionError('Chế độ mock chưa hỗ trợ import CSV câu hỏi.');
+      return;
+    }
+
+    if (!/\.csv$/i.test(file.name)) {
+      setQuestionError('Vui lòng chọn file .csv hợp lệ.');
+      return;
+    }
+
+    setIsImportingCsv(true);
+    try {
+      const content = await file.text();
+      const questions = parseQuizQuestionCsv(content);
+
+      for (const item of questions) {
+        // eslint-disable-next-line no-await-in-loop
+        await createQuestion({
+          quiz_id: quizId,
+          ...item,
+        });
+      }
+
+      setQuestionSuccess(`Đã import ${questions.length} câu hỏi từ CSV.`);
+      setReloadToken((value) => value + 1);
+    } catch (err) {
+      setQuestionError(err?.message || 'Không import được file CSV câu hỏi.');
+    } finally {
+      setIsImportingCsv(false);
     }
   };
 
@@ -629,6 +788,30 @@ export default function QuizDetail() {
               value={quizForm.description}
               onChange={(event) => setQuizForm((prev) => ({ ...prev, description: event.target.value }))}
             />
+            <div className="md:col-span-2">
+              <p className="mb-1 text-xs font-semibold text-slate-500 dark:text-slate-400">Thời gian làm bài (chế độ có hạn)</p>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">Mở từ (tùy chọn)</label>
+                  <input
+                    type="datetime-local"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                    value={quizForm.openTime}
+                    onChange={(event) => setQuizForm((prev) => ({ ...prev, openTime: event.target.value }))}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-slate-400 mb-1">Đóng lúc (tùy chọn)</label>
+                  <input
+                    type="datetime-local"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                    value={quizForm.closeTime}
+                    onChange={(event) => setQuizForm((prev) => ({ ...prev, closeTime: event.target.value }))}
+                  />
+                </div>
+              </div>
+              <p className="mt-1 text-xs text-slate-400">Để trống nếu quiz không có giới hạn thời gian làm bài.</p>
+            </div>
             {quizFormError && (
               <div className="md:col-span-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-200">
                 {quizFormError}
@@ -646,12 +829,43 @@ export default function QuizDetail() {
         </section>
       )}
 
-      {!isTeacher && (
+      {!isTeacher && (() => {
+        const now = Date.now();
+        const openMs = quizData.openTime ? new Date(quizData.openTime).getTime() : null;
+        const closeMs = quizData.closeTime ? new Date(quizData.closeTime).getTime() : null;
+        const quizNotYetOpen = openMs !== null && now < openMs;
+        const quizPastDeadline = closeMs !== null && now > closeMs;
+
+        if (quizNotYetOpen) {
+          return (
+            <section className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-center text-left shadow-sm transition-colors dark:border-amber-400/30 dark:bg-amber-400/10">
+              <p className="text-sm font-semibold text-amber-700 dark:text-amber-300">Quiz chưa mở</p>
+              <p className="mt-1 text-sm text-amber-600 dark:text-amber-400">
+                Quiz này sẽ mở vào {new Date(openMs).toLocaleString('vi-VN')}
+              </p>
+            </section>
+          );
+        }
+
+        if (quizPastDeadline) {
+          return (
+            <section className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 p-5 text-center shadow-sm transition-colors dark:border-rose-400/30 dark:bg-rose-400/10">
+              <p className="text-sm font-semibold text-rose-700 dark:text-rose-300">Quiz đã hết hạn</p>
+              <p className="mt-1 text-sm text-rose-600 dark:text-rose-400">
+                Thời hạn nộp bài đã kết thúc vào {new Date(closeMs).toLocaleString('vi-VN')}
+              </p>
+            </section>
+          );
+        }
+
+        return (
         <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Làm quiz</h2>
-              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Chọn đáp án và nộp bài</p>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                {closeMs ? `Hạn nộp: ${new Date(closeMs).toLocaleString('vi-VN')} · ` : ''}Chọn đáp án và nộp bài
+              </p>
             </div>
             <button
               type="button"
@@ -815,7 +1029,8 @@ export default function QuizDetail() {
             {isSubmitting ? 'Đang nộp...' : 'Nộp bài'}
           </button>
         </section>
-      )}
+        );
+      })()}
 
       <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
         <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
@@ -824,6 +1039,22 @@ export default function QuizDetail() {
         {isTeacher && (
           <form className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950" onSubmit={handleCreateQuestion}>
             <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Thêm câu hỏi</h3>
+            <div className="mt-3 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-3 text-xs text-indigo-700 dark:border-indigo-400/40 dark:bg-indigo-400/10 dark:text-indigo-200">
+              <p className="font-semibold">Import bằng CSV (6 cột):</p>
+              <p className="mt-1">Cột 1: Câu hỏi · Cột 2-5: Đáp án A/B/C/D · Cột 6: Đáp án đúng (A/B/C/D).</p>
+              <div className="mt-2">
+                <label className="inline-flex cursor-pointer items-center rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700">
+                  {isImportingCsv ? 'Đang import...' : 'Chọn file CSV'}
+                  <input
+                    type="file"
+                    accept=".csv,text/csv"
+                    className="hidden"
+                    disabled={isImportingCsv}
+                    onChange={handleImportQuestionCsv}
+                  />
+                </label>
+              </div>
+            </div>
             <div className="mt-3 grid gap-3 md:grid-cols-2">
               <input
                 className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 md:col-span-2"

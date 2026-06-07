@@ -7,6 +7,13 @@ export function createQuestion(payload) {
   });
 }
 
+export function createQuestionsBulk(quizId, questions) {
+  return apiRequest('/questions/bulk', {
+    method: 'POST',
+    body: JSON.stringify({ quiz_id: quizId, questions }),
+  });
+}
+
 export function getQuestionsByQuiz(quizId) {
   return apiRequest(`/questions/quiz/${quizId}`, { method: 'GET' });
 }

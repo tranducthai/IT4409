@@ -1,4 +1,4 @@
-import 'reflect-metadata';
+﻿import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import * as bcrypt from 'bcrypt';
 import { existsSync, readFileSync } from 'fs';
@@ -11,8 +11,8 @@ import { Assignment } from '../modules/assignments/entities/assignment.entity';
 import { ClassMember } from '../modules/class-members/entities/class-member.entity';
 import { ClassMemberRole } from '../modules/class-members/enums/class-member-role.enum';
 import { ClassMemberStatus } from '../modules/class-members/enums/class-member-status.enum';
-import { ClassResourceFolder } from '../modules/class-resources/entities/class-resource-folder.entity';
-import { ClassResource } from '../modules/class-resources/entities/class-resource.entity';
+import { ClassResourceFolder } from '../modules/class-resources/class-resource-folder.entity';
+import { ClassResource } from '../modules/class-resources/class-resource.entity';
 import { Class } from '../modules/classes/entities/class.entity';
 import { ClassType } from '../modules/classes/enums/class-type.enum';
 import { Discussion } from '../modules/discussions/entities/discussion.entity';
@@ -224,7 +224,7 @@ async function upsertQuizLesson(
   const payload = {
     section_id: lesson.section_id,
     title,
-    description: quiz.description ?? `Quiz nhanh cho bài ${lesson.title}`,
+    description: quiz.description ?? `Quiz nhanh cho bÃ i ${lesson.title}`,
     type: LessonContentType.Quiz,
     file_url: quiz.id,
     content: quiz.id,
@@ -354,7 +354,7 @@ async function upsertQuizWithQuestion(
   const existing = await ctx.quizzes.findOne({ where: { class_id: cls.id, title } });
   const payload = {
     title,
-    description: questionSeed.explanation ?? `Quiz nhanh cho bài ${lesson.title}`,
+    description: questionSeed.explanation ?? `Quiz nhanh cho bÃ i ${lesson.title}`,
     time_limit: 5,
     total_questions: 1,
     class_id: cls.id,
@@ -440,7 +440,7 @@ async function upsertDiscussion(
     class_id: cls.id,
     created_by: teacher.id,
     title: seed.title,
-    content: 'Thảo luận demo được seed từ khóa CS50W.',
+    content: 'Tháº£o luáº­n demo Ä‘Æ°á»£c seed tá»« khÃ³a CS50W.',
   };
   const discussion = existing
     ? await ctx.discussions.save({ ...existing, ...discussionPayload })
@@ -515,10 +515,10 @@ async function upsertAssignment(
   const submissionPayload = {
     assignment_id: assignment.id,
     student_id: student.id,
-    content: seed.sample_submission?.content ?? 'Bài nộp mẫu cho demo.',
+    content: seed.sample_submission?.content ?? 'BÃ i ná»™p máº«u cho demo.',
     file_url: null,
     score: 9,
-    feedback: 'Bài làm đáp ứng yêu cầu demo, cấu trúc rõ ràng.',
+    feedback: 'BÃ i lÃ m Ä‘Ã¡p á»©ng yÃªu cáº§u demo, cáº¥u trÃºc rÃµ rÃ ng.',
   };
   const submission = submissionExisting
     ? await ctx.submissions.save({ ...submissionExisting, ...submissionPayload })
@@ -620,7 +620,7 @@ async function main() {
     }
 
     const uploadCache = new Map<string, StoredFile>();
-    const downloadedFolder = await upsertFolder(ctx.resourceFolders, cls, teacher, 'Tài nguyên tải về từ CS50W');
+    const downloadedFolder = await upsertFolder(ctx.resourceFolders, cls, teacher, 'TÃ i nguyÃªn táº£i vá» tá»« CS50W');
 
     const allLessons: Lesson[] = [];
     for (const sectionSeed of seed.sections ?? []) {

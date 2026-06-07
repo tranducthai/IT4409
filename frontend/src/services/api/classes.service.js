@@ -109,3 +109,12 @@ export function addStudentByStudentCode(classId, studentCode, accessToken) {
     ...withAuth(accessToken),
   });
 }
+
+// Teacher: bulk add students by MSSV list (CSV import)
+export function bulkAddStudentsByCodes(classId, studentCodes, accessToken) {
+  return apiRequest(`/class-members/classes/${classId}/bulk-add`, {
+    method: 'POST',
+    body: { student_codes: studentCodes },
+    ...withAuth(accessToken),
+  });
+}

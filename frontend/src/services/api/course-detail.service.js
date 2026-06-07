@@ -58,6 +58,32 @@ async function loadOptionalObject(path, label) {
   }
 }
 
+function normalizeLessonContent(raw, quizzes = [], classId) {
+  const displayType = getDisplayType(raw);
+  const quizId = raw.quiz_id ?? null;
+  const matchedQuiz = quizId ? quizzes.find((q) => q.id === quizId) : null;
+
+  return {
+    id: raw.id,
+    lessonId: raw.lesson_id,
+    type: normalizeContentType(raw.type),
+    displayType,
+    title: raw.title ?? 'Nội dung',
+    description: raw.description ?? null,
+    content: raw.content ?? null,
+    fileUrl: raw.file_url ? toAbsoluteFileUrl(raw.file_url) : null,
+    openUrl: raw.open_url ?? null,
+    duration: raw.duration ?? null,
+    orderIndex: raw.order_index ?? 0,
+    quizId,
+    quizUrl: quizId ? `/courses/${classId}/quizzes/${quizId}` : null,
+    meta:
+      displayType === 'quiz' && matchedQuiz
+        ? `${matchedQuiz.total_questions ?? 0} câu hỏi · ${matchedQuiz.time_limit ?? 0} phút`
+        : undefined,
+  };
+}
+
 function normalizeLessonPrimaryResource(lesson, quizzes = [], classId) {
   if (!lesson || typeof lesson !== 'object') return null;
 
@@ -82,7 +108,7 @@ function normalizeLessonPrimaryResource(lesson, quizzes = [], classId) {
         : lesson.title ?? 'Tài nguyên bài học',
     description: displayType === 'quiz' ? matchedQuiz?.description ?? lesson.description : lesson.description,
     content: lesson.content,
-    fileUrl: lesson.file_url,
+    fileUrl: lesson.file_url ? toAbsoluteFileUrl(lesson.file_url) : null,
     openUrl: null,
     duration: lesson.duration,
     orderIndex: -1,
@@ -198,7 +224,7 @@ export async function getCourseDetailFromApi(courseId, options = {}) {
     throw new Error('Không tìm thấy thông tin khóa học.');
   }
 
-  const [sectionsResult, quizzesResult, assignmentsResult, discussionsResult, progressResult] =
+  const [sectionsResult, quizzesResult, assignmentsResult, discussionsResult, progressResult, lessonContentsResult] =
     await Promise.all([
       loadOptionalArray(`/sections/class/${courseId}`, 'Không tải được danh sách phần'),
       loadOptionalArray(`/quizzes/class/${courseId}`, 'Không tải được danh sách quiz'),
@@ -207,6 +233,7 @@ export async function getCourseDetailFromApi(courseId, options = {}) {
       includeProgress
         ? loadOptionalObject(`/classes/${courseId}/progress/me`, 'Không tải được tiến độ học tập')
         : Promise.resolve({ item: null, warning: '' }),
+      loadOptionalArray(`/lesson-contents/class/${courseId}`, 'Không tải được nội dung bài học'),
     ]);
 
   const rawSections = sectionsResult.items;
@@ -230,11 +257,13 @@ export async function getCourseDetailFromApi(courseId, options = {}) {
   );
 
   const quizzes = quizzesResult.items;
+
   const warnings = [
     sectionsResult.warning,
     quizzesResult.warning,
     assignmentsResult.warning,
     discussionsResult.warning,
+    lessonContentsResult.warning,
     ...lessonResults.map((result) => result.warning),
   ].filter(Boolean);
 
@@ -242,14 +271,22 @@ export async function getCourseDetailFromApi(courseId, options = {}) {
   const completedLessonIds = new Set(
     toArray(progressResult.item?.completed_lesson_ids ?? progressResult.item?.completedLessonIds),
   );
+
+  // Group lesson-contents by lesson_id (normalized)
   const contentsByLessonId = new Map();
+  for (const raw of lessonContentsResult.items) {
+    const lessonId = raw.lesson_id;
+    if (!lessonId) continue;
+    if (!contentsByLessonId.has(lessonId)) contentsByLessonId.set(lessonId, []);
+    contentsByLessonId.get(lessonId).push(normalizeLessonContent(raw, quizzes, courseId));
+  }
 
   let focusedLessonAssigned = false;
 
   const sections = rawSections.map((section, index) => {
     const lessons = (lessonsBySection[index] ?? []).map((lesson) => {
       const apiContents = (contentsByLessonId.get(lesson.id) ?? []).sort(
-        (left, right) => left.orderIndex - right.orderIndex,
+        (left, right) => (left.orderIndex ?? 0) - (right.orderIndex ?? 0),
       );
       const primaryResource = normalizeLessonPrimaryResource(lesson, quizzes, courseId);
       const contents = primaryResource ? [primaryResource, ...apiContents] : apiContents;

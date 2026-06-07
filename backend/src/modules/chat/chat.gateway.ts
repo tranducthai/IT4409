@@ -60,7 +60,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @SubscribeMessage('sendMessage')
     async handleSendMessage(
         @ConnectedSocket() client: Socket,
-        @MessageBody() data: { discussionId: string; content: string },
+        @MessageBody() data: { discussionId: string; content: string; imageUrl?: string },
     ) {
         if (!client.data?.user) throw new WsException('Unauthorized');
 
@@ -68,6 +68,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
             const dto: CreateMessageDto = {
                 discussion_id: data.discussionId,
                 content: data.content,
+                image_url: data.imageUrl ?? undefined,
             };
             const message = await this.messagesService.createAndReturn(
                 client.data.user.sub,

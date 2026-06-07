@@ -1,5 +1,11 @@
 import { apiRequest } from './client';
 
+export async function uploadChatImage(file) {
+  const formData = new FormData();
+  formData.append('image', file);
+  return apiRequest('/messages/upload-image', { method: 'POST', body: formData });
+}
+
 export function getMessagesByDiscussion(discussionId) {
   return apiRequest(`/messages/discussion/${discussionId}`, { method: 'GET' });
 }

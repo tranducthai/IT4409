@@ -80,6 +80,52 @@ export class ClassMembersService {
     });
   }
 
+  // ── Teacher: bulk add students by MSSV list ──────────────────────────────
+  async bulkAddStudentsByCodes(teacherId: string, classId: string, studentCodes: string[]) {
+    const cls = await this.classesRepository.findById(classId);
+    if (!cls) throw new NotFoundException('Không tìm thấy lớp học');
+    if (cls.teacher_id !== teacherId) throw new ForbiddenException('Bạn không phải giảng viên lớp này');
+    if (!cls.is_active) throw new ConflictException('Lớp học không còn hoạt động');
+
+    const added: string[] = [];
+    const alreadyInClass: string[] = [];
+    const notFound: string[] = [];
+
+    for (const raw of studentCodes) {
+      const code = raw.trim();
+      if (!code) continue;
+
+      const profile = await this.studentProfileRepo.findOne({ where: { student_code: code } });
+      if (!profile) {
+        notFound.push(code);
+        continue;
+      }
+
+      const existing = await this.classMembersRepository.findOneByClassAndUser(classId, profile.user_id);
+      if (existing) {
+        if (existing.status === ClassMemberStatus.Active) {
+          alreadyInClass.push(code);
+          continue;
+        }
+        await this.classMembersRepository.updateOne(existing.id, {
+          status: ClassMemberStatus.Active,
+          joined_at: new Date(),
+        });
+      } else {
+        await this.classMembersRepository.createOne({
+          class_id: classId,
+          user_id: profile.user_id,
+          role: ClassMemberRole.Student,
+          status: ClassMemberStatus.Active,
+          joined_at: new Date(),
+        });
+      }
+      added.push(code);
+    }
+
+    return { added: added.length, added_codes: added, already_in_class: alreadyInClass, not_found: notFound };
+  }
+
   // ── Student: request join by join_code ────────────────────────────────────
   async requestJoinClass(studentId: string, dto: RequestJoinClassDto): Promise<ClassMember> {
     const cls = await this.classesRepository.findByJoinCode(dto.join_code.trim().toUpperCase());

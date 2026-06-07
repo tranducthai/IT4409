@@ -1,5 +1,6 @@
 import {
   IsBoolean,
+  IsDateString,
   IsInt,
   IsOptional,
   IsString,
@@ -30,4 +31,12 @@ export class UpdateQuizDto {
   @IsOptional()
   @IsBoolean()
   is_random?: boolean;
+
+  @IsOptional()
+  @IsDateString()
+  open_time?: string | null;
+
+  @IsOptional()
+  @IsDateString()
+  close_time?: string | null;
 }

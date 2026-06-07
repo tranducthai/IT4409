@@ -35,18 +35,19 @@ export class LessonContentsService {
     return items.map((i) => this.toResponse(i));
   }
 
-  private toResponse(item: Lesson) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private toResponse(item: any) {
     return {
-      id: item.id,
-      lesson_id: item.id,
-      type: item.type,
-      title: item.title,
-      file_url: item.file_url,
-      content: item.content,
-      duration: item.duration,
-      order_index: item.order_index,
-      quiz_id: item.quiz_id,
-      open_url: `/api/lesson-contents/${item.id}/open`,
+      id: item['id'],
+      lesson_id: item['lesson_id'],
+      type: item['type'],
+      title: item['title'],
+      file_url: item['file_url'],
+      content: item['content'],
+      duration: item['duration'],
+      order_index: item['order_index'],
+      quiz_id: item['quiz_id'],
+      open_url: `/api/lesson-contents/${item['id']}/open`,
     };
   }
 

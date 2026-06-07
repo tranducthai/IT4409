@@ -120,8 +120,18 @@ export async function getCurrentUserFromApi() {
   }
 }
 
+export async function forgotPassword(email) {
+  if (USE_MOCK_DATA) return { sent: true };
+  return apiRequest('/auth/forgot-password', { method: 'POST', body: { email } });
+}
+
+export async function resetPassword(token, newPassword) {
+  if (USE_MOCK_DATA) return { changed: true };
+  return apiRequest('/auth/reset-password', { method: 'POST', body: { token, newPassword } });
+}
+
 export function logout() {
   clearAuthState();
 }
 
-export default { login, register, changePassword, getCurrentUserFromApi, logout };
+export default { login, register, changePassword, getCurrentUserFromApi, logout, forgotPassword, resetPassword };

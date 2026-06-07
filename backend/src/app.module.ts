@@ -5,9 +5,8 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { StorageModule } from './common/storage/storage.module';
 import { AssignmentsModule } from './modules/assignments/assignments.module';
-import { ChatModule } from './modules/chat/chat.module';
-import { ClassResourcesModule } from './modules/class-resources/class-resources.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { ChatModule } from './modules/chat/chat.module';
 import { ClassMembersModule } from './modules/class-members/class-members.module';
 import { ClassResourcesModule } from './modules/class-resources/class-resources.module';
 import { ClassesModule } from './modules/classes/classes.module';
@@ -15,8 +14,8 @@ import { ContentPagesModule } from './modules/content-pages/content-pages.module
 import { ContentsModule } from './modules/contents/contents.module';
 import { DiscussionsModule } from './modules/discussions/discussions.module';
 import { InstructorProfilesModule } from './modules/instructor-profiles/instructor-profiles.module';
-import { LessonsModule } from './modules/lessons/lessons.module';
 import { LessonContentsModule } from './modules/lesson-contents/lesson-contents.module';
+import { LessonsModule } from './modules/lessons/lessons.module';
 import { MessagesModule } from './modules/messages/messages.module';
 import { QuizModule } from './modules/quiz/quiz.module';
 import { SectionsModule } from './modules/sections/sections.module';
@@ -27,18 +26,14 @@ import { WeeksModule } from './modules/weeks/weeks.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-    }),
+    ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
         const databaseUrl = config.get<string>('DATABASE_URL');
         if (databaseUrl) {
-          const sslEnabled =
-            config.get<string>('PG_SSL', 'true').toLowerCase() !== 'false';
+          const sslEnabled = config.get<string>('PG_SSL', 'true').toLowerCase() !== 'false';
           const ssl = sslEnabled ? { rejectUnauthorized: false } : undefined;
-
           return {
             type: 'postgres' as const,
             url: databaseUrl,
@@ -49,7 +44,6 @@ import { WeeksModule } from './modules/weeks/weeks.module';
             synchronize: false,
           };
         }
-
         return {
           type: 'mysql' as const,
           host: config.get<string>('DB_HOST', 'localhost'),
@@ -82,7 +76,6 @@ import { WeeksModule } from './modules/weeks/weeks.module';
     MessagesModule,
     AssignmentsModule,
     SubmissionsModule,
-    ClassResourcesModule,
     ChatModule,
   ],
   controllers: [AppController],

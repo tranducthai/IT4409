@@ -1,4 +1,5 @@
 import {
+    BadRequestException,
     Body,
     Controller,
     Delete,
@@ -8,10 +9,14 @@ import {
     Patch,
     Post,
     Req,
+    UploadedFile,
     UseGuards,
+    UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import type { Request } from 'express';
+import { createMemoryStorage, uploadToSupabaseStorage } from '../../common/utils/upload.util';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { CreateMessageDto } from './dtos/create-message.dto';
@@ -24,6 +29,16 @@ type AuthedRequest = Request & { user: JwtPayload };
 @Controller('messages')
 export class MessagesController {
     constructor(private readonly messagesService: MessagesService) { }
+
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth('access-token')
+    @Post('upload-image')
+    @UseInterceptors(FileInterceptor('image', { storage: createMemoryStorage() }))
+    async uploadImage(@UploadedFile() file?: Express.Multer.File) {
+        if (!file) throw new BadRequestException('No image file provided');
+        const result = await uploadToSupabaseStorage('chat-images', file);
+        return { url: result.file_url };
+    }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('access-token')

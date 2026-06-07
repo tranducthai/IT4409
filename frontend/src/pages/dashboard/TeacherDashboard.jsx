@@ -10,6 +10,13 @@ function createJoinCode() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
 }
 
+function parseCsvStudentCodes(text) {
+  return text
+    .split(/[\r\n,;]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 export default function TeacherDashboard({
   courses,
   pendingRequests,
@@ -17,6 +24,7 @@ export default function TeacherDashboard({
   onUpdateClass,
   onDeleteClass,
   onAddStudentByCode,
+  onBulkAddStudents,
   onApproveRequest,
   onRejectRequest,
   isLoading = false,
@@ -35,6 +43,7 @@ export default function TeacherDashboard({
   const [studentCodeErrors, setStudentCodeErrors] = useState({});
   const [studentCodeSuccess, setStudentCodeSuccess] = useState({});
   const [actionErrors, setActionErrors] = useState({});
+  const [csvStates, setCsvStates] = useState({});
 
   const handleStudentCodeChange = (courseId, value) => {
     setStudentCodeForms((prev) => ({ ...prev, [courseId]: value }));
@@ -54,6 +63,31 @@ export default function TeacherDashboard({
         ...prev,
         [courseId]: err?.message || 'Không thêm được sinh viên.',
       }));
+    }
+  };
+
+  const setCsvState = (courseId, patch) =>
+    setCsvStates((prev) => ({ ...prev, [courseId]: { ...(prev[courseId] ?? {}), ...patch } }));
+
+  const handleCsvFileChange = (courseId, file) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const codes = parseCsvStudentCodes(e.target.result ?? '');
+      setCsvState(courseId, { codes, fileName: file.name, result: null, error: '' });
+    };
+    reader.readAsText(file, 'UTF-8');
+  };
+
+  const handleCsvImport = async (courseId) => {
+    const state = csvStates[courseId];
+    if (!state?.codes?.length) return;
+    setCsvState(courseId, { loading: true, error: '', result: null });
+    try {
+      const result = await onBulkAddStudents?.(courseId, state.codes);
+      setCsvState(courseId, { loading: false, result, codes: [], fileName: '' });
+    } catch (err) {
+      setCsvState(courseId, { loading: false, error: err?.message || 'Nhập CSV thất bại.' });
     }
   };
 
@@ -328,6 +362,66 @@ export default function TeacherDashboard({
                     </p>
                   )}
                 </form>
+
+                {/* Import CSV */}
+                {(() => {
+                  const csv = csvStates[course.id] ?? {};
+                  return (
+                    <div className="mt-3 border-t border-slate-200 pt-3 dark:border-slate-700">
+                      <p className="mb-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200">
+                        Nhập danh sách từ CSV
+                      </p>
+                      <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-slate-300 px-3 py-2 text-xs text-slate-500 hover:border-indigo-400 hover:text-indigo-600 dark:border-slate-600 dark:hover:border-indigo-400">
+                        <svg className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                        </svg>
+                        {csv.fileName
+                          ? <span className="truncate font-medium text-slate-700 dark:text-slate-200">{csv.fileName} — {csv.codes?.length ?? 0} MSSV</span>
+                          : 'Chọn file CSV (1 cột MSSV)'}
+                        <input
+                          type="file"
+                          accept=".csv,text/csv"
+                          className="hidden"
+                          onChange={(e) => handleCsvFileChange(course.id, e.target.files?.[0])}
+                          onClick={(e) => { e.target.value = ''; }}
+                        />
+                      </label>
+
+                      {csv.codes?.length > 0 && (
+                        <button
+                          type="button"
+                          disabled={csv.loading}
+                          onClick={() => handleCsvImport(course.id)}
+                          className="mt-2 w-full rounded-lg bg-indigo-600 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+                        >
+                          {csv.loading ? 'Đang thêm...' : `Thêm ${csv.codes.length} sinh viên`}
+                        </button>
+                      )}
+
+                      {csv.error && (
+                        <p className="mt-1.5 text-xs text-rose-600 dark:text-rose-300">{csv.error}</p>
+                      )}
+
+                      {csv.result && (
+                        <div className="mt-2 space-y-1 rounded-lg bg-slate-50 p-2 text-xs dark:bg-slate-800">
+                          <p className="font-semibold text-emerald-700 dark:text-emerald-300">
+                            ✓ Đã thêm: {csv.result.added} sinh viên
+                          </p>
+                          {csv.result.already_in_class?.length > 0 && (
+                            <p className="text-amber-600 dark:text-amber-300">
+                              Đã có trong lớp: {csv.result.already_in_class.join(', ')}
+                            </p>
+                          )}
+                          {csv.result.not_found?.length > 0 && (
+                            <p className="text-rose-600 dark:text-rose-300">
+                              Không tìm thấy: {csv.result.not_found.join(', ')}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             ))}
           </div>

@@ -52,6 +52,7 @@ export class MessagesService {
             discussion_id: dto.discussion_id,
             user_id: userId,
             content: dto.content,
+            image_url: dto.image_url ?? null,
         });
     }
 

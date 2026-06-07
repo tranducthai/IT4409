@@ -1,12 +1,19 @@
 import {
     CalendarClock,
+    CheckCircle2,
+    ChevronDown,
+    ChevronRight,
+    Circle,
     ClipboardList,
     ExternalLink,
     File,
     FileText,
+    ImageIcon,
     Paperclip,
+    Plus,
     Send,
     Video,
+    X,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
@@ -30,6 +37,8 @@ import {
     getDiscussionsByClass,
 } from '../services/api/discussions.service';
 import { uploadLessonContentFile } from '../services/api/lesson-contents.service';
+import { createQuestionsBulk } from '../services/api/questions.service';
+import { createQuiz } from '../services/api/quizzes.service';
 import {
     createLesson,
     deleteLesson,
@@ -41,6 +50,7 @@ import {
     deleteMessage,
     getMessagesByDiscussion,
     updateMessage,
+    uploadChatImage,
 } from '../services/api/messages.service';
 import {
     createSection,
@@ -165,6 +175,37 @@ function formatChatTime(value) {
     : d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) +
         ' ' +
         d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+}
+
+function parseQuizCsvText(text) {
+  const rows = text.split(/\r?\n/).map((line) => {
+    const cells = [];
+    let val = '';
+    let inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') { inQ = !inQ; continue; }
+      if (!inQ && c === ',') { cells.push(val.trim()); val = ''; continue; }
+      val += c;
+    }
+    cells.push(val.trim());
+    return cells;
+  }).filter((r) => r.some((c) => c !== ''));
+
+  if (!rows.length) throw new Error('File CSV trống.');
+
+  let data = rows;
+  const firstRowCorrect = String(rows[0]?.[5] ?? '').trim().toUpperCase();
+  if (!['A', 'B', 'C', 'D'].includes(firstRowCorrect)) data = rows.slice(1);
+
+  return data.map((row, i) => {
+    if (row.length < 6) throw new Error(`Dòng ${i + 1} không đủ 6 cột.`);
+    const [questionText, optionA, optionB, optionC, optionD, rawCorrect] = row;
+    const correctAnswer = String(rawCorrect ?? '').trim().toUpperCase();
+    if (!['A', 'B', 'C', 'D'].includes(correctAnswer)) throw new Error(`Dòng ${i + 1} đáp án không hợp lệ.`);
+    if (!questionText || !optionA || !optionB || !optionC || !optionD) throw new Error(`Dòng ${i + 1} có cột trống.`);
+    return { question_text: questionText, option_a: optionA, option_b: optionB, option_c: optionC, option_d: optionD, correct_answer: correctAnswer };
+  });
 }
 
 function ResourceCard({ resource, compact = false }) {
@@ -328,6 +369,10 @@ export default function CourseDetail() {
   const [lessonForms, setLessonForms] = useState({});
   const [lessonFormErrors, setLessonFormErrors] = useState({});
   const [lessonUploadState, setLessonUploadState] = useState({});
+  const [quizImportForms, setQuizImportForms] = useState({});
+  const [expandedSections, setExpandedSections] = useState(new Set());
+  const [selectedLessonId, setSelectedLessonId] = useState(null);
+  const [showCreateSection, setShowCreateSection] = useState(false);
   const [editingLessonId, setEditingLessonId] = useState(null);
   const [editingLessonForm, setEditingLessonForm] = useState({
     title: '',
@@ -349,6 +394,7 @@ export default function CourseDetail() {
     content: '',
   });
   const [showDiscussionForm, setShowDiscussionForm] = useState(false);
+  const [expandedContents, setExpandedContents] = useState([]);
   const [discussionError, setDiscussionError] = useState('');
   const [selectedDiscussionId, setSelectedDiscussionId] = useState(null);
   const [discussionMessages, setDiscussionMessages] = useState([]);
@@ -356,6 +402,10 @@ export default function CourseDetail() {
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [messageForm, setMessageForm] = useState('');
   const [messageError, setMessageError] = useState('');
+  const [messageImageUrl, setMessageImageUrl] = useState('');
+  const [messageImagePreview, setMessageImagePreview] = useState('');
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const imageInputRef = useRef(null);
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [editingMessageContent, setEditingMessageContent] = useState('');
   const [editingMessageError, setEditingMessageError] = useState('');
@@ -385,7 +435,7 @@ export default function CourseDetail() {
   const [teacherProgress, setTeacherProgress] = useState(null);
   const [teacherProgressLoading, setTeacherProgressLoading] = useState(false);
   const [teacherProgressError, setTeacherProgressError] = useState('');
-  const messagesEndRef = useRef(null);
+
   const [classResources, setClassResources] = useState([]);
   const [classFolders, setClassFolders] = useState([]);
   const [classResourcesLoading, setClassResourcesLoading] = useState(false);
@@ -401,6 +451,7 @@ export default function CourseDetail() {
   const [showFolderForm, setShowFolderForm] = useState(false);
   const [lessonProgressLoadingId, setLessonProgressLoadingId] = useState(null);
   const [lessonProgressError, setLessonProgressError] = useState('');
+  const [socketConnected, setSocketConnected] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -472,6 +523,13 @@ export default function CourseDetail() {
       ...prev,
       orderIndex: Math.max(1, sectionItems.length + 1),
     }));
+  }, [sectionItems.length]);
+
+  useEffect(() => {
+    if (sectionItems.length > 0 && expandedSections.size === 0) {
+      setExpandedSections(new Set(sectionItems.map((s) => s.id)));
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sectionItems.length]);
 
   useEffect(() => {
@@ -601,10 +659,22 @@ export default function CourseDetail() {
     }
   };
 
-  // Auto-scroll to bottom when new messages arrive
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [discussionMessages]);
+  const handleToggleComments = (discussionId) => {
+    if (selectedDiscussionId === discussionId) {
+      setSelectedDiscussionId(null);
+      setDiscussionMessages([]);
+    } else {
+      setSelectedDiscussionId(discussionId);
+      void loadMessages(discussionId);
+    }
+  };
+
+  const toggleExpandContent = (id) => {
+    setExpandedContents((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
+
 
   const handleMarkLessonCompleted = async (lessonId) => {
     if (!canTrackLessonProgress) return;
@@ -637,6 +707,15 @@ export default function CourseDetail() {
       ...prev,
       [field]: value,
     }));
+  };
+
+  const toggleSection = (sectionId) => {
+    setExpandedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(sectionId)) next.delete(sectionId);
+      else next.add(sectionId);
+      return next;
+    });
   };
 
   const handleCreateSection = async (event) => {
@@ -720,7 +799,11 @@ export default function CourseDetail() {
     }
 
     try {
-      const created = await createDiscussion({ class_id: courseId, title });
+      const created = await createDiscussion({
+        class_id: courseId,
+        title,
+        content: discussionForm.content.trim() || undefined,
+      });
       setDiscussionForm({ title: '', content: '' });
       setShowDiscussionForm(false);
       await loadDiscussions();
@@ -765,6 +848,31 @@ export default function CourseDetail() {
     }
   };
 
+  const handleImageSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    const preview = URL.createObjectURL(file);
+    setMessageImagePreview(preview);
+    setIsUploadingImage(true);
+    setMessageError('');
+    try {
+      const result = await uploadChatImage(file);
+      setMessageImageUrl(result.url);
+    } catch (err) {
+      setMessageImagePreview('');
+      setMessageError(err?.message || 'Không tải được ảnh.');
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setMessageImageUrl('');
+    if (messageImagePreview) URL.revokeObjectURL(messageImagePreview);
+    setMessageImagePreview('');
+  };
+
   const handleCreateMessage = async (event) => {
     event.preventDefault();
     setMessageError('');
@@ -775,13 +883,19 @@ export default function CourseDetail() {
     }
 
     const content = messageForm.trim();
-    if (!content) return;
+    if (!content && !messageImageUrl) return;
 
     setMessageForm('');
+    const sentImageUrl = messageImageUrl;
+    setMessageImageUrl('');
+    if (messageImagePreview) URL.revokeObjectURL(messageImagePreview);
+    setMessageImagePreview('');
+
     try {
       const created = await createMessage({
         discussion_id: selectedDiscussionId,
-        content,
+        content: content || ' ',
+        image_url: sentImageUrl || undefined,
       });
       if (created?.id) {
         setDiscussionMessages((prev) =>
@@ -794,6 +908,7 @@ export default function CourseDetail() {
       }
     } catch (err) {
       setMessageForm(content);
+      setMessageImageUrl(sentImageUrl);
       setMessageError(err?.message || 'Không gửi được tin nhắn.');
     }
   };
@@ -1158,6 +1273,26 @@ export default function CourseDetail() {
     }));
   };
 
+  const defaultQuizImportForm = { title: '', timeLimit: 10, openTime: '', closeTime: '', csvQuestions: [], isCreating: false, error: '' };
+
+  const updateQuizImportForm = (sectionId, patch) => {
+    setQuizImportForms((prev) => ({
+      ...prev,
+      [sectionId]: { ...(prev[sectionId] ?? { ...defaultQuizImportForm }), ...patch },
+    }));
+  };
+
+  const handleQuizCsvSelect = async (sectionId, file) => {
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const questions = parseQuizCsvText(text);
+      updateQuizImportForm(sectionId, { csvQuestions: questions, error: '' });
+    } catch (err) {
+      updateQuizImportForm(sectionId, { csvQuestions: [], error: err?.message || 'Lỗi đọc file CSV.' });
+    }
+  };
+
   const handleUploadLessonFile = async (sectionId, file) => {
     if (!file) return;
     updateLessonUploadState(sectionId, { isUploading: true, error: '' });
@@ -1201,11 +1336,44 @@ export default function CourseDetail() {
       return;
     }
 
-    if (form.type === 'quiz' && !form.quizId.trim()) {
-      setLessonFormErrors((prev) => ({
-        ...prev,
-        [section.id]: 'Vui lòng nhập quiz id cho bài học quiz.',
-      }));
+    if (form.type === 'quiz') {
+      const qf = quizImportForms[section.id] ?? defaultQuizImportForm;
+      if (!qf.title.trim()) {
+        setLessonFormErrors((prev) => ({ ...prev, [section.id]: 'Vui lòng nhập tiêu đề quiz.' }));
+        return;
+      }
+      if (!qf.csvQuestions?.length) {
+        setLessonFormErrors((prev) => ({ ...prev, [section.id]: 'Vui lòng import ít nhất 1 câu hỏi từ CSV.' }));
+        return;
+      }
+      updateQuizImportForm(section.id, { isCreating: true, error: '' });
+      try {
+        const quiz = await createQuiz({
+          title: qf.title.trim(),
+          time_limit: Math.max(1, Number(qf.timeLimit) || 10),
+          total_questions: qf.csvQuestions.length,
+          class_id: courseId,
+          is_random: false,
+          open_time: qf.openTime ? new Date(qf.openTime).toISOString() : undefined,
+          close_time: qf.closeTime ? new Date(qf.closeTime).toISOString() : undefined,
+        });
+        await createQuestionsBulk(quiz.id, qf.csvQuestions);
+        await createLesson({
+          section_id: section.id,
+          title,
+          description: form.description.trim(),
+          type: 'quiz',
+          order_index: Math.max(1, Number(form.orderIndex) || 1),
+          duration: form.duration ? Math.max(1, Number(form.duration) || 1) : undefined,
+          quiz_id: quiz.id,
+        });
+        setQuizImportForms((prev) => ({ ...prev, [section.id]: { ...defaultQuizImportForm } }));
+        setLessonForms((prev) => ({ ...prev, [section.id]: { ...defaultLessonForm, orderIndex: fallbackOrder + 1 } }));
+        setReloadToken((value) => value + 1);
+      } catch (err) {
+        setLessonFormErrors((prev) => ({ ...prev, [section.id]: err?.message || 'Không tạo được quiz.' }));
+        updateQuizImportForm(section.id, { isCreating: false });
+      }
       return;
     }
 
@@ -1287,10 +1455,7 @@ export default function CourseDetail() {
       return;
     }
 
-    if (editingLessonForm.type === 'quiz' && !editingLessonForm.quizId.trim()) {
-      setEditingLessonError('Vui lòng nhập quiz id cho bài học quiz.');
-      return;
-    }
+    // quiz_id is optional when editing — it may already be set from initial creation
 
     try {
       await updateLesson(editingLessonId, {
@@ -1476,546 +1641,361 @@ export default function CourseDetail() {
       )}
 
       {activeTab === 'lessons' && (
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Bài học</h2>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Danh sách bài học được nhóm theo phần</p>
+        <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-4">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Nội dung khóa học</h2>
+              <p className="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
+                {sectionItems.length} chương · {lessonItems.length} bài học
+              </p>
+            </div>
+            {canManageLessons && (
+              <button
+                type="button"
+                onClick={() => setShowCreateSection((v) => !v)}
+                className="flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 dark:border-indigo-400/30 dark:bg-indigo-400/10 dark:text-indigo-300"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Thêm chương
+              </button>
+            )}
+          </div>
+
+          {/* Create section form */}
+          {canManageLessons && showCreateSection && (
+            <div className="border-t border-slate-100 bg-slate-50 px-5 pb-5 pt-4 dark:border-slate-800 dark:bg-slate-950">
+              <form onSubmit={async (e) => { await handleCreateSection(e); setShowCreateSection(false); }}>
+                <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-slate-100">Tạo chương mới</h3>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <input
+                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                    placeholder="Tiêu đề chương"
+                    value={sectionForm.title}
+                    onChange={(e) => handleSectionFormChange('title', e.target.value)}
+                    required
+                  />
+                  <input
+                    className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                    min="1"
+                    placeholder="Thứ tự hiển thị"
+                    type="number"
+                    value={sectionForm.orderIndex}
+                    onChange={(e) => handleSectionFormChange('orderIndex', e.target.value)}
+                    required
+                  />
+                </div>
+                {sectionFormError && <p className="mt-2 text-xs text-rose-600">{sectionFormError}</p>}
+                <div className="mt-3 flex gap-2">
+                  <button type="submit" className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700">Tạo chương</button>
+                  <button type="button" onClick={() => setShowCreateSection(false)} className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300">Hủy</button>
+                </div>
+              </form>
+            </div>
+          )}
+
           {lessonProgressError && (
-            <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-200">
+            <div className="border-t border-slate-100 px-5 py-2 text-sm text-rose-600 dark:border-slate-800 dark:text-rose-300">
               {lessonProgressError}
             </div>
           )}
-          {canManageLessons && (
-            <form
-              className="mt-4 rounded-2xl border border-indigo-100 bg-indigo-50 p-4 text-left transition-colors dark:border-indigo-400/30 dark:bg-indigo-400/10"
-              onSubmit={handleCreateSection}
-            >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-                    Tạo phần mới
-                  </h3>
-                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                    Thêm chương/tuần cho khóa học hiện tại.
-                  </p>
-                </div>
-                <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-indigo-700 dark:bg-slate-950 dark:text-indigo-200">
-                  Giảng viên
-                </span>
-              </div>
 
-              <div className="mt-4 grid gap-3 md:grid-cols-2">
-                <input
-                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                  placeholder="Tiêu đề phần"
-                  value={sectionForm.title}
-                  onChange={(event) => handleSectionFormChange('title', event.target.value)}
-                  required
-                />
-                <input
-                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                  min="1"
-                  placeholder="Thứ tự hiển thị"
-                  type="number"
-                  value={sectionForm.orderIndex}
-                  onChange={(event) => handleSectionFormChange('orderIndex', event.target.value)}
-                  required
-                />
-              </div>
-
-              {sectionFormError && (
-                <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-200">
-                  {sectionFormError}
-                </div>
-              )}
-              {sectionFormSuccess && (
-                <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-200">
-                  {sectionFormSuccess}
-                </div>
-              )}
-
-              <button
-                type="submit"
-                className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white"
-              >
-                Tạo phần
-              </button>
-            </form>
-          )}
           {sectionItems.length > 0 ? (
-            <div className="mt-4 space-y-4">
-              {sectionItems.map((section) => (
-                <div key={section.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 transition-colors dark:border-slate-800 dark:bg-slate-950">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">{section.title}</h3>
-                      <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{section.lessonCount} bài học</p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-400/10 dark:text-indigo-200">
-                        Tuần {section.orderIndex}
-                      </span>
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+              {sectionItems.map((section) => {
+                const isExpanded = expandedSections.has(section.id);
+                const allDone = section.lessons?.length > 0 && section.lessons.every((l) => l.status === 'done');
+                return (
+                  <div key={section.id}>
+                    {/* Section row */}
+                    <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-950">
+                      <button
+                        type="button"
+                        onClick={() => toggleSection(section.id)}
+                        className="flex flex-1 items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-slate-100 dark:hover:bg-slate-800"
+                      >
+                        <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">{section.title}</span>
+                        <span className="rounded-full bg-white px-2 py-0.5 text-xs text-slate-500 ring-1 ring-slate-200 dark:bg-slate-900 dark:ring-slate-700">
+                          {section.lessonCount} bài
+                        </span>
+                        <span className="ml-auto flex items-center">
+                          {allDone
+                            ? <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                            : isExpanded
+                              ? <ChevronDown className="h-5 w-5 text-slate-400" />
+                              : <ChevronRight className="h-5 w-5 text-slate-400" />
+                          }
+                        </span>
+                      </button>
                       {canManageLessons && (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1 pr-4">
                           <button
                             type="button"
                             onClick={() => handleStartEditSection(section)}
-                            className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 hover:border-indigo-200 hover:text-indigo-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                            className="rounded px-2 py-1 text-xs text-slate-400 hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-200"
                           >
                             Sửa
                           </button>
                           <button
                             type="button"
                             onClick={() => handleDeleteSection(section.id)}
-                            className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-600 hover:border-rose-300 dark:border-rose-400/40 dark:bg-rose-400/10 dark:text-rose-200"
+                            className="rounded px-2 py-1 text-xs text-rose-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-400/10"
                           >
                             Xóa
                           </button>
                         </div>
                       )}
                     </div>
-                  </div>
 
-                  {canManageLessons && editingSectionId === section.id && (
-                    <form
-                      className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 text-left dark:border-slate-800 dark:bg-slate-900"
-                      onSubmit={handleUpdateSection}
-                    >
-                      <div className="grid gap-3 md:grid-cols-2">
-                        <input
-                          className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                          placeholder="Tiêu đề phần"
-                          value={editingSectionForm.title}
-                          onChange={(event) =>
-                            setEditingSectionForm((prev) => ({
-                              ...prev,
-                              title: event.target.value,
-                            }))
-                          }
-                          required
-                        />
-                        <input
-                          className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                          min="1"
-                          placeholder="Thứ tự hiển thị"
-                          type="number"
-                          value={editingSectionForm.orderIndex}
-                          onChange={(event) =>
-                            setEditingSectionForm((prev) => ({
-                              ...prev,
-                              orderIndex: event.target.value,
-                            }))
-                          }
-                          required
-                        />
-                      </div>
-
-                      {editingSectionError && (
-                        <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-200">
-                          {editingSectionError}
-                        </div>
-                      )}
-
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <button
-                          type="submit"
-                          className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white"
-                        >
-                          Lưu thay đổi
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setEditingSectionId(null)}
-                          className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
-                        >
-                          Hủy
-                        </button>
-                      </div>
-                    </form>
-                  )}
-
-                  {section.lessons?.length > 0 ? (
-                    <div className="mt-4 space-y-3">
-                      {section.lessons.map((lesson) => (
-                        <div key={lesson.id} className="rounded-xl border border-white bg-white p-3 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{lesson.title}</p>
-                              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{lesson.description}</p>
-                              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                                Thời lượng: {lesson.duration} · {lesson.contentCount} tài nguyên con
-                              </p>
-                            </div>
-                            <div className="flex flex-col items-end gap-2">
-                              <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${statusStyles[lesson.status]}`}>
-                                {statusLabels[lesson.status]}
-                              </span>
-                              {canManageLessons && (
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleStartEditLesson(lesson)}
-                                    className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 hover:border-indigo-200 hover:text-indigo-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-                                  >
-                                    Sửa
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteLesson(lesson.id)}
-                                    className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-600 hover:border-rose-300 dark:border-rose-400/40 dark:bg-rose-400/10 dark:text-rose-200"
-                                  >
-                                    Xóa
-                                  </button>
-                                </div>
-                              )}
-                              {canTrackLessonProgress && lesson.status !== 'done' && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleMarkLessonCompleted(lesson.id)}
-                                  disabled={lessonProgressLoadingId === lesson.id}
-                                  className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 hover:border-emerald-300 disabled:cursor-wait disabled:opacity-60 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-200"
-                                >
-                                  {lessonProgressLoadingId === lesson.id ? 'Đang lưu...' : 'Đánh dấu đã học'}
-                                </button>
-                              )}
-                            </div>
+                    {/* Edit section form */}
+                    {canManageLessons && editingSectionId === section.id && (
+                      <div className="border-t border-slate-100 bg-white px-5 py-4 dark:border-slate-800 dark:bg-slate-900">
+                        <form onSubmit={handleUpdateSection}>
+                          <div className="grid gap-3 md:grid-cols-2">
+                            <input
+                              className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                              placeholder="Tiêu đề chương"
+                              value={editingSectionForm.title}
+                              onChange={(e) => setEditingSectionForm((prev) => ({ ...prev, title: e.target.value }))}
+                              required
+                            />
+                            <input
+                              className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                              min="1"
+                              placeholder="Thứ tự"
+                              type="number"
+                              value={editingSectionForm.orderIndex}
+                              onChange={(e) => setEditingSectionForm((prev) => ({ ...prev, orderIndex: e.target.value }))}
+                              required
+                            />
                           </div>
+                          {editingSectionError && <p className="mt-2 text-xs text-rose-600">{editingSectionError}</p>}
+                          <div className="mt-3 flex gap-2">
+                            <button type="submit" className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white">Lưu</button>
+                            <button type="button" onClick={() => setEditingSectionId(null)} className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">Hủy</button>
+                          </div>
+                        </form>
+                      </div>
+                    )}
 
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {(lesson.contentTypes ?? []).map((type) => (
-                              <span
-                                key={`${lesson.id}-${type}`}
-                                className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                    {/* Lessons list */}
+                    {isExpanded && (
+                      <div className="divide-y divide-slate-50 dark:divide-slate-800/60">
+                        {(section.lessons ?? []).map((lesson) => {
+                          const isSelected = selectedLessonId === lesson.id;
+                          const primaryType = lesson.contentTypes?.[0] ?? lesson.type ?? 'text';
+                          const typeMeta = resourceTypeMeta[primaryType] ?? { label: 'Bài học', icon: FileText, badgeClass: 'bg-slate-100 text-slate-600' };
+                          const TypeIcon = typeMeta.icon;
+                          return (
+                            <div key={lesson.id}>
+                              {/* Lesson row */}
+                              <button
+                                type="button"
+                                onClick={() => setSelectedLessonId(isSelected ? null : lesson.id)}
+                                className={['flex w-full items-center gap-3 px-6 py-3.5 text-left transition-colors', isSelected ? 'bg-indigo-50 dark:bg-indigo-400/10' : 'bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-800/60'].join(' ')}
                               >
-                                {type}
-                              </span>
-                            ))}
-                          </div>
+                                <TypeIcon className="h-4 w-4 flex-shrink-0 text-slate-400" />
+                                <span className={['flex-1 text-sm', isSelected ? 'font-semibold text-indigo-700 dark:text-indigo-300' : 'text-slate-700 dark:text-slate-300'].join(' ')}>
+                                  {lesson.title}
+                                </span>
+                                <span className="text-xs text-slate-400">{lesson.duration}</span>
+                                {lesson.status === 'done'
+                                  ? <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-500" />
+                                  : isSelected
+                                    ? <ChevronDown className="h-4 w-4 flex-shrink-0 text-indigo-400" />
+                                    : <ChevronRight className="h-4 w-4 flex-shrink-0 text-slate-300" />
+                                }
+                              </button>
 
-                          {lesson.contents?.length > 0 && (
-                            <div className="mt-3 grid gap-2">
-                              {lesson.contents.map((content) => (
-                                <ResourceCard
-                                  key={`${lesson.id}-${content.id}`}
-                                  resource={content}
-                                />
-                              ))}
+                              {/* Lesson detail panel */}
+                              {isSelected && (
+                                <div className="border-t border-indigo-100 bg-white px-6 py-4 dark:border-indigo-400/20 dark:bg-slate-900">
+                                  {lesson.description && (
+                                    <p className="mb-3 text-sm text-slate-500 dark:text-slate-400">{lesson.description}</p>
+                                  )}
+                                  {lesson.contentTypes?.length > 0 && (
+                                    <div className="mb-4 flex flex-wrap gap-2">
+                                      {lesson.contentTypes.map((type) => {
+                                        const m = resourceTypeMeta[type] ?? { label: type, badgeClass: 'bg-slate-100 text-slate-600' };
+                                        return (
+                                          <span key={type} className={['rounded-full px-2.5 py-1 text-xs font-medium', m.badgeClass].join(' ')}>
+                                            {m.label}
+                                          </span>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                  <div className="flex flex-wrap gap-2">
+                                    <Link
+                                      to={'/courses/' + courseId + '/lessons/' + lesson.id}
+                                      className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700"
+                                    >
+                                      Xem nội dung →
+                                    </Link>
+                                    {canTrackLessonProgress && lesson.status !== 'done' && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleMarkLessonCompleted(lesson.id)}
+                                        disabled={lessonProgressLoadingId === lesson.id}
+                                        className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700 hover:border-emerald-300 disabled:opacity-60 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-200"
+                                      >
+                                        {lessonProgressLoadingId === lesson.id ? 'Đang lưu...' : '✓ Đánh dấu đã học'}
+                                      </button>
+                                    )}
+                                    {canManageLessons && (
+                                      <>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleStartEditLesson(lesson)}
+                                          className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 hover:border-indigo-200 hover:text-indigo-700 dark:border-slate-700 dark:text-slate-300"
+                                        >
+                                          Sửa
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDeleteLesson(lesson.id)}
+                                          className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-semibold text-rose-600 hover:border-rose-300 dark:border-rose-400/40 dark:bg-rose-400/10 dark:text-rose-200"
+                                        >
+                                          Xóa
+                                        </button>
+                                      </>
+                                    )}
+                                  </div>
+
+                                  {/* Edit lesson form */}
+                                  {canManageLessons && editingLessonId === lesson.id && (
+                                    <form
+                                      className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950"
+                                      onSubmit={handleUpdateLesson}
+                                    >
+                                      <div className="grid gap-3 md:grid-cols-2">
+                                        <input className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100" placeholder="Tiêu đề bài học" value={editingLessonForm.title} onChange={(e) => setEditingLessonForm((prev) => ({ ...prev, title: e.target.value }))} required />
+                                        <input className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100" min="1" placeholder="Thứ tự hiển thị" type="number" value={editingLessonForm.orderIndex} onChange={(e) => setEditingLessonForm((prev) => ({ ...prev, orderIndex: e.target.value }))} required />
+                                        <input className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100" min="1" placeholder="Thời lượng (phút)" type="number" value={editingLessonForm.duration} onChange={(e) => setEditingLessonForm((prev) => ({ ...prev, duration: e.target.value }))} />
+                                        <select className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100" value={editingLessonForm.type} onChange={(e) => setEditingLessonForm((prev) => ({ ...prev, type: e.target.value }))}>
+                                          {lessonTypeOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                                        </select>
+                                        <textarea className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 md:col-span-2" placeholder="Mô tả bài học" value={editingLessonForm.description} onChange={(e) => setEditingLessonForm((prev) => ({ ...prev, description: e.target.value }))} />
+                                      </div>
+                                      {editingLessonForm.type === 'file' && (
+                                        <div className="mt-3 space-y-2">
+                                          <input type="file" className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" onChange={(e) => handleUploadEditingLessonFile(e.target.files?.[0])} />
+                                          <input className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100" placeholder="Hoặc nhập link file" value={editingLessonForm.fileUrl} onChange={(e) => setEditingLessonForm((prev) => ({ ...prev, fileUrl: e.target.value }))} />
+                                          {editingLessonUpload.isUploading && <p className="text-xs text-slate-500">Đang tải file...</p>}
+                                          {editingLessonUpload.error && <p className="text-xs text-rose-600">{editingLessonUpload.error}</p>}
+                                        </div>
+                                      )}
+                                      {editingLessonForm.type === 'video' && (
+                                        <input className="mt-3 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100" placeholder="Link video" value={editingLessonForm.fileUrl} onChange={(e) => setEditingLessonForm((prev) => ({ ...prev, fileUrl: e.target.value }))} />
+                                      )}
+                                      {editingLessonForm.type === 'text' && (
+                                        <div className="mt-3 space-y-2">
+                                          <input type="file" accept=".doc,.docx" className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" onChange={(e) => handleUploadEditingLessonFile(e.target.files?.[0])} />
+                                          {editingLessonUpload.isUploading && <p className="text-xs text-slate-500">Đang tải file...</p>}
+                                          {editingLessonUpload.error && <p className="text-xs text-rose-600">{editingLessonUpload.error}</p>}
+                                          {editingLessonForm.fileUrl && <p className="text-xs text-emerald-600">File hiện tại: {editingLessonForm.fileUrl.split('/').pop()}</p>}
+                                          <p className="text-xs text-slate-400">Chỉ chấp nhận file .doc / .docx</p>
+                                        </div>
+                                      )}
+                                      {editingLessonForm.type === 'quiz' && (
+                                        <div className="mt-3 space-y-1">
+                                          <input className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100" placeholder="Quiz ID (UUID)" value={editingLessonForm.quizId} onChange={(e) => setEditingLessonForm((prev) => ({ ...prev, quizId: e.target.value }))} />
+                                          <p className="text-xs text-slate-400">Nhập ID của quiz đã tạo hoặc để trống</p>
+                                        </div>
+                                      )}
+                                      {editingLessonError && <p className="mt-2 text-xs text-rose-600">{editingLessonError}</p>}
+                                      <div className="mt-3 flex gap-2">
+                                        <button type="submit" className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white">Lưu thay đổi</button>
+                                        <button type="button" onClick={() => setEditingLessonId(null)} className="rounded-lg border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:text-slate-300">Hủy</button>
+                                      </div>
+                                    </form>
+                                  )}
+                                </div>
+                              )}
                             </div>
-                          )}
+                          );
+                        })}
 
-                          {canManageLessons && editingLessonId === lesson.id && (
-                            <form
-                              className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 text-left dark:border-slate-800 dark:bg-slate-950"
-                              onSubmit={handleUpdateLesson}
-                            >
+                        {/* Create lesson form for teachers */}
+                        {canManageLessons && (
+                          <div className="border-t border-slate-100 bg-slate-50 dark:border-slate-800 dark:bg-slate-950">
+                            <form onSubmit={(e) => handleCreateLesson(e, section)} className="px-6 py-4">
+                              <h4 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                                + Thêm bài học
+                              </h4>
                               <div className="grid gap-3 md:grid-cols-2">
-                                <input
-                                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                                  placeholder="Tiêu đề bài học"
-                                  value={editingLessonForm.title}
-                                  onChange={(event) =>
-                                    setEditingLessonForm((prev) => ({
-                                      ...prev,
-                                      title: event.target.value,
-                                    }))
-                                  }
-                                  required
-                                />
-                                <input
-                                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                                  min="1"
-                                  placeholder="Thứ tự hiển thị"
-                                  type="number"
-                                  value={editingLessonForm.orderIndex}
-                                  onChange={(event) =>
-                                    setEditingLessonForm((prev) => ({
-                                      ...prev,
-                                      orderIndex: event.target.value,
-                                    }))
-                                  }
-                                  required
-                                />
-                                <input
-                                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                                  min="1"
-                                  placeholder="Thời lượng (phút)"
-                                  type="number"
-                                  value={editingLessonForm.duration}
-                                  onChange={(event) =>
-                                    setEditingLessonForm((prev) => ({
-                                      ...prev,
-                                      duration: event.target.value,
-                                    }))
-                                  }
-                                />
-                                <select
-                                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                                  value={editingLessonForm.type}
-                                  onChange={(event) =>
-                                    setEditingLessonForm((prev) => ({
-                                      ...prev,
-                                      type: event.target.value,
-                                    }))
-                                  }
-                                >
-                                  {lessonTypeOptions.map((option) => (
-                                    <option key={option.value} value={option.value}>
-                                      {option.label}
-                                    </option>
-                                  ))}
+                                <input className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100" placeholder="Tiêu đề bài học" value={lessonForms[section.id]?.title ?? ''} onChange={(e) => updateLessonForm(section.id, { title: e.target.value })} required />
+                                <input className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100" min="1" placeholder="Thứ tự" type="number" value={lessonForms[section.id]?.orderIndex ?? (section.lessons?.length ?? 0) + 1} onChange={(e) => updateLessonForm(section.id, { orderIndex: e.target.value })} required />
+                                <input className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100" min="1" placeholder="Thời lượng (phút)" type="number" value={lessonForms[section.id]?.duration ?? ''} onChange={(e) => updateLessonForm(section.id, { duration: e.target.value })} />
+                                <select className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100" value={lessonForms[section.id]?.type ?? 'text'} onChange={(e) => updateLessonForm(section.id, { type: e.target.value })}>
+                                  {lessonTypeOptions.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                                 </select>
-                                <textarea
-                                  className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 md:col-span-2"
-                                  placeholder="Mô tả bài học"
-                                  value={editingLessonForm.description}
-                                  onChange={(event) =>
-                                    setEditingLessonForm((prev) => ({
-                                      ...prev,
-                                      description: event.target.value,
-                                    }))
-                                  }
-                                />
+                                <textarea className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 md:col-span-2" placeholder="Mô tả bài học" value={lessonForms[section.id]?.description ?? ''} onChange={(e) => updateLessonForm(section.id, { description: e.target.value })} />
                               </div>
-
-                              {editingLessonForm.type === 'file' && (
+                              {lessonForms[section.id]?.type === 'file' && (
                                 <div className="mt-3 space-y-2">
-                                  <input
-                                    type="file"
-                                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                                    onChange={(event) =>
-                                      handleUploadEditingLessonFile(event.target.files?.[0])
-                                    }
-                                  />
-                                  <input
-                                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                                    placeholder="Hoặc nhập link file"
-                                    value={editingLessonForm.fileUrl}
-                                    onChange={(event) =>
-                                      setEditingLessonForm((prev) => ({
-                                        ...prev,
-                                        fileUrl: event.target.value,
-                                      }))
-                                    }
-                                  />
-                                  {editingLessonUpload.isUploading && (
-                                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                                      Đang tải file...
-                                    </p>
+                                  <input type="file" className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" onChange={(e) => handleUploadLessonFile(section.id, e.target.files?.[0])} />
+                                  <input className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100" placeholder="Hoặc nhập link file" value={lessonForms[section.id]?.fileUrl ?? ''} onChange={(e) => updateLessonForm(section.id, { fileUrl: e.target.value })} />
+                                  {lessonUploadState[section.id]?.isUploading && <p className="text-xs text-slate-500">Đang tải file...</p>}
+                                  {lessonUploadState[section.id]?.error && <p className="text-xs text-rose-600">{lessonUploadState[section.id]?.error}</p>}
+                                </div>
+                              )}
+                              {lessonForms[section.id]?.type === 'video' && (
+                                <input className="mt-3 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100" placeholder="Link video" value={lessonForms[section.id]?.fileUrl ?? ''} onChange={(e) => updateLessonForm(section.id, { fileUrl: e.target.value })} />
+                              )}
+                              {lessonForms[section.id]?.type === 'text' && (
+                                <div className="mt-3 space-y-2">
+                                  <input type="file" accept=".doc,.docx" className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" onChange={(e) => handleUploadLessonFile(section.id, e.target.files?.[0])} />
+                                  {lessonUploadState[section.id]?.isUploading && <p className="text-xs text-slate-500">Đang tải file...</p>}
+                                  {lessonUploadState[section.id]?.error && <p className="text-xs text-rose-600">{lessonUploadState[section.id]?.error}</p>}
+                                  {lessonForms[section.id]?.fileUrl && <p className="text-xs text-emerald-600">Đã tải: {lessonForms[section.id]?.fileUrl.split('/').pop()}</p>}
+                                  <p className="text-xs text-slate-400">Chỉ chấp nhận file .doc / .docx</p>
+                                </div>
+                              )}
+                              {lessonForms[section.id]?.type === 'quiz' && (
+                                <div className="mt-3 space-y-3 rounded-xl border border-indigo-100 bg-indigo-50 p-3 dark:border-indigo-400/20 dark:bg-indigo-400/10">
+                                  <p className="text-xs font-semibold text-indigo-700 dark:text-indigo-300">Tạo quiz mới từ CSV</p>
+                                  <div className="grid gap-3 md:grid-cols-2">
+                                    <input className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100" placeholder="Tiêu đề quiz" value={quizImportForms[section.id]?.title ?? ''} onChange={(e) => updateQuizImportForm(section.id, { title: e.target.value })} />
+                                    <input type="number" min="1" className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100" placeholder="Thời lượng (phút)" value={quizImportForms[section.id]?.timeLimit ?? 10} onChange={(e) => updateQuizImportForm(section.id, { timeLimit: e.target.value })} />
+                                    <div>
+                                      <label className="block text-xs text-slate-500 mb-1">Mở từ (tùy chọn)</label>
+                                      <input type="datetime-local" className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100" value={quizImportForms[section.id]?.openTime ?? ''} onChange={(e) => updateQuizImportForm(section.id, { openTime: e.target.value })} />
+                                    </div>
+                                    <div>
+                                      <label className="block text-xs text-slate-500 mb-1">Đóng lúc (tùy chọn)</label>
+                                      <input type="datetime-local" className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100" value={quizImportForms[section.id]?.closeTime ?? ''} onChange={(e) => updateQuizImportForm(section.id, { closeTime: e.target.value })} />
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs text-slate-500 mb-1">File CSV câu hỏi (6 cột: câu hỏi, A, B, C, D, đáp án đúng)</label>
+                                    <input type="file" accept=".csv" className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900" onChange={(e) => handleQuizCsvSelect(section.id, e.target.files?.[0])} />
+                                  </div>
+                                  {quizImportForms[section.id]?.csvQuestions?.length > 0 && (
+                                    <p className="text-xs text-emerald-600 dark:text-emerald-400">Đã phân tích: {quizImportForms[section.id].csvQuestions.length} câu hỏi</p>
                                   )}
-                                  {editingLessonUpload.error && (
-                                    <p className="text-xs text-rose-600 dark:text-rose-200">
-                                      {editingLessonUpload.error}
-                                    </p>
+                                  {quizImportForms[section.id]?.error && (
+                                    <p className="text-xs text-rose-600">{quizImportForms[section.id].error}</p>
+                                  )}
+                                  {quizImportForms[section.id]?.isCreating && (
+                                    <p className="text-xs text-slate-500">Đang tạo quiz...</p>
                                   )}
                                 </div>
                               )}
-
-                              {editingLessonForm.type === 'video' && (
-                                <input
-                                  className="mt-3 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                                  placeholder="Link video"
-                                  value={editingLessonForm.fileUrl}
-                                  onChange={(event) =>
-                                    setEditingLessonForm((prev) => ({
-                                      ...prev,
-                                      fileUrl: event.target.value,
-                                    }))
-                                  }
-                                />
-                              )}
-
-                              {editingLessonForm.type === 'text' && (
-                                <textarea
-                                  className="mt-3 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                                  placeholder="Nội dung text"
-                                  value={editingLessonForm.content}
-                                  onChange={(event) =>
-                                    setEditingLessonForm((prev) => ({
-                                      ...prev,
-                                      content: event.target.value,
-                                    }))
-                                  }
-                                />
-                              )}
-
-                              {editingLessonForm.type === 'quiz' && (
-                                <input
-                                  className="mt-3 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                                  placeholder="Quiz id"
-                                  value={editingLessonForm.quizId}
-                                  onChange={(event) =>
-                                    setEditingLessonForm((prev) => ({
-                                      ...prev,
-                                      quizId: event.target.value,
-                                    }))
-                                  }
-                                />
-                              )}
-
-                              {editingLessonError && (
-                                <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-200">
-                                  {editingLessonError}
-                                </div>
-                              )}
-
-                              <div className="mt-3 flex flex-wrap gap-2">
-                                <button
-                                  type="submit"
-                                  className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white"
-                                >
-                                  Lưu thay đổi
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setEditingLessonId(null)}
-                                  className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
-                                >
-                                  Hủy
-                                </button>
-                              </div>
+                              {lessonFormErrors[section.id] && <p className="mt-2 text-xs text-rose-600">{lessonFormErrors[section.id]}</p>}
+                              <button type="submit" className="mt-3 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white hover:bg-indigo-700">Thêm bài học</button>
                             </form>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-white px-4 py-6 text-center text-sm text-slate-500 transition-colors dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
-                      Phần này chưa có bài học nào.
-                    </div>
-                  )}
-
-                  {canManageLessons && (
-                    <form
-                      className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 text-left dark:border-slate-800 dark:bg-slate-900"
-                      onSubmit={(event) => handleCreateLesson(event, section)}
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                          Thêm bài học mới
-                        </h4>
-                        <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700 dark:bg-indigo-400/10 dark:text-indigo-200">
-                          Giảng viên
-                        </span>
+                          </div>
+                        )}
                       </div>
-
-                      <div className="mt-3 grid gap-3 md:grid-cols-2">
-                        <input
-                          className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                          placeholder="Tiêu đề bài học"
-                          value={(lessonForms[section.id]?.title ?? '')}
-                          onChange={(event) => updateLessonForm(section.id, { title: event.target.value })}
-                          required
-                        />
-                        <input
-                          className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                          min="1"
-                          placeholder="Thứ tự hiển thị"
-                          type="number"
-                          value={(lessonForms[section.id]?.orderIndex ?? (section.lessons?.length ?? 0) + 1)}
-                          onChange={(event) => updateLessonForm(section.id, { orderIndex: event.target.value })}
-                          required
-                        />
-                        <input
-                          className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                          min="1"
-                          placeholder="Thời lượng (phút)"
-                          type="number"
-                          value={(lessonForms[section.id]?.duration ?? '')}
-                          onChange={(event) => updateLessonForm(section.id, { duration: event.target.value })}
-                        />
-                        <select
-                          className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                          value={(lessonForms[section.id]?.type ?? 'text')}
-                          onChange={(event) => updateLessonForm(section.id, { type: event.target.value })}
-                        >
-                          {lessonTypeOptions.map((option) => (
-                            <option key={option.value} value={option.value}>
-                              {option.label}
-                            </option>
-                          ))}
-                        </select>
-                        <textarea
-                          className="rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 md:col-span-2"
-                          placeholder="Mô tả bài học"
-                          value={(lessonForms[section.id]?.description ?? '')}
-                          onChange={(event) => updateLessonForm(section.id, { description: event.target.value })}
-                        />
-                      </div>
-
-                      {lessonForms[section.id]?.type === 'file' && (
-                        <div className="mt-3 space-y-2">
-                          <input
-                            type="file"
-                            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                            onChange={(event) =>
-                              handleUploadLessonFile(section.id, event.target.files?.[0])
-                            }
-                          />
-                          <input
-                            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                            placeholder="Hoặc nhập link file"
-                            value={(lessonForms[section.id]?.fileUrl ?? '')}
-                            onChange={(event) => updateLessonForm(section.id, { fileUrl: event.target.value })}
-                          />
-                          {lessonUploadState[section.id]?.isUploading && (
-                            <p className="text-xs text-slate-500 dark:text-slate-400">
-                              Đang tải file...
-                            </p>
-                          )}
-                          {lessonUploadState[section.id]?.error && (
-                            <p className="text-xs text-rose-600 dark:text-rose-200">
-                              {lessonUploadState[section.id]?.error}
-                            </p>
-                          )}
-                        </div>
-                      )}
-
-                      {lessonForms[section.id]?.type === 'video' && (
-                        <input
-                          className="mt-3 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                          placeholder="Link video"
-                          value={(lessonForms[section.id]?.fileUrl ?? '')}
-                          onChange={(event) => updateLessonForm(section.id, { fileUrl: event.target.value })}
-                        />
-                      )}
-
-                      {lessonForms[section.id]?.type === 'text' && (
-                        <textarea
-                          className="mt-3 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                          placeholder="Nội dung text"
-                          value={(lessonForms[section.id]?.content ?? '')}
-                          onChange={(event) => updateLessonForm(section.id, { content: event.target.value })}
-                        />
-                      )}
-
-                      {lessonForms[section.id]?.type === 'quiz' && (
-                        <input
-                          className="mt-3 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                          placeholder="Quiz id"
-                          value={(lessonForms[section.id]?.quizId ?? '')}
-                          onChange={(event) => updateLessonForm(section.id, { quizId: event.target.value })}
-                        />
-                      )}
-
-                      {lessonFormErrors[section.id] && (
-                        <div className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-200">
-                          {lessonFormErrors[section.id]}
-                        </div>
-                      )}
-
-                      <button
-                        type="submit"
-                        className="mt-3 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white"
-                      >
-                        Thêm bài học
-                      </button>
-                    </form>
-                  )}
-                </div>
-              ))}
+                    )}
+                  </div>
+                );
+              })}
             </div>
           ) : (
-            <div className="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500 transition-colors dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
-              Khóa học này chưa có phần hoặc bài học nào.
+            <div className="px-5 py-12 text-center text-sm text-slate-500 dark:text-slate-400">
+              Khóa học này chưa có chương hoặc bài học nào.
             </div>
           )}
         </section>
@@ -2134,7 +2114,7 @@ export default function CourseDetail() {
                           {assignment.attachments?.length > 0 && (
                             <span className="inline-flex items-center gap-1">
                               <Paperclip className="h-3.5 w-3.5" />
-                              {assignment.attachments.length} tệp đính kèm
+                              {assignment.attachments.length} tệp Ä‘ính kèm
                             </span>
                           )}
                         </div>
@@ -2728,7 +2708,7 @@ export default function CourseDetail() {
                   <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
                     <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Bài tập về nhà</h3>
                     <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                      Số sinh viên đã nộp theo từng bài
+                      Số sinh viên Ä‘ã nộp theo từng bài
                     </p>
                     {teacherAssignments.length > 0 ? (
                       <ul className="mt-3 space-y-2 text-sm text-slate-700 dark:text-slate-200">
@@ -2742,7 +2722,7 @@ export default function CourseDetail() {
                                 </p>
                               </div>
                               <div className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-200">
-                                {assignment.submitted_count}/{totalStudents} đã nộp
+                                {assignment.submitted_count}/{totalStudents} Ä‘ã nộp
                               </div>
                             </div>
                           </li>
@@ -2804,307 +2784,325 @@ export default function CourseDetail() {
       )}
 
       {activeTab === 'discussions' && (
-        <section
-          className="overflow-hidden rounded-2xl border border-slate-200 shadow-sm dark:border-slate-800"
-          style={{ height: '620px' }}
-        >
-          <div className="flex h-full">
-            {/* ── LEFT SIDEBAR ──────────────────────────────────────────── */}
-            <div className="flex w-52 flex-shrink-0 flex-col bg-slate-800 dark:bg-slate-950">
-              {/* Sidebar header */}
-              <div className="flex items-center justify-between px-3 py-3">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
-                  Thảo luận
-                </span>
-                <button
-                  type="button"
-                  title="Tạo kênh mới"
-                  onClick={() => {
-                    setShowDiscussionForm((v) => !v);
-                    setDiscussionError('');
-                    setDiscussionForm({ title: '', content: '' });
-                  }}
-                  className="flex h-6 w-6 items-center justify-center rounded text-lg font-light text-slate-400 hover:bg-slate-700 hover:text-white"
-                >
-                  +
-                </button>
-              </div>
-
-              {/* Inline create form */}
-              {showDiscussionForm && (
-                <form
-                  className="border-b border-slate-700 px-2 pb-2"
-                  onSubmit={handleCreateDiscussion}
-                >
-                  <input
-                    autoFocus
-                    className="w-full rounded bg-slate-700 px-2 py-1.5 text-sm text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                    placeholder="Tên kênh..."
-                    value={discussionForm.title}
-                    onChange={(e) => handleDiscussionFormChange('title', e.target.value)}
-                    onKeyDown={(e) => e.key === 'Escape' && setShowDiscussionForm(false)}
-                    required
-                  />
-                  {discussionError && (
-                    <p className="mt-1 text-xs text-rose-400">{discussionError}</p>
-                  )}
-                  <div className="mt-1.5 flex gap-1.5">
-                    <button
-                      type="submit"
-                      className="flex-1 rounded bg-indigo-600 py-1 text-xs font-semibold text-white hover:bg-indigo-700"
-                    >
-                      Tạo
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowDiscussionForm(false)}
-                      className="flex-1 rounded bg-slate-700 py-1 text-xs text-slate-300 hover:bg-slate-600"
-                    >
-                      Hủy
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {/* Channel list */}
-              <div className="flex-1 overflow-y-auto py-1">
-                {discussionItems.length === 0 && !showDiscussionForm && (
-                  <p className="px-3 py-2 text-xs text-slate-500">
-                    Chưa có kênh nào
-                  </p>
-                )}
-                {discussionItems.map((discussion) => {
-                  const isActive = selectedDiscussionId === discussion.id;
-                  return (
-                    <button
-                      key={discussion.id}
-                      type="button"
-                      onClick={() => setSelectedDiscussionId(discussion.id)}
-                      className={`group flex w-full items-center gap-2 px-3 py-1.5 text-sm transition-colors ${
-                        isActive
-                          ? 'bg-slate-600 text-white'
-                          : 'text-slate-400 hover:bg-slate-700 hover:text-slate-100'
-                      }`}
-                    >
-                      <span className="flex-shrink-0 text-slate-500 group-hover:text-slate-400">
-                        #
-                      </span>
-                      <span className="flex-1 truncate text-left">{discussion.title}</span>
-                    </button>
-                  );
-                })}
-              </div>
-
-            </div>
-
-            {/* ── RIGHT MAIN AREA ──────────────────────────────────────── */}
-            {selectedDiscussionId ? (
-              (() => {
-                const selected = discussionItems.find((d) => d.id === selectedDiscussionId);
-                const canDeleteChannel =
-                  selected?.createdBy === currentUser?.id ||
-                  currentUser?.role === 'TEACHER';
-
-                return (
-                  <div className="flex flex-1 flex-col overflow-hidden bg-white dark:bg-slate-900">
-                    {/* Channel header */}
-                    <div className="flex flex-shrink-0 items-center gap-2 border-b border-slate-200 px-4 py-3 dark:border-slate-800">
-                      <span className="text-xl font-light text-slate-400">#</span>
-                      <h3 className="flex-1 text-base font-bold text-slate-900 dark:text-slate-100">
-                        {selected?.title}
-                      </h3>
-                      {canDeleteChannel && (
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteDiscussion(selected.id)}
-                          className="rounded px-2 py-1 text-xs text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-400/10 dark:hover:text-rose-300"
-                        >
-                          Xóa kênh
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Messages feed */}
-                    <div className="flex-1 overflow-y-auto px-4 py-4">
-                      {isLoadingMessages && (
-                        <p className="text-center text-sm text-slate-400">Đang tải tin nhắn...</p>
-                      )}
-                      {discussionMessagesError && (
-                        <p className="mb-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-200">
-                          {discussionMessagesError}
-                        </p>
-                      )}
-                      {editingMessageError && (
-                        <p className="mb-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-200">
-                          {editingMessageError}
-                        </p>
-                      )}
-                      {!isLoadingMessages && discussionMessages.length === 0 && (
-                        <div className="flex h-full flex-col items-center justify-center text-slate-400">
-                          <p className="text-5xl">💬</p>
-                          <p className="mt-4 text-base font-semibold text-slate-600 dark:text-slate-300">
-                            Chào mừng đến kênh <span className="text-indigo-600 dark:text-indigo-300">#{selected?.title}</span>
-                          </p>
-                          <p className="mt-1 text-sm">Hãy bắt đầu cuộc trò chuyện!</p>
-                        </div>
-                      )}
-
-                      {discussionMessages.map((message, index) => {
-                        const prev = discussionMessages[index - 1];
-                        const grouped =
-                          prev?.user_id === message.user_id &&
-                          new Date(message.created_at) - new Date(prev.created_at) <
-                            5 * 60 * 1000;
-                        const isOwn = message.user_id === currentUser?.id;
-                        const canEdit = isOwn;
-                        const canDelete = isOwn || currentUser?.role === 'TEACHER';
-                        const initials = (
-                          message.author?.full_name ?? '?'
-                        )[0].toUpperCase();
-
-                        return (
-                          <div
-                            key={message.id}
-                            className={`group flex gap-3 ${grouped ? 'mt-0.5' : 'mt-5'}`}
-                          >
-                            {/* Avatar column */}
-                            <div className="w-9 flex-shrink-0 pt-0.5">
-                              {!grouped && (
-                                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-500 text-sm font-bold text-white">
-                                  {initials}
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Message content */}
-                            <div className="relative min-w-0 flex-1">
-                              {!grouped && (
-                                <div className="flex items-baseline gap-2">
-                                  <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                                    {message.author?.full_name ?? 'Thành viên'}
-                                  </span>
-                                  <span className="text-xs text-slate-400">
-                                    {formatChatTime(message.created_at)}
-                                  </span>
-                                </div>
-                              )}
-
-                              {editingMessageId === message.id ? (
-                                <form
-                                  className="mt-1 flex items-center gap-2"
-                                  onSubmit={handleUpdateMessage}
-                                >
-                                  <input
-                                    autoFocus
-                                    className="flex-1 rounded border border-slate-200 px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-                                    value={editingMessageContent}
-                                    onChange={(e) => setEditingMessageContent(e.target.value)}
-                                  />
-                                  <button
-                                    type="submit"
-                                    className="rounded bg-indigo-600 px-2 py-1 text-xs font-semibold text-white"
-                                  >
-                                    Lưu
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => setEditingMessageId(null)}
-                                    className="rounded border border-slate-200 px-2 py-1 text-xs dark:border-slate-700 dark:text-slate-300"
-                                  >
-                                    Hủy
-                                  </button>
-                                </form>
-                              ) : (
-                                <p
-                                  className={`whitespace-pre-wrap text-sm text-slate-800 dark:text-slate-200 ${grouped ? '' : 'mt-0.5'}`}
-                                >
-                                  {message.content}
-                                </p>
-                              )}
-
-                              {/* Hover action toolbar */}
-                              {!editingMessageId && (canEdit || canDelete) && (
-                                <div className="absolute -top-8 right-0 hidden items-center gap-0.5 rounded-lg border border-slate-200 bg-white px-1 py-0.5 shadow-md group-hover:flex dark:border-slate-700 dark:bg-slate-800">
-                                  {canEdit && (
-                                    <button
-                                      type="button"
-                                      title="Chỉnh sửa"
-                                      onClick={() => handleStartEditMessage(message)}
-                                      className="rounded p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:hover:bg-slate-700 dark:hover:text-slate-100"
-                                    >
-                                      ✏️
-                                    </button>
-                                  )}
-                                  {canDelete && (
-                                    <button
-                                      type="button"
-                                      title="Xóa tin nhắn"
-                                      onClick={() => handleDeleteMessage(message.id)}
-                                      className="rounded p-1.5 text-rose-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-400/10"
-                                    >
-                                      🗑️
-                                    </button>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                      <div ref={messagesEndRef} />
-                    </div>
-
-                    {/* Compose box */}
-                    <div className="flex-shrink-0 border-t border-slate-200 px-4 py-3 dark:border-slate-800">
-                      {messageError && (
-                        <p className="mb-1 text-xs text-rose-600 dark:text-rose-300">
-                          {messageError}
-                        </p>
-                      )}
-                      <form
-                        className="flex items-end gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 transition-colors focus-within:border-indigo-300 dark:border-slate-700 dark:bg-slate-800"
-                        onSubmit={handleCreateMessage}
-                      >
-                        <textarea
-                          className="max-h-32 flex-1 resize-none bg-transparent text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none dark:text-slate-100"
-                          placeholder={`Nhắn tin trong #${selected?.title ?? '...'}`}
-                          value={messageForm}
-                          rows={1}
-                          onChange={(e) => setMessageForm(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                              e.preventDefault();
-                              handleCreateMessage(e);
-                            }
-                          }}
-                        />
-                        <button
-                          type="submit"
-                          disabled={!messageForm.trim()}
-                          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          <Send className="h-4 w-4" />
-                        </button>
-                      </form>
-                      <p className="mt-1 text-right text-xs text-slate-400">
-                        Enter để gửi · Shift+Enter xuống dòng
-                      </p>
-                    </div>
-                  </div>
-                );
-              })()
+        <section className="space-y-4">
+          {/* ── Create post area ─────────────────────────────────────────── */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            {!showDiscussionForm ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDiscussionForm(true);
+                  setDiscussionError('');
+                  setDiscussionForm({ title: '', content: '' });
+                }}
+                className="flex w-full items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-left text-sm text-slate-400 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
+              >
+                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-indigo-500 text-sm font-bold text-white">
+                  {(currentUser?.full_name ?? '?')[0].toUpperCase()}
+                </div>
+                <span>Đăng bài cho lớp...</span>
+              </button>
             ) : (
-              <div className="flex flex-1 flex-col items-center justify-center bg-white dark:bg-slate-900">
-                <p className="text-5xl">💬</p>
-                <p className="mt-4 text-base font-semibold text-slate-600 dark:text-slate-300">
-                  Chọn một kênh thảo luận
-                </p>
-                <p className="mt-1 text-sm text-slate-400">
-                  hoặc nhấn <kbd className="rounded border border-slate-200 px-1.5 py-0.5 text-xs">+</kbd> để tạo kênh mới
-                </p>
-              </div>
+              <form onSubmit={handleCreateDiscussion} className="space-y-3">
+                <input
+                  autoFocus
+                  className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold placeholder:font-normal dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  placeholder="Tiêu đề bài đăng..."
+                  value={discussionForm.title}
+                  onChange={(e) => handleDiscussionFormChange('title', e.target.value)}
+                  required
+                />
+                <textarea
+                  className="w-full resize-none rounded-xl border border-slate-200 px-4 py-2.5 text-sm dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  placeholder="Nội dung chi tiết (tùy chọn)..."
+                  rows={4}
+                  value={discussionForm.content}
+                  onChange={(e) => handleDiscussionFormChange('content', e.target.value)}
+                />
+                {discussionError && (
+                  <p className="text-sm text-rose-600 dark:text-rose-300">{discussionError}</p>
+                )}
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowDiscussionForm(false)}
+                    className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="submit"
+                    className="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+                  >
+                    Đăng
+                  </button>
+                </div>
+              </form>
             )}
           </div>
+
+          {/* ── Post feed ─────────────────────────────────────────────────── */}
+          {discussionItems.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-slate-200 bg-white py-12 text-center text-slate-400 dark:border-slate-700 dark:bg-slate-900">
+              <p className="text-4xl">📢</p>
+              <p className="mt-3 text-base font-semibold text-slate-600 dark:text-slate-300">Chưa có bài đăng nào</p>
+              <p className="mt-1 text-sm">Hãy là người đầu tiên đăng bài cho lớp!</p>
+            </div>
+          )}
+
+          {!USE_MOCK_DATA && discussionItems.length > 0 && (
+            <div className="flex items-center gap-2 text-xs">
+              <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-semibold ${socketConnected ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${socketConnected ? 'animate-pulse bg-emerald-500' : 'bg-slate-400'}`} />
+                {socketConnected ? 'Trực tuyến' : 'Đang kết nối...'}
+              </span>
+            </div>
+          )}
+
+          {discussionItems.map((post) => {
+            const canDeletePost = post.createdBy === currentUser?.id || currentUser?.role === 'TEACHER';
+            const isCommentsOpen = selectedDiscussionId === post.id;
+            const isContentExpanded = expandedContents.includes(post.id);
+            const hasLongContent = (post.content ?? '').length > 300;
+            const avatarColors = ['bg-indigo-500', 'bg-emerald-500', 'bg-rose-500', 'bg-amber-500', 'bg-violet-500', 'bg-sky-500'];
+            const avatarColor = avatarColors[(post.author?.full_name ?? '').charCodeAt(0) % avatarColors.length];
+
+            return (
+              <article key={post.id} className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                {/* Left accent bar */}
+                <div className="flex">
+                  <div className="w-1 flex-shrink-0 rounded-l-2xl bg-indigo-500" />
+
+                  <div className="min-w-0 flex-1 p-5">
+                    {/* Post header */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ${avatarColor}`}>
+                          {(post.author?.full_name ?? '?')[0].toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                            {post.author?.full_name ?? 'Thành viên'}
+                          </p>
+                          <p className="text-xs text-slate-400">
+                            {formatChatTime(post.createdAt)}
+                          </p>
+                        </div>
+                      </div>
+                      {canDeletePost && (
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteDiscussion(post.id)}
+                          className="flex-shrink-0 rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-500 dark:hover:bg-rose-400/10"
+                        >
+                          🗑️
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Post title */}
+                    <h3 className="mt-3 text-base font-bold text-slate-900 dark:text-slate-100">
+                      {post.title}
+                    </h3>
+
+                    {/* Post content */}
+                    {post.content && (
+                      <div className="mt-2">
+                        <p className={`whitespace-pre-wrap text-sm leading-relaxed text-slate-700 dark:text-slate-300 ${!isContentExpanded && hasLongContent ? 'line-clamp-4' : ''}`}>
+                          {post.content}
+                        </p>
+                        {hasLongContent && (
+                          <button
+                            type="button"
+                            onClick={() => toggleExpandContent(post.id)}
+                            className="mt-1 text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+                          >
+                            {isContentExpanded ? 'Thu gọn' : 'Xem thêm'}
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Action bar */}
+                    <div className="mt-4 flex items-center gap-1 border-t border-slate-100 pt-3 dark:border-slate-800">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleComments(post.id)}
+                        className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors ${
+                          isCommentsOpen
+                            ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-400/10 dark:text-indigo-300'
+                            : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                        Bình luận
+                        {isCommentsOpen && discussionMessages.length > 0 && (
+                          <span className="rounded-full bg-indigo-100 px-1.5 py-0.5 text-xs dark:bg-indigo-400/20">
+                            {discussionMessages.length}
+                          </span>
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Comments section */}
+                    {isCommentsOpen && (
+                      <div className="mt-4 space-y-3 border-t border-slate-100 pt-4 dark:border-slate-800">
+                        {isLoadingMessages && (
+                          <p className="text-center text-sm text-slate-400">Đang tải bình luận...</p>
+                        )}
+                        {discussionMessages.length === 0 && !isLoadingMessages && (
+                          <p className="text-center text-sm text-slate-400">Chưa có bình luận. Hãy là người đầu tiên!</p>
+                        )}
+
+                        {discussionMessages.map((msg) => {
+                          const isOwn = msg.user_id === currentUser?.id;
+                          const canEdit = isOwn;
+                          const canDeleteMsg = isOwn || currentUser?.role === 'TEACHER';
+                          const msgColor = avatarColors[(msg.author?.full_name ?? '').charCodeAt(0) % avatarColors.length];
+                          return (
+                            <div key={msg.id} className="group flex gap-3">
+                              <div className={`mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${msgColor}`}>
+                                {(msg.author?.full_name ?? '?')[0].toUpperCase()}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="rounded-2xl rounded-tl-sm bg-slate-50 px-3 py-2 dark:bg-slate-800">
+                                  <div className="flex items-baseline justify-between gap-2">
+                                    <span className="text-xs font-semibold text-slate-800 dark:text-slate-100">
+                                      {msg.author?.full_name ?? 'Thành viên'}
+                                    </span>
+                                    <span className="text-xs text-slate-400">{formatChatTime(msg.created_at)}</span>
+                                  </div>
+                                  {editingMessageId === msg.id ? (
+                                    <form className="mt-1 flex gap-2" onSubmit={handleUpdateMessage}>
+                                      <input
+                                        autoFocus
+                                        className="flex-1 rounded border border-slate-200 px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-700 dark:text-slate-100"
+                                        value={editingMessageContent}
+                                        onChange={(e) => setEditingMessageContent(e.target.value)}
+                                      />
+                                      <button type="submit" className="rounded bg-indigo-600 px-2 py-1 text-xs text-white">Lưu</button>
+                                      <button type="button" onClick={() => setEditingMessageId(null)} className="rounded border px-2 py-1 text-xs dark:border-slate-600 dark:text-slate-300">Hủy</button>
+                                    </form>
+                                  ) : (
+                                    <div className="mt-0.5">
+                                      {msg.content?.trim() && (
+                                        <p className="whitespace-pre-wrap text-sm text-slate-700 dark:text-slate-200">
+                                          {msg.content}
+                                        </p>
+                                      )}
+                                      {msg.image_url && (
+                                        <a href={msg.image_url} target="_blank" rel="noreferrer" className="mt-1.5 block">
+                                          <img
+                                            src={msg.image_url}
+                                            alt="ảnh đính kèm"
+                                            className="max-h-60 rounded-xl border border-slate-200 object-contain dark:border-slate-700"
+                                          />
+                                        </a>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                                {!editingMessageId && (canEdit || canDeleteMsg) && (
+                                  <div className="ml-1 mt-0.5 hidden gap-2 group-hover:flex">
+                                    {canEdit && (
+                                      <button type="button" onClick={() => handleStartEditMessage(msg)} className="text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                                        Sửa
+                                      </button>
+                                    )}
+                                    {canDeleteMsg && (
+                                      <button type="button" onClick={() => handleDeleteMessage(msg.id)} className="text-xs text-rose-400 hover:text-rose-600">
+                                        Xóa
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        {/* Comment input */}
+                        <div className="flex gap-3 pt-1">
+                          <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-indigo-500 text-xs font-bold text-white">
+                            {(currentUser?.full_name ?? '?')[0].toUpperCase()}
+                          </div>
+                          <form className="flex flex-1 flex-col gap-2" onSubmit={handleCreateMessage}>
+                            {/* Image preview */}
+                            {messageImagePreview && (
+                              <div className="relative inline-block self-start">
+                                <img
+                                  src={messageImagePreview}
+                                  alt="preview"
+                                  className="h-24 rounded-xl border border-slate-200 object-cover dark:border-slate-700"
+                                />
+                                {isUploadingImage && (
+                                  <div className="absolute inset-0 flex items-center justify-center rounded-xl bg-black/40">
+                                    <span className="text-xs text-white">Đang tải...</span>
+                                  </div>
+                                )}
+                                {!isUploadingImage && (
+                                  <button
+                                    type="button"
+                                    onClick={handleRemoveImage}
+                                    className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-white hover:bg-rose-600"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                            <div className="flex items-center gap-2">
+                              <input
+                                className="flex-1 rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm focus:border-indigo-300 focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                                placeholder="Viết bình luận..."
+                                value={messageForm}
+                                onChange={(e) => setMessageForm(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter' && !e.shiftKey) {
+                                    e.preventDefault();
+                                    handleCreateMessage(e);
+                                  }
+                                }}
+                              />
+                              {/* Image upload button */}
+                              <input
+                                ref={imageInputRef}
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={handleImageSelect}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => imageInputRef.current?.click()}
+                                disabled={isUploadingImage}
+                                className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-400 hover:border-indigo-300 hover:text-indigo-500 disabled:opacity-40 dark:border-slate-700 dark:hover:border-indigo-500"
+                              >
+                                <ImageIcon className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                type="submit"
+                                disabled={(!messageForm.trim() && !messageImageUrl) || isUploadingImage}
+                                className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40"
+                              >
+                                <Send className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </form>
+                        </div>
+                        {messageError && (
+                          <p className="text-xs text-rose-600 dark:text-rose-300">{messageError}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+
         </section>
       )}
     </main>

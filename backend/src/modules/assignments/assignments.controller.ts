@@ -39,9 +39,7 @@ export class AssignmentsController {
     @ApiBearerAuth('access-token')
     @Post()
     @UseInterceptors(
-        FilesInterceptor('files', 10, {
-            storage: createMemoryStorage(),
-        }),
+        FilesInterceptor('files', 10, { storage: createMemoryStorage() }),
     )
     async create(
         @Req() req: AuthedRequest,
@@ -51,10 +49,13 @@ export class AssignmentsController {
         if (req.user.role !== UserRole.TEACHER) {
             throw new ForbiddenException('Teacher role required');
         }
-        const attachments = files.map((file) => ({
-            file_url: buildFileUrl('assignments', file.filename),
+        const uploaded = await Promise.all(
+            files.map((f) => this.storageService.upload('assignments', f)),
+        );
+        const attachments = files.map((file, i) => ({
+            file_url: uploaded[i].url,
             original_name: file.originalname,
-            file_name: file.filename,
+            file_name: uploaded[i].fileName,
             mime_type: file.mimetype,
             size: file.size,
         }));
@@ -62,9 +63,7 @@ export class AssignmentsController {
     }
 
     @Get()
-    findAll() {
-        return this.assignmentsService.findAll();
-    }
+    findAll() { return this.assignmentsService.findAll(); }
 
     @Get('class/:classId')
     findByClass(@Param('classId', ParseUUIDPipe) classId: string) {
@@ -84,9 +83,7 @@ export class AssignmentsController {
         @Param('id', ParseUUIDPipe) id: string,
         @Body() dto: UpdateAssignmentDto,
     ) {
-        if (req.user.role !== UserRole.TEACHER) {
-            throw new ForbiddenException('Teacher role required');
-        }
+        if (req.user.role !== UserRole.TEACHER) throw new ForbiddenException('Teacher role required');
         return this.assignmentsService.update(req.user.sub, id, dto);
     }
 
@@ -94,9 +91,7 @@ export class AssignmentsController {
     @ApiBearerAuth('access-token')
     @Delete(':id')
     remove(@Req() req: AuthedRequest, @Param('id', ParseUUIDPipe) id: string) {
-        if (req.user.role !== UserRole.TEACHER) {
-            throw new ForbiddenException('Teacher role required');
-        }
+        if (req.user.role !== UserRole.TEACHER) throw new ForbiddenException('Teacher role required');
         return this.assignmentsService.remove(req.user.sub, id);
     }
 }
