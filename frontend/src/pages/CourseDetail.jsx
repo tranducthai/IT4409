@@ -72,18 +72,6 @@ import {
     USE_MOCK_DATA,
 } from '../services/dataSource';
 
-const statusStyles = {
-  done: 'bg-emerald-100 text-emerald-700',
-  'in-progress': 'bg-amber-100 text-amber-700',
-  todo: 'bg-slate-100 text-slate-600',
-};
-
-const statusLabels = {
-  done: 'Đã học',
-  'in-progress': 'Đang học',
-  todo: 'Chưa học',
-};
-
 const tabOptions = [
   { key: 'lessons', label: 'Bài học' },
   { key: 'assignments', label: 'BTVN' },
@@ -364,13 +352,14 @@ export default function CourseDetail() {
   const [courseData, setCourseData] = useState(() =>
     USE_MOCK_DATA ? getCourseDetailData(courseId, currentUser?.id) : null,
   );
+  const courseDataRef = useRef(courseData);
   const [isLoading, setIsLoading] = useState(!USE_MOCK_DATA);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('lessons');
   const [reloadToken, setReloadToken] = useState(0);
   const [sectionForm, setSectionForm] = useState({ title: '', orderIndex: 1 });
   const [sectionFormError, setSectionFormError] = useState('');
-  const [sectionFormSuccess, setSectionFormSuccess] = useState('');
+  const [, setSectionFormSuccess] = useState('');
   const [editingSectionId, setEditingSectionId] = useState(null);
   const [editingSectionForm, setEditingSectionForm] = useState({
     title: '',
@@ -409,7 +398,7 @@ export default function CourseDetail() {
   const [discussionError, setDiscussionError] = useState('');
   const [selectedDiscussionId, setSelectedDiscussionId] = useState(null);
   const [discussionMessages, setDiscussionMessages] = useState([]);
-  const [discussionMessagesError, setDiscussionMessagesError] = useState('');
+  const [, setDiscussionMessagesError] = useState('');
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [messageForm, setMessageForm] = useState('');
   const [messageError, setMessageError] = useState('');
@@ -420,7 +409,7 @@ export default function CourseDetail() {
   const chatSocketRef = useRef(null);
   const [editingMessageId, setEditingMessageId] = useState(null);
   const [editingMessageContent, setEditingMessageContent] = useState('');
-  const [editingMessageError, setEditingMessageError] = useState('');
+  const [, setEditingMessageError] = useState('');
   const [assignmentForm, setAssignmentForm] = useState({
     title: '',
     description: '',
@@ -450,6 +439,8 @@ export default function CourseDetail() {
 
   const [classResources, setClassResources] = useState([]);
   const [classFolders, setClassFolders] = useState([]);
+  const classResourcesRef = useRef([]);
+  const classFoldersRef = useRef([]);
   const [classResourcesLoading, setClassResourcesLoading] = useState(false);
   const [classResourcesError, setClassResourcesError] = useState('');
   const [currentFolderId, setCurrentFolderId] = useState(null);
@@ -467,6 +458,18 @@ export default function CourseDetail() {
   const [socketConnected, setSocketConnected] = useState(false);
 
   useEffect(() => {
+    courseDataRef.current = courseData;
+  }, [courseData]);
+
+  useEffect(() => {
+    classResourcesRef.current = classResources;
+  }, [classResources]);
+
+  useEffect(() => {
+    classFoldersRef.current = classFolders;
+  }, [classFolders]);
+
+  useEffect(() => {
     let isMounted = true;
 
     if (USE_MOCK_DATA) {
@@ -479,7 +482,10 @@ export default function CourseDetail() {
     }
 
     const loadCourseDetail = async () => {
-      setIsLoading(true);
+      const currentCourseId = courseDataRef.current?.course?.id;
+      const shouldBlock = !courseDataRef.current || currentCourseId !== courseId;
+      if (shouldBlock) setIsLoading(true);
+      else setIsLoading(false);
       setError('');
       try {
         const data = await getCourseDetailFromApi(courseId, {
@@ -488,11 +494,11 @@ export default function CourseDetail() {
         if (isMounted) setCourseData(data);
       } catch (err) {
         if (isMounted) {
-          setCourseData(null);
+          if (shouldBlock) setCourseData(null);
           setError(err?.message || 'Không tải được chi tiết khóa học.');
         }
       } finally {
-        if (isMounted) setIsLoading(false);
+        if (isMounted && shouldBlock) setIsLoading(false);
       }
     };
 
@@ -645,7 +651,11 @@ export default function CourseDetail() {
     if (activeTab !== 'resources' || USE_MOCK_DATA) return;
     let isMounted = true;
     const load = async () => {
-      setClassResourcesLoading(true);
+      const shouldBlock =
+        classResourcesRef.current.length === 0 &&
+        classFoldersRef.current.length === 0;
+      if (shouldBlock) setClassResourcesLoading(true);
+      else setClassResourcesLoading(false);
       setClassResourcesError('');
       try {
         const [files, folders] = await Promise.all([
@@ -659,7 +669,7 @@ export default function CourseDetail() {
       } catch (err) {
         if (isMounted) setClassResourcesError(err?.message || 'Không tải được tài nguyên.');
       } finally {
-        if (isMounted) setClassResourcesLoading(false);
+        if (isMounted && shouldBlock) setClassResourcesLoading(false);
       }
     };
     void load();
@@ -1593,7 +1603,7 @@ export default function CourseDetail() {
     );
   }
 
-  if (error) {
+  if (error && !course) {
     return (
       <main className="mx-auto w-full max-w-7xl flex-grow px-4 py-12 md:px-8">
         <div className="rounded-2xl border border-rose-200 bg-rose-50 px-6 py-14 text-center text-rose-700 dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-200">
@@ -1711,6 +1721,21 @@ export default function CourseDetail() {
           </div>
         </div>
       </div>
+
+      {error && (
+        <div className="mb-6 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 transition-colors dark:border-rose-400/30 dark:bg-rose-400/10 dark:text-rose-200">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span>{error}</span>
+            <button
+              type="button"
+              onClick={handleRetry}
+              className="action-btn rounded-lg bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-700"
+            >
+              Tải lại
+            </button>
+          </div>
+        </div>
+      )}
 
       {warningItems.length > 0 && (
         <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 transition-colors dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-100">
