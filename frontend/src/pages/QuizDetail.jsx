@@ -1,5 +1,5 @@
 import { ArrowLeft, ClipboardList, Clock, HelpCircle } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
     createQuestion,
@@ -192,6 +192,26 @@ export default function QuizDetail() {
   const [selectedAttemptId, setSelectedAttemptId] = useState(null);
   const [clockNow, setClockNow] = useState(Date.now());
   const [teacherQuestions, setTeacherQuestions] = useState([]);
+  const attemptInfoRef = useRef(null);
+
+  const resolveAttemptTiming = useCallback((attempt) => {
+    if (!attempt) return null;
+
+    const startTime = attempt.startTime ?? new Date().toISOString();
+    const timeLimit = Number(attempt.timeLimit ?? quizData?.timeLimit ?? 0);
+    const parsedStart = Date.parse(startTime);
+    const expiresAt = attempt.expiresAt
+      ?? (timeLimit > 0 && Number.isFinite(parsedStart)
+        ? new Date(parsedStart + timeLimit * 60 * 1000).toISOString()
+        : null);
+
+    return {
+      ...attempt,
+      startTime,
+      timeLimit,
+      expiresAt,
+    };
+  }, [quizData?.timeLimit]);
 
   const loadAttemptResult = async (attemptId, options = {}) => {
     const { silent = false } = options;
@@ -260,6 +280,10 @@ export default function QuizDetail() {
   }, [courseId, quizId, reloadToken]);
 
   useEffect(() => {
+    attemptInfoRef.current = attemptInfo;
+  }, [attemptInfo]);
+
+  useEffect(() => {
     if (USE_MOCK_DATA || isTeacher || !quizId) {
       setAttempts([]);
       setAttemptInfo(null);
@@ -273,7 +297,7 @@ export default function QuizDetail() {
         const items = await listMyQuizAttempts(quizId);
         if (!isMounted) return;
 
-        const attemptItems = items ?? [];
+        const attemptItems = (items ?? []).map(resolveAttemptTiming);
         setAttempts(attemptItems);
 
         const now = Date.now();
@@ -291,6 +315,24 @@ export default function QuizDetail() {
           return;
         }
 
+        const currentAttempt = resolveAttemptTiming(attemptInfoRef.current);
+        if (
+          currentAttempt
+          && !currentAttempt.isSubmitted
+          && (!currentAttempt.expiresAt || Date.parse(currentAttempt.expiresAt) > now)
+        ) {
+          setAttempts(
+            attemptItems.some((item) => item.attemptId === currentAttempt.attemptId)
+              ? attemptItems
+              : [currentAttempt, ...attemptItems],
+          );
+          setAttemptInfo(currentAttempt);
+          setAttemptResult(null);
+          setSubmitResult(null);
+          setSelectedAttemptId(currentAttempt.attemptId);
+          return;
+        }
+
         setAttemptInfo(null);
         const latestSubmitted = attemptItems.find((item) => item.isSubmitted);
         if (latestSubmitted) {
@@ -302,8 +344,22 @@ export default function QuizDetail() {
         }
       } catch {
         if (isMounted) {
-          setAttempts([]);
-          setAttemptInfo(null);
+          const currentAttempt = resolveAttemptTiming(attemptInfoRef.current);
+          if (
+            currentAttempt
+            && !currentAttempt.isSubmitted
+            && (!currentAttempt.expiresAt || Date.parse(currentAttempt.expiresAt) > Date.now())
+          ) {
+            setAttempts((prev) => (
+              prev.some((item) => item.attemptId === currentAttempt.attemptId)
+                ? prev
+                : [currentAttempt, ...prev]
+            ));
+            setAttemptInfo(currentAttempt);
+          } else {
+            setAttempts([]);
+            setAttemptInfo(null);
+          }
         }
       }
     };
@@ -311,7 +367,7 @@ export default function QuizDetail() {
     return () => {
       isMounted = false;
     };
-  }, [quizId, isTeacher, reloadToken]);
+  }, [quizId, isTeacher, reloadToken, resolveAttemptTiming]);
 
   useEffect(() => {
     if (USE_MOCK_DATA || isTeacher || !attemptInfo?.expiresAt) {
@@ -384,6 +440,9 @@ export default function QuizDetail() {
   const allQuestionsAnswered =
     normalizedQuestions.length > 0 && answeredCount === normalizedQuestions.length;
   const canAnswerQuiz = hasActiveAttempt && !attemptResult && !submitResult;
+  const quizQuestionCount = quizData?.totalQuestions || normalizedQuestions.length;
+  const quizTimeLimitMinutes = Number(quizData?.timeLimit ?? 0);
+  const shouldShowQuestionList = isTeacher || hasActiveAttempt || Boolean(attemptResult || submitResult);
 
   if (isLoading) {
     return (
@@ -436,6 +495,15 @@ export default function QuizDetail() {
   }
 
   const handleStartAttempt = async () => {
+    if (hasActiveAttempt) {
+      setActionError('');
+      const currentAttempt = resolveAttemptTiming(attemptInfoRef.current ?? attemptInfo);
+      attemptInfoRef.current = currentAttempt;
+      setAttemptInfo(currentAttempt);
+      setClockNow(Date.now());
+      return;
+    }
+
     if (USE_MOCK_DATA) {
       setActionError('Chế độ mock chưa hỗ trợ làm quiz.');
       return;
@@ -443,11 +511,19 @@ export default function QuizDetail() {
     setActionError('');
     setIsStarting(true);
     try {
-      const attempt = await startQuizAttempt(quizId);
+      const attempt = resolveAttemptTiming(await startQuizAttempt(quizId));
+      if (!attempt?.attemptId) {
+        throw new Error('API bắt đầu quiz không trả về lượt làm bài hợp lệ.');
+      }
+      attemptInfoRef.current = attempt;
       setAttemptInfo(attempt);
       setAttemptResult(null);
       setSubmitResult(null);
       setSelectedAttemptId(attempt.attemptId);
+      setAttempts((prev) => {
+        const withoutCurrent = prev.filter((item) => item.attemptId !== attempt.attemptId);
+        return [attempt, ...withoutCurrent];
+      });
       setAnswers({});
       setClockNow(Date.now());
     } catch (err) {
@@ -504,6 +580,7 @@ export default function QuizDetail() {
       const result = await submitQuizAttempt(quizId, payload);
       await loadAttemptResult(result.attemptId, { silent: true });
       setSubmitResult(result);
+      attemptInfoRef.current = null;
       setAttemptInfo(null);
       setAnswers({});
       setReloadToken((value) => value + 1);
@@ -617,7 +694,6 @@ export default function QuizDetail() {
       const questions = parseQuizQuestionCsv(content);
 
       for (const item of questions) {
-        // eslint-disable-next-line no-await-in-loop
         await createQuestion({
           quiz_id: quizId,
           ...item,
@@ -864,7 +940,7 @@ export default function QuizDetail() {
             <div>
               <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">Làm quiz</h2>
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                {closeMs ? `Hạn nộp: ${new Date(closeMs).toLocaleString('vi-VN')} · ` : ''}Chọn đáp án và nộp bài
+                Kiểm tra thông tin bài làm trước khi bắt đầu. Đồng hồ sẽ chạy ngay sau khi bấm bắt đầu.
               </p>
             </div>
             <button
@@ -876,13 +952,41 @@ export default function QuizDetail() {
               {isStarting ? 'Đang bắt đầu...' : attemptInfo && !isAttemptExpired ? 'Tiếp tục làm bài' : 'Bắt đầu làm bài'}
             </button>
           </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-950">
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Số câu hỏi</p>
+              <p className="mt-1 text-base font-bold text-slate-900 dark:text-slate-100">
+                {quizQuestionCount}
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-950">
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Thời gian làm bài</p>
+              <p className="mt-1 text-base font-bold text-slate-900 dark:text-slate-100">
+                {quizTimeLimitMinutes > 0 ? `${quizTimeLimitMinutes} phút` : 'Không giới hạn'}
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-950">
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">Hạn nộp</p>
+              <p className="mt-1 text-base font-bold text-slate-900 dark:text-slate-100">
+                {closeMs ? new Date(closeMs).toLocaleString('vi-VN') : 'Không giới hạn'}
+              </p>
+            </div>
+          </div>
           {attemptInfo && (
             <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
               <span>Bắt đầu lúc: {new Date(attemptInfo.startTime).toLocaleString('vi-VN')}</span>
-              <span>Hết hạn: {new Date(attemptInfo.expiresAt).toLocaleString('vi-VN')}</span>
-              <span className={isAttemptExpired ? 'font-semibold text-rose-600 dark:text-rose-300' : 'font-semibold text-emerald-600 dark:text-emerald-300'}>
-                {isAttemptExpired ? 'Đã hết hạn' : `Còn lại ${formatCountdown(activeAttemptRemainingSeconds)}`}
-              </span>
+              {attemptInfo.expiresAt ? (
+                <>
+                  <span>Hết hạn: {new Date(attemptInfo.expiresAt).toLocaleString('vi-VN')}</span>
+                  <span className={isAttemptExpired ? 'font-semibold text-rose-600 dark:text-rose-300' : 'font-semibold text-emerald-600 dark:text-emerald-300'}>
+                    {isAttemptExpired ? 'Đã hết hạn' : `Còn lại ${formatCountdown(activeAttemptRemainingSeconds)}`}
+                  </span>
+                </>
+              ) : (
+                <span className="font-semibold text-emerald-600 dark:text-emerald-300">
+                  Không giới hạn thời gian
+                </span>
+              )}
               <span className="font-semibold text-slate-600 dark:text-slate-300">
                 Đã trả lời {answeredCount}/{normalizedQuestions.length}
               </span>
@@ -986,6 +1090,7 @@ export default function QuizDetail() {
                           setActionError('Lượt làm bài này đã hết hạn.');
                           return;
                         }
+                        attemptInfoRef.current = attempt;
                         setAttemptInfo(attempt);
                         setAttemptResult(null);
                         setSubmitResult(null);
@@ -1012,7 +1117,9 @@ export default function QuizDetail() {
                           ? `Điểm: ${Math.round(Number(attempt.score ?? 0))}%`
                           : expired
                             ? 'Đã quá thời gian làm bài'
-                            : `Hết hạn lúc ${new Date(attempt.expiresAt).toLocaleString('vi-VN')}`}
+                            : attempt.expiresAt
+                              ? `Hết hạn lúc ${new Date(attempt.expiresAt).toLocaleString('vi-VN')}`
+                              : 'Không giới hạn thời gian'}
                       </div>
                     </button>
                   );
@@ -1032,6 +1139,7 @@ export default function QuizDetail() {
         );
       })()}
 
+      {shouldShowQuestionList && (
       <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
         <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
           Danh sách câu hỏi
@@ -1245,6 +1353,7 @@ export default function QuizDetail() {
           </div>
         )}
       </section>
+      )}
     </main>
   );
 }
