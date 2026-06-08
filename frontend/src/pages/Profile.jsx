@@ -35,6 +35,13 @@ export default function Profile() {
   const role = String(currentUser?.role ?? 'STUDENT').toUpperCase();
   const displayName = form.full_name.trim() || 'Người dùng';
 
+  const handleChange = (field, value) => {
+    setForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
   const handleAvatarFileChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;

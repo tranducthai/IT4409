@@ -29,10 +29,16 @@ export function useNotifications() {
     const token = getAccessToken();
     if (!token) return;
 
-    fetchAll();
+    const fetchTimer = window.setTimeout(() => {
+      void fetchAll();
+    }, 0);
 
     const socket = createNotificationsSocket();
-    if (!socket) return;
+    if (!socket) {
+      return () => {
+        window.clearTimeout(fetchTimer);
+      };
+    }
     socketRef.current = socket;
 
     socket.on('notification', (notification) => {
@@ -43,6 +49,7 @@ export function useNotifications() {
     socket.connect();
 
     return () => {
+      window.clearTimeout(fetchTimer);
       socket.disconnect();
       socketRef.current = null;
     };

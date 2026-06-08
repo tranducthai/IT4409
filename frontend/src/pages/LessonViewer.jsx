@@ -5,7 +5,6 @@ import {
   ClipboardList,
   File,
   FileText,
-  Video,
 } from 'lucide-react';
 import { markLessonCompleted } from '../services/api/lessons.service';
 import { toAbsoluteFileUrl } from '../services/api/client';
@@ -15,19 +14,6 @@ import {
   getCourseDetailFromApi,
   USE_MOCK_DATA,
 } from '../services/dataSource';
-
-// ── Type metadata ──────────────────────────────────────────────────────────────
-const TYPE_META = {
-  video: { label: 'Video', Icon: Video },
-  text: { label: 'Đọc', Icon: FileText },
-  pdf: { label: 'PDF', Icon: File },
-  file: { label: 'Tệp', Icon: File },
-  quiz: { label: 'Quiz', Icon: ClipboardList },
-};
-
-function getTypeMeta(type) {
-  return TYPE_META[type] ?? { label: 'Bài học', Icon: FileText };
-}
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 function isYouTubeUrl(url) {
@@ -202,7 +188,7 @@ export default function LessonViewer() {
     return () => { isMounted = false; };
   }, [courseId, currentUser?.id, currentUser?.role, reloadToken]);
 
-  const sections = courseData?.sections ?? [];
+  const sections = useMemo(() => courseData?.sections ?? [], [courseData?.sections]);
   const flatLessons = useMemo(() => sections.flatMap((s) => s.lessons), [sections]);
 
   const activeLesson = useMemo(
