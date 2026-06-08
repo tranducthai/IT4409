@@ -202,6 +202,7 @@ Account test, password chung la `Password123!`:
 
 | Case | Email |
 | --- | --- |
+| Admin demo | `demo.admin@7study.local` |
 | Giao vien | `teacher.cs50w@7study.local` |
 | SV active chinh | `student.cs50w@7study.local` |
 | SV active frontend | `student.frontend.cs50w@7study.local` |

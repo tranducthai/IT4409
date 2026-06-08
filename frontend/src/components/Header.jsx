@@ -68,7 +68,7 @@ export default function Header() {
 
   return (
     <nav className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur transition-colors dark:border-slate-800 dark:bg-slate-950/95">
-      <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-4 py-3 md:px-8">
+      <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-3 py-3 sm:px-4 md:px-8">
         <Link to="/" className="flex items-center gap-2" onClick={() => setIsMenuOpen(false)}>
           <GraduationCap className="text-indigo-600" size={28} />
           <span className="text-xl font-bold text-indigo-900 dark:text-indigo-200 md:text-2xl">7Study</span>
@@ -151,11 +151,11 @@ export default function Header() {
               Về trang chủ
             </Link>
           ) : (
-            <div className="flex gap-3">
-              <Link to="/register" className="action-btn rounded-md bg-indigo-700 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-800 md:px-6" onClick={() => setIsMenuOpen(false)}>
+            <div className="flex gap-2 sm:gap-3">
+              <Link to="/register" className="action-btn rounded-md bg-indigo-700 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-800 md:px-6" onClick={() => setIsMenuOpen(false)}>
                 Đăng ký
               </Link>
-              <Link to="/login" className="action-btn rounded-md bg-indigo-500 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-600 md:px-6" onClick={() => setIsMenuOpen(false)}>
+              <Link to="/login" className="action-btn rounded-md bg-indigo-500 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-600 md:px-6" onClick={() => setIsMenuOpen(false)}>
                 Đăng nhập
               </Link>
             </div>

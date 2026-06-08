@@ -116,7 +116,7 @@ export default function AdminDashboard({ user }) {
   return (
     <>
       <div className="mb-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <section className="rounded-xl border border-slate-200 bg-white p-5 text-left shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
+        <section className="min-w-0 rounded-xl border border-slate-200 bg-white p-5 text-left shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-indigo-500 dark:text-indigo-300">
@@ -246,12 +246,12 @@ export default function AdminDashboard({ user }) {
         </section>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section className="rounded-xl border border-slate-200 bg-white p-5 text-left shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
+      <div className="grid min-w-0 gap-6 lg:grid-cols-2">
+        <section className="min-w-0 rounded-xl border border-slate-200 bg-white p-5 text-left shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
           <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
             Người dùng gần đây
           </h2>
-          <div className="mt-5 overflow-x-auto">
+          <div className="mt-5 max-w-full overflow-x-auto">
             <table className="w-full min-w-[560px] text-left text-sm">
               <thead className="border-b border-slate-200 text-xs uppercase text-slate-500 dark:border-slate-800 dark:text-slate-400">
                 <tr>
@@ -288,11 +288,11 @@ export default function AdminDashboard({ user }) {
           </div>
         </section>
 
-        <section className="rounded-xl border border-slate-200 bg-white p-5 text-left shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
+        <section className="min-w-0 rounded-xl border border-slate-200 bg-white p-5 text-left shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
           <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
             Lớp học gần đây
           </h2>
-          <div className="mt-5 overflow-x-auto">
+          <div className="mt-5 max-w-full overflow-x-auto">
             <table className="w-full min-w-[560px] text-left text-sm">
               <thead className="border-b border-slate-200 text-xs uppercase text-slate-500 dark:border-slate-800 dark:text-slate-400">
                 <tr>
