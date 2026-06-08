@@ -54,7 +54,8 @@ async function bootstrap() {
   );
 
   const port = Number(process.env.PORT ?? 3001);
-  const host = process.env.HOST ?? '127.0.0.1';
+  const defaultHost = process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1';
+  const host = process.env.HOST ?? defaultHost;
   await app.listen(port, host);
 }
 void bootstrap();
