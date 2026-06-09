@@ -223,7 +223,7 @@ export class ClassMembersService {
 
   // ── Any member: list active members ──────────────────────────────────────
   async listActiveMembers(requesterId: string, classId: string) {
-    const cls = await this.classesRepository.findById(classId);
+    const cls = await this.classesRepository.findByIdWithTeacher(classId);
     if (!cls) throw new NotFoundException('Class not found');
     const isTeacher = cls.teacher_id === requesterId;
     if (!isTeacher) {
@@ -231,7 +231,21 @@ export class ClassMembersService {
       if (!membership || membership.status !== ClassMemberStatus.Active)
         throw new ForbiddenException('Bạn không phải thành viên của lớp này');
     }
-    return this.classMembersRepository.findActiveMembersByClassId(classId);
+
+    const students = await this.classMembersRepository.findActiveMembersByClassId(classId);
+
+    // Prepend teacher as a synthetic member entry (teacher is not in class_members table)
+    const teacherEntry = {
+      id: `teacher-${cls.teacher_id}`,
+      class_id: classId,
+      user_id: cls.teacher_id,
+      role: ClassMemberRole.Teacher,
+      status: ClassMemberStatus.Active,
+      joined_at: cls.created_at,
+      user: cls.teacher,
+    };
+
+    return [teacherEntry, ...students];
   }
 
   // ── Student: leave class ──────────────────────────────────────────────────

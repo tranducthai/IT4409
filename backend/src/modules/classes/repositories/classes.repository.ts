@@ -18,6 +18,10 @@ export class ClassesRepository {
     return this.repo.findOne({ where: { id } });
   }
 
+  findByIdWithTeacher(id: string) {
+    return this.repo.findOne({ where: { id }, relations: { teacher: true } });
+  }
+
   findByJoinCode(join_code: string) {
     return this.repo.findOne({ where: { join_code } });
   }

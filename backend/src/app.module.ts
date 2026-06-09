@@ -23,6 +23,7 @@ import { StudentProfilesModule } from './modules/student-profiles/student-profil
 import { SubmissionsModule } from './modules/submissions/submissions.module';
 import { UsersModule } from './modules/users/users.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { VideoCallModule } from './modules/video-call/video-call.module';
 import { WeeksModule } from './modules/weeks/weeks.module';
 
 @Module({
@@ -79,6 +80,7 @@ import { WeeksModule } from './modules/weeks/weeks.module';
     SubmissionsModule,
     ChatModule,
     NotificationsModule,
+    VideoCallModule,
   ],
   controllers: [AppController],
   providers: [AppService],
