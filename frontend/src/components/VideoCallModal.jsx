@@ -95,6 +95,7 @@ export function VideoCallModal({ classId, currentUser, onClose }) {
 
   const socketRef = useRef(null);
   const peerConnsRef = useRef({});
+  const pendingCandidatesRef = useRef({});  // socketId → RTCIceCandidate[] queued before remoteDescription
   const cameraStreamRef = useRef(null);   // always the camera MediaStream
   const screenStreamRef = useRef(null);   // screen share MediaStream when active
 
@@ -138,6 +139,7 @@ export function VideoCallModal({ classId, currentUser, onClose }) {
   const cleanup = () => {
     Object.values(peerConnsRef.current).forEach((pc) => pc.close());
     peerConnsRef.current = {};
+    pendingCandidatesRef.current = {};
 
     screenStreamRef.current?.getTracks().forEach((t) => t.stop());
     screenStreamRef.current = null;
@@ -169,6 +171,15 @@ export function VideoCallModal({ classId, currentUser, onClose }) {
         if (!socket) throw new Error('Không thể tạo kết nối socket');
         socketRef.current = socket;
 
+        // Flush ICE candidates that arrived before setRemoteDescription
+        const flushCandidates = async (pc, socketId) => {
+          const queued = pendingCandidatesRef.current[socketId] || [];
+          delete pendingCandidatesRef.current[socketId];
+          for (const c of queued) {
+            try { await pc.addIceCandidate(c); } catch { /* stale */ }
+          }
+        };
+
         socket.on('call-joined', async ({ participants }) => {
           if (!isMounted) return;
           setRemoteParticipants(participants.map((p) => ({ ...p, stream: null })));
@@ -193,6 +204,7 @@ export function VideoCallModal({ classId, currentUser, onClose }) {
           if (!isMounted) return;
           peerConnsRef.current[socketId]?.close();
           delete peerConnsRef.current[socketId];
+          delete pendingCandidatesRef.current[socketId];
           setRemoteParticipants((prev) => prev.filter((p) => p.socketId !== socketId));
         });
 
@@ -205,6 +217,7 @@ export function VideoCallModal({ classId, currentUser, onClose }) {
           );
           const pc = createPeerConnection(socket, from);
           await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+          await flushCandidates(pc, from);
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
           socket.emit('answer', { to: from, sdp: answer });
@@ -215,15 +228,21 @@ export function VideoCallModal({ classId, currentUser, onClose }) {
           const pc = peerConnsRef.current[from];
           if (pc && pc.signalingState !== 'stable') {
             await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+            await flushCandidates(pc, from);
           }
         });
 
         socket.on('ice-candidate', async ({ from, candidate }) => {
           if (!isMounted) return;
+          const iceCandidate = new RTCIceCandidate(candidate);
           const pc = peerConnsRef.current[from];
-          if (pc) {
-            try { await pc.addIceCandidate(new RTCIceCandidate(candidate)); } catch { /* stale */ }
+          if (!pc || !pc.remoteDescription) {
+            // Queue until remoteDescription is set
+            if (!pendingCandidatesRef.current[from]) pendingCandidatesRef.current[from] = [];
+            pendingCandidatesRef.current[from].push(iceCandidate);
+            return;
           }
+          try { await pc.addIceCandidate(iceCandidate); } catch { /* stale */ }
         });
 
         await new Promise((resolve, reject) => {
