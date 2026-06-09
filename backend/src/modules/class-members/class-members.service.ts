@@ -149,7 +149,7 @@ export class ClassMembersService {
         NotificationType.JOIN_REQUEST,
         'Yêu cầu tham gia lớp học',
         `Có học sinh mới yêu cầu tham gia lớp "${cls.name}"`,
-        `/classes/${cls.id}/members`,
+        `/courses/${cls.id}`,
       ).catch(() => undefined);
       return updated;
     }
@@ -166,7 +166,7 @@ export class ClassMembersService {
       NotificationType.JOIN_REQUEST,
       'Yêu cầu tham gia lớp học',
       `Có học sinh mới yêu cầu tham gia lớp "${cls.name}"`,
-      `/classes/${cls.id}/members`,
+      `/courses/${cls.id}`,
     ).catch(() => undefined);
     return member;
   }
@@ -188,7 +188,7 @@ export class ClassMembersService {
       NotificationType.JOIN_APPROVED,
       'Yêu cầu tham gia lớp được duyệt',
       `Bạn đã được duyệt vào lớp "${member.class.name}"`,
-      `/classes/${member.class_id}`,
+      `/courses/${member.class_id}`,
     ).catch(() => undefined);
     return updated;
   }
@@ -209,7 +209,7 @@ export class ClassMembersService {
       NotificationType.JOIN_REJECTED,
       'Yêu cầu tham gia lớp bị từ chối',
       `Yêu cầu tham gia lớp "${className}" của bạn đã bị từ chối`,
-      `/classes/${classId}`,
+      `/courses/${classId}`,
     ).catch(() => undefined);
     return { rejected: true };
   }

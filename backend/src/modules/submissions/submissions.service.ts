@@ -4,6 +4,8 @@ import {
     Injectable,
     NotFoundException,
 } from '@nestjs/common';
+import { NotificationType } from '../notifications/enums/notification-type.enum';
+import { NotificationsService } from '../notifications/notifications.service';
 import { AssignmentsService } from '../assignments/assignments.service';
 import { ClassMembersService } from '../class-members/class-members.service';
 import { CreateSubmissionDto } from './dtos/create-submission.dto';
@@ -19,6 +21,7 @@ export class SubmissionsService {
         private readonly submissionFilesRepository: SubmissionFilesRepository,
         private readonly assignmentsService: AssignmentsService,
         private readonly classMembersService: ClassMembersService,
+        private readonly notificationsService: NotificationsService,
     ) { }
 
     create(dto: CreateSubmissionDto) {
@@ -83,6 +86,14 @@ export class SubmissionsService {
             );
         }
 
+        this.notificationsService.send(
+            assignment.created_by,
+            NotificationType.ASSIGNMENT,
+            'Học sinh đã nộp bài',
+            `Có bài nộp mới cho "${assignment.title}"`,
+            `/courses/${assignment.class_id}`,
+        ).catch(() => undefined);
+
         return this.submissionsRepository.findByIdWithFiles(submission.id);
     }
 
@@ -115,10 +126,21 @@ export class SubmissionsService {
             throw new ForbiddenException('Only creator can grade submissions');
         }
 
-        return this.submissionsRepository.updateOne(submissionId, {
+        const updated = await this.submissionsRepository.updateOne(submissionId, {
             score: score === undefined ? undefined : score,
             feedback: feedback === undefined ? undefined : feedback,
         });
+
+        const scoreText = score !== undefined ? ` Điểm: ${score}` : '';
+        this.notificationsService.send(
+            existing.student_id,
+            NotificationType.ASSIGNMENT,
+            'Bài tập đã được chấm điểm',
+            `Giáo viên đã chấm bài "${assignment.title}".${scoreText}`,
+            `/courses/${assignment.class_id}/assignments/${assignment.id}`,
+        ).catch(() => undefined);
+
+        return updated;
     }
 
     async update(id: string, dto: UpdateSubmissionDto) {

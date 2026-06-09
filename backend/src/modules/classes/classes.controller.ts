@@ -15,10 +15,10 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Request } from 'express';
-import type { JwtPayload } from '../auth/strategies/jwt.strategy';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { SupabaseStorageService } from '../../common/storage/supabase-storage.service';
 import { createMemoryStorage } from '../../common/utils/upload.util';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import type { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { LessonProgressService } from '../lesson-progress/lesson-progress.service';
 import { UserRole } from '../users/enums/user-role.enum';
 import { ClassesService } from './classes.service';
