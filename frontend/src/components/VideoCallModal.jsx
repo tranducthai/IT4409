@@ -10,12 +10,7 @@ import {
   Video,
   VideoOff,
 } from 'lucide-react';
-import { createVideoCallSocket } from '../services/api/video-call-socket.service';
-
-const ICE_SERVERS = [
-  { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun1.l.google.com:19302' },
-];
+import { createVideoCallSocket, getIceServers } from '../services/api/video-call-socket.service';
 
 // ── Sub-components ──────────────────────────────────────────────────────────
 
@@ -108,7 +103,7 @@ export function VideoCallModal({ classId, currentUser, onClose }) {
   const createPeerConnection = (socket, remoteSocketId) => {
     if (peerConnsRef.current[remoteSocketId]) return peerConnsRef.current[remoteSocketId];
 
-    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    const pc = new RTCPeerConnection({ iceServers: getIceServers(), iceCandidatePoolSize: 2 });
 
     // Audio always from camera stream
     const audioTrack = cameraStreamRef.current?.getAudioTracks()[0];
