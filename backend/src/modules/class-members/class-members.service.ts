@@ -221,6 +221,38 @@ export class ClassMembersService {
     return this.classMembersRepository.findPendingRequestsByClassId(classId);
   }
 
+  // ── Any member: list active members ──────────────────────────────────────
+  async listActiveMembers(requesterId: string, classId: string) {
+    const cls = await this.classesRepository.findById(classId);
+    if (!cls) throw new NotFoundException('Class not found');
+    const isTeacher = cls.teacher_id === requesterId;
+    if (!isTeacher) {
+      const membership = await this.classMembersRepository.findOneByClassAndUser(classId, requesterId);
+      if (!membership || membership.status !== ClassMemberStatus.Active)
+        throw new ForbiddenException('Bạn không phải thành viên của lớp này');
+    }
+    return this.classMembersRepository.findActiveMembersByClassId(classId);
+  }
+
+  // ── Student: leave class ──────────────────────────────────────────────────
+  async leaveClass(studentId: string, classId: string) {
+    const cls = await this.classesRepository.findById(classId);
+    if (!cls) throw new NotFoundException('Class not found');
+    if (cls.teacher_id === studentId) throw new ForbiddenException('Giáo viên không thể rời khỏi lớp học của mình');
+    const membership = await this.classMembersRepository.findOneByClassAndUser(classId, studentId);
+    if (!membership) throw new NotFoundException('Bạn không phải thành viên của lớp này');
+    if (membership.status !== ClassMemberStatus.Active) throw new ForbiddenException('Bạn không phải thành viên hoạt động');
+    await this.classMembersRepository.removeOne(membership.id);
+    this.notificationsService.send(
+      cls.teacher_id,
+      NotificationType.GENERAL,
+      'Sinh viên rời khỏi lớp',
+      `Một sinh viên đã rời khỏi lớp "${cls.name}"`,
+      `/courses/${classId}`,
+    ).catch(() => undefined);
+    return { left: true };
+  }
+
   // ── Misc ──────────────────────────────────────────────────────────────────
   findAll() { return this.classMembersRepository.findAll(); }
 

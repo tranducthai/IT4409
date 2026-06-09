@@ -9,20 +9,22 @@ import {
     File,
     FileText,
     ImageIcon,
+    LogOut,
     Paperclip,
     Plus,
     Send,
+    Users,
     Video,
     X,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
     createAssignment,
     deleteAssignment,
     updateAssignment,
 } from '../services/api/assignments.service';
-import { getTeacherClassProgress } from '../services/api/classes.service';
+import { getClassMembers, leaveClass, getTeacherClassProgress } from '../services/api/classes.service';
 import {
     createClassFolder,
     deleteClassFolder,
@@ -78,6 +80,7 @@ const tabOptions = [
   { key: 'resources', label: 'Tài nguyên' },
   { key: 'progress', label: 'Tiến độ' },
   { key: 'discussions', label: 'Thảo luận' },
+  { key: 'members', label: 'Thành viên' },
 ];
 
 const resourceTypeMeta = {
@@ -458,6 +461,13 @@ export default function CourseDetail() {
   const [lessonProgressError, setLessonProgressError] = useState('');
   const [socketConnected, setSocketConnected] = useState(false);
 
+  const [membersData, setMembersData] = useState([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [membersError, setMembersError] = useState('');
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+  const [leavingClass, setLeavingClass] = useState(false);
+  const navigate = useNavigate();
+
   useEffect(() => {
     courseDataRef.current = courseData;
   }, [courseData]);
@@ -680,6 +690,25 @@ export default function CourseDetail() {
       isMounted = false;
     };
   }, [activeTab, canManageAssignments, courseId, reloadToken]);
+
+  useEffect(() => {
+    if (activeTab !== 'members' || USE_MOCK_DATA) return;
+    let isMounted = true;
+    const load = async () => {
+      setMembersLoading(true);
+      setMembersError('');
+      try {
+        const data = await getClassMembers(courseId);
+        if (isMounted) setMembersData(Array.isArray(data) ? data : []);
+      } catch (err) {
+        if (isMounted) setMembersError(err?.message || 'Không tải được danh sách thành viên.');
+      } finally {
+        if (isMounted) setMembersLoading(false);
+      }
+    };
+    void load();
+    return () => { isMounted = false; };
+  }, [activeTab, courseId]);
 
   useEffect(() => {
     if (activeTab !== 'resources' || USE_MOCK_DATA) return;
@@ -3272,6 +3301,109 @@ export default function CourseDetail() {
             );
           })}
 
+        </section>
+      )}
+
+      {activeTab === 'members' && (
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900 dark:text-slate-100">
+              <Users className="h-5 w-5 text-indigo-500" />
+              Thành viên lớp học
+            </h2>
+            {currentUser?.role === 'STUDENT' && (
+              <button
+                type="button"
+                onClick={() => setShowLeaveConfirm(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-white px-3 py-1.5 text-sm font-medium text-rose-600 hover:bg-rose-50 dark:border-rose-800 dark:bg-slate-900 dark:text-rose-400 dark:hover:bg-rose-950"
+              >
+                <LogOut className="h-4 w-4" />
+                Thoát lớp
+              </button>
+            )}
+          </div>
+
+          {membersLoading && (
+            <p className="text-sm text-slate-500 dark:text-slate-400">Đang tải danh sách thành viên...</p>
+          )}
+          {membersError && (
+            <p className="text-sm text-rose-600 dark:text-rose-300">{membersError}</p>
+          )}
+
+          {!membersLoading && !membersError && (
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              {membersData.map((member, idx) => {
+                const isTeacher = member.role === 'TEACHER';
+                const avatarUrl = member.user?.avatar_url;
+                const name = member.user?.full_name ?? 'Không rõ';
+                const email = member.user?.email ?? '';
+                const initials = name[0]?.toUpperCase() ?? '?';
+                return (
+                  <div
+                    key={member.id}
+                    className={`flex items-center gap-4 px-5 py-4 ${idx < membersData.length - 1 ? 'border-b border-slate-100 dark:border-slate-800' : ''}`}
+                  >
+                    {avatarUrl ? (
+                      <img src={avatarUrl} alt={name} className="h-10 w-10 flex-shrink-0 rounded-full object-cover" />
+                    ) : (
+                      <div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ${isTeacher ? 'bg-indigo-500' : 'bg-emerald-500'}`}>
+                        {initials}
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-semibold text-slate-900 dark:text-slate-100">{name}</p>
+                      <p className="truncate text-xs text-slate-500 dark:text-slate-400">{email}</p>
+                    </div>
+                    <span className={`flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${isTeacher ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-400/10 dark:text-indigo-300' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300'}`}>
+                      {isTeacher ? 'Giảng viên' : 'Sinh viên'}
+                    </span>
+                  </div>
+                );
+              })}
+              {membersData.length === 0 && (
+                <p className="px-5 py-8 text-center text-sm text-slate-500 dark:text-slate-400">Chưa có thành viên nào.</p>
+              )}
+            </div>
+          )}
+
+          {showLeaveConfirm && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+              <div className="mx-4 w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl dark:bg-slate-900">
+                <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">Thoát lớp học?</h3>
+                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                  Bạn sẽ bị xóa khỏi lớp học này. Để tham gia lại bạn cần gửi yêu cầu mới.
+                </p>
+                <div className="mt-5 flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowLeaveConfirm(false)}
+                    className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="button"
+                    disabled={leavingClass}
+                    onClick={async () => {
+                      setLeavingClass(true);
+                      try {
+                        await leaveClass(courseId);
+                        navigate('/');
+                      } catch (err) {
+                        setMembersError(err?.message || 'Không thể thoát lớp.');
+                        setShowLeaveConfirm(false);
+                      } finally {
+                        setLeavingClass(false);
+                      }
+                    }}
+                    className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-700 disabled:opacity-50"
+                  >
+                    {leavingClass ? 'Đang xử lý...' : 'Xác nhận thoát'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </section>
       )}
     </main>

@@ -79,6 +79,29 @@ export class ClassMembersController {
     return this.classMembersService.listPendingRequests(req.user.sub, classId);
   }
 
+  // ── Any member: view active members of a class ─────────────────────────
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Get('classes/:classId/members')
+  listMembers(
+    @Req() req: AuthedRequest,
+    @Param('classId', new ParseUUIDPipe()) classId: string,
+  ) {
+    return this.classMembersService.listActiveMembers(req.user.sub, classId);
+  }
+
+  // ── Student: leave a class ──────────────────────────────────────────────
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @Delete('classes/:classId/leave')
+  leaveClass(
+    @Req() req: AuthedRequest,
+    @Param('classId', new ParseUUIDPipe()) classId: string,
+  ) {
+    if (req.user.role !== UserRole.STUDENT) throw new ForbiddenException('Student role required');
+    return this.classMembersService.leaveClass(req.user.sub, classId);
+  }
+
   // ── Teacher: add student directly by MSSV ──────────────────────────────
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')
