@@ -54,7 +54,7 @@ export class AssignmentsService {
                     NotificationType.ASSIGNMENT,
                     'Bài tập mới',
                     `Lớp học có bài tập mới: ${dto.title}`,
-                    `/classes/${dto.class_id}/assignments/${assignment.id}`,
+                    `/courses/${dto.class_id}/assignments/${assignment.id}`,
                 ),
             ),
         );

@@ -124,3 +124,19 @@ export function bulkAddStudentsByCodes(classId, studentCodes, accessToken) {
     ...withAuth(accessToken),
   });
 }
+
+// Any member: get active members of a class
+export function getClassMembers(classId, accessToken) {
+  return apiRequest(`/class-members/classes/${classId}/members`, {
+    method: 'GET',
+    ...withAuth(accessToken),
+  });
+}
+
+// Student: leave a class
+export function leaveClass(classId, accessToken) {
+  return apiRequest(`/class-members/classes/${classId}/leave`, {
+    method: 'DELETE',
+    ...withAuth(accessToken),
+  });
+}

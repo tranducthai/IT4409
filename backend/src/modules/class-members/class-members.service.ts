@@ -149,7 +149,7 @@ export class ClassMembersService {
         NotificationType.JOIN_REQUEST,
         'Yêu cầu tham gia lớp học',
         `Có học sinh mới yêu cầu tham gia lớp "${cls.name}"`,
-        `/classes/${cls.id}/members`,
+        `/courses/${cls.id}`,
       ).catch(() => undefined);
       return updated;
     }
@@ -166,7 +166,7 @@ export class ClassMembersService {
       NotificationType.JOIN_REQUEST,
       'Yêu cầu tham gia lớp học',
       `Có học sinh mới yêu cầu tham gia lớp "${cls.name}"`,
-      `/classes/${cls.id}/members`,
+      `/courses/${cls.id}`,
     ).catch(() => undefined);
     return member;
   }
@@ -188,7 +188,7 @@ export class ClassMembersService {
       NotificationType.JOIN_APPROVED,
       'Yêu cầu tham gia lớp được duyệt',
       `Bạn đã được duyệt vào lớp "${member.class.name}"`,
-      `/classes/${member.class_id}`,
+      `/courses/${member.class_id}`,
     ).catch(() => undefined);
     return updated;
   }
@@ -209,7 +209,7 @@ export class ClassMembersService {
       NotificationType.JOIN_REJECTED,
       'Yêu cầu tham gia lớp bị từ chối',
       `Yêu cầu tham gia lớp "${className}" của bạn đã bị từ chối`,
-      `/classes/${classId}`,
+      `/courses/${classId}`,
     ).catch(() => undefined);
     return { rejected: true };
   }
@@ -219,6 +219,52 @@ export class ClassMembersService {
     const cls = await this.classesRepository.findById(classId);
     if (!cls || cls.teacher_id !== teacherId) throw new NotFoundException('Class not found');
     return this.classMembersRepository.findPendingRequestsByClassId(classId);
+  }
+
+  // ── Any member: list active members ──────────────────────────────────────
+  async listActiveMembers(requesterId: string, classId: string) {
+    const cls = await this.classesRepository.findByIdWithTeacher(classId);
+    if (!cls) throw new NotFoundException('Class not found');
+    const isTeacher = cls.teacher_id === requesterId;
+    if (!isTeacher) {
+      const membership = await this.classMembersRepository.findOneByClassAndUser(classId, requesterId);
+      if (!membership || membership.status !== ClassMemberStatus.Active)
+        throw new ForbiddenException('Bạn không phải thành viên của lớp này');
+    }
+
+    const students = await this.classMembersRepository.findActiveMembersByClassId(classId);
+
+    // Prepend teacher as a synthetic member entry (teacher is not in class_members table)
+    const teacherEntry = {
+      id: `teacher-${cls.teacher_id}`,
+      class_id: classId,
+      user_id: cls.teacher_id,
+      role: ClassMemberRole.Teacher,
+      status: ClassMemberStatus.Active,
+      joined_at: cls.created_at,
+      user: cls.teacher,
+    };
+
+    return [teacherEntry, ...students];
+  }
+
+  // ── Student: leave class ──────────────────────────────────────────────────
+  async leaveClass(studentId: string, classId: string) {
+    const cls = await this.classesRepository.findById(classId);
+    if (!cls) throw new NotFoundException('Class not found');
+    if (cls.teacher_id === studentId) throw new ForbiddenException('Giáo viên không thể rời khỏi lớp học của mình');
+    const membership = await this.classMembersRepository.findOneByClassAndUser(classId, studentId);
+    if (!membership) throw new NotFoundException('Bạn không phải thành viên của lớp này');
+    if (membership.status !== ClassMemberStatus.Active) throw new ForbiddenException('Bạn không phải thành viên hoạt động');
+    await this.classMembersRepository.removeOne(membership.id);
+    this.notificationsService.send(
+      cls.teacher_id,
+      NotificationType.GENERAL,
+      'Sinh viên rời khỏi lớp',
+      `Một sinh viên đã rời khỏi lớp "${cls.name}"`,
+      `/courses/${classId}`,
+    ).catch(() => undefined);
+    return { left: true };
   }
 
   // ── Misc ──────────────────────────────────────────────────────────────────

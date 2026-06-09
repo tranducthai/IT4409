@@ -70,6 +70,30 @@ export class ClassMembersRepository {
       .getMany();
   }
 
+  findActiveMembersByClassId(class_id: string) {
+    return this.repo
+      .createQueryBuilder('cm')
+      .leftJoinAndSelect('cm.user', 'user')
+      .where('cm.class_id = :class_id', { class_id })
+      .andWhere('cm.status = :status', { status: ClassMemberStatus.Active })
+      .select([
+        'cm.id',
+        'cm.class_id',
+        'cm.user_id',
+        'cm.role',
+        'cm.status',
+        'cm.joined_at',
+        'user.id',
+        'user.full_name',
+        'user.email',
+        'user.avatar_url',
+        'user.role',
+      ])
+      .orderBy('cm.role', 'DESC') // TEACHER trước STUDENT
+      .addOrderBy('user.full_name', 'ASC')
+      .getMany();
+  }
+
   async findActiveStudentIdsByClassId(class_id: string): Promise<string[]> {
     const rows = await this.repo.find({
       where: { class_id, role: ClassMemberRole.Student, status: ClassMemberStatus.Active },

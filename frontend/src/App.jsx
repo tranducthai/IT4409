@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Navigate, Routes, Route, useLocation, useParams } from 'react-router-dom';
 import './App.css';
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -21,6 +21,12 @@ import {
   RequireRole,
 } from './components/RouteGuards';
 import { ThemeProvider } from './context/ThemeProvider';
+
+function LegacyAssignmentRedirect() {
+  const { courseId, assignmentId } = useParams();
+
+  return <Navigate to={`/courses/${courseId}/assignments/${assignmentId}`} replace />;
+}
 
 function AppContent() {
   const location = useLocation();
@@ -119,6 +125,22 @@ function AppContent() {
             element={
               <RequireAuth>
                 <LessonViewer />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/courses/:courseId/assignments/:assignmentId"
+            element={
+              <RequireAuth>
+                <CourseDetail />
+              </RequireAuth>
+            }
+          />
+          <Route
+            path="/classes/:courseId/assignments/:assignmentId"
+            element={
+              <RequireAuth>
+                <LegacyAssignmentRedirect />
               </RequireAuth>
             }
           />
