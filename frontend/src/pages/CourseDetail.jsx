@@ -347,7 +347,7 @@ function AssignmentCard({ assignment }) {
 }
 
 export default function CourseDetail() {
-  const { courseId } = useParams();
+  const { courseId, assignmentId } = useParams();
   const currentUser = getCurrentUser();
   const [courseData, setCourseData] = useState(() =>
     USE_MOCK_DATA ? getCourseDetailData(courseId, currentUser?.id) : null,
@@ -356,6 +356,7 @@ export default function CourseDetail() {
   const [isLoading, setIsLoading] = useState(!USE_MOCK_DATA);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('lessons');
+  const [highlightedAssignmentId, setHighlightedAssignmentId] = useState(null);
   const [reloadToken, setReloadToken] = useState(0);
   const [sectionForm, setSectionForm] = useState({ title: '', orderIndex: 1 });
   const [sectionFormError, setSectionFormError] = useState('');
@@ -536,6 +537,39 @@ export default function CourseDetail() {
   );
   const handleRetry = () => setReloadToken((value) => value + 1);
   const canTrackLessonProgress = currentUser?.role === 'STUDENT';
+
+  useEffect(() => {
+    if (!assignmentId) {
+      setHighlightedAssignmentId(null);
+      return;
+    }
+
+    setActiveTab('assignments');
+  }, [assignmentId]);
+
+  useEffect(() => {
+    if (!assignmentId || activeTab !== 'assignments') return undefined;
+    if (!assignmentItems.some((item) => item.id === assignmentId)) return undefined;
+
+    const scrollTimer = window.setTimeout(() => {
+      const target = document.getElementById(`assignment-${assignmentId}`);
+      if (!target) return;
+
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setHighlightedAssignmentId(assignmentId);
+    }, 0);
+
+    const highlightTimer = window.setTimeout(() => {
+      setHighlightedAssignmentId((current) =>
+        current === assignmentId ? null : current,
+      );
+    }, 2800);
+
+    return () => {
+      window.clearTimeout(scrollTimer);
+      window.clearTimeout(highlightTimer);
+    };
+  }, [activeTab, assignmentId, assignmentItems]);
 
   const appendDiscussionMessage = useCallback((message) => {
     if (!message?.id) return;
@@ -2193,9 +2227,18 @@ export default function CourseDetail() {
                 const mySubmissions = submissionHistory[assignment.id];
                 const hasSubmitted = mySubmissions?.length > 0;
                 const isSubmissionsVisible = submissionForms[assignment.id]?.showSubmissions ?? false;
+                const isHighlighted = highlightedAssignmentId === assignment.id;
 
                 return (
-                  <div key={assignment.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+                  <div
+                    key={assignment.id}
+                    id={`assignment-${assignment.id}`}
+                    className={`scroll-mt-24 rounded-2xl border p-4 transition-colors duration-500 dark:bg-slate-950 ${
+                      isHighlighted
+                        ? 'border-indigo-400 bg-indigo-50 ring-2 ring-indigo-200 dark:border-indigo-300 dark:bg-indigo-400/10 dark:ring-indigo-400/40'
+                        : 'border-slate-200 bg-slate-50 dark:border-slate-800'
+                    }`}
+                  >
                     {/* Header: card + status + teacher actions */}
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
