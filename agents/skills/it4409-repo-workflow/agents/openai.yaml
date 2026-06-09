@@ -1,0 +1,4 @@
+interface:
+  display_name: "IT4409 Repo Workflow"
+  short_description: "Repo-specific LMS workflow guidance"
+  default_prompt: "Use $it4409-repo-workflow to analyze and modify the IT4409 LMS repo safely."

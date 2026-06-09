@@ -1,0 +1,66 @@
+import {
+    addMockCourseQuiz,
+    getMockCourseAssignments,
+    getMockCourseById,
+    getMockCourseDiscussions,
+    getMockCourseLessons,
+    getMockCourseProgress,
+    getMockCourseQuizzes,
+    getMockCourseResources,
+    getMockCourseSections,
+    getMockQuizDetail,
+    getMockStudentCourseCards,
+    getMockTeacherCourseCards,
+    getMockTeacherPendingRequests,
+    mockCourseCards,
+} from '../mocks/courses/mockCourses';
+
+export const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA === 'true';
+
+export function getHomeCourses() {
+  return mockCourseCards;
+}
+
+export function getStudentDashboardData(userId) {
+  return {
+    courses: getMockStudentCourseCards(userId),
+  };
+}
+
+export function getTeacherDashboardData(userId) {
+  return {
+    courses: getMockTeacherCourseCards(userId),
+    pendingRequests: getMockTeacherPendingRequests(userId),
+  };
+}
+
+export function getCourseDetailData(courseId, userId) {
+  return {
+    course: getMockCourseById(courseId),
+    sections: getMockCourseSections(courseId),
+    lessons: getMockCourseLessons(courseId),
+    discussions: getMockCourseDiscussions(courseId),
+    resources: getMockCourseResources(courseId),
+    quizzes: getMockCourseQuizzes(courseId),
+    assignments: getMockCourseAssignments(courseId),
+    progress: getMockCourseProgress(courseId, userId),
+  };
+}
+
+export function getQuizDetailData(courseId, quizId) {
+  return getMockQuizDetail(courseId, quizId);
+}
+
+export function createMockQuiz(quiz) {
+  return addMockCourseQuiz(quiz);
+}
+
+export { getCourseDetailFromApi } from './api/course-detail.service';
+export {
+    getQuizDetailFromApi,
+  getAttemptResult,
+    listMyQuizAttempts,
+    startQuizAttempt,
+    submitQuizAttempt
+} from './api/quiz-detail.service';
+export { createQuiz } from './api/quizzes.service';

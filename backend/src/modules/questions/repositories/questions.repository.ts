@@ -1,0 +1,37 @@
+import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Question } from '../entities/question.entity';
+
+@Injectable()
+export class QuestionsRepository {
+  constructor(
+    @InjectRepository(Question)
+    private readonly repo: Repository<Question>,
+  ) { }
+
+  findAll() {
+    return this.repo.find();
+  }
+
+  findById(id: string) {
+    return this.repo.findOne({ where: { id } });
+  }
+
+  findByQuizId(quiz_id: string) {
+    return this.repo.find({ where: { quiz_id } });
+  }
+
+  createOne(data: Partial<Question>) {
+    return this.repo.save(this.repo.create(data));
+  }
+
+  async updateOne(id: string, data: Partial<Question>) {
+    await this.repo.update({ id }, data);
+    return this.findById(id);
+  }
+
+  async removeOne(id: string) {
+    await this.repo.delete({ id });
+  }
+}

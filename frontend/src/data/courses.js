@@ -1,0 +1,1 @@
+export { mockCourseCards as courses } from '../mocks/courses/mockCourses';

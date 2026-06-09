@@ -1,0 +1,376 @@
+course:
+  name: "CS50's Web Programming with Python and JavaScript"
+  description: |
+    Khóa học giới thiệu thiết kế và triển khai ứng dụng web hiện đại với Python, JavaScript và SQL.
+    Nội dung đi từ HTML/CSS, Git, Python, Django, SQL, JavaScript đến giao diện người dùng, kiểm thử, CI/CD, mở rộng hệ thống và bảo mật.
+    Dữ liệu này được rút gọn thành 5 tuần để phù hợp seed demo cho hệ thống LMS.
+  type: "OPEN"
+  join_code: "CS50W-2026"
+  avatar_url: "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?auto=format&fit=crop&w=800&q=80"
+
+teacher:
+  full_name: "GV Demo CS50W"
+  email: "teacher.cs50w@7study.local"
+  password: "Password123!"
+  avatar_url: ""
+
+student:
+  full_name: "SV Demo CS50W"
+  email: "student.cs50w@7study.local"
+  password: "Password123!"
+  avatar_url: ""
+
+students:
+  - key: "student_2"
+    full_name: "SV Demo Frontend"
+    email: "student.frontend.cs50w@7study.local"
+    password: "Password123!"
+    avatar_url: ""
+  - key: "student_3"
+    full_name: "SV Demo Backend"
+    email: "student.backend.cs50w@7study.local"
+    password: "Password123!"
+    avatar_url: ""
+  - key: "student_4"
+    full_name: "SV Demo QA"
+    email: "student.qa.cs50w@7study.local"
+    password: "Password123!"
+    avatar_url: ""
+  - key: "student_5"
+    full_name: "SV Demo Fullstack"
+    email: "student.fullstack.cs50w@7study.local"
+    password: "Password123!"
+    avatar_url: ""
+
+pending_students:
+  - full_name: "SV Chờ Duyệt Một"
+    email: "student.pending1.cs50w@7study.local"
+    password: "Password123!"
+    avatar_url: ""
+  - full_name: "SV Chờ Duyệt Hai"
+    email: "student.pending2.cs50w@7study.local"
+    password: "Password123!"
+    avatar_url: ""
+
+rejected_students:
+  - full_name: "SV Bị Từ Chối"
+    email: "student.rejected.cs50w@7study.local"
+    password: "Password123!"
+    avatar_url: ""
+
+sections:
+  - title: "Tuần 1 - HTML, CSS và nền tảng giao diện web"
+    order_index: 1
+    lessons:
+      - title: "Cấu trúc trang web với HTML"
+        description: "Làm quen với HTML, DOM, thẻ nội dung, biểu mẫu và cách trình duyệt biểu diễn cấu trúc tài liệu."
+        order_index: 1
+        contents:
+          - type: "text"
+            title: "HTML và DOM"
+            content: |
+              HTML là ngôn ngữ đánh dấu dùng để mô tả cấu trúc của một trang web. Mỗi phần tử như heading, paragraph, image, link, table hoặc form tạo thành một node trong cây DOM.
+              Khi trình duyệt tải trang, HTML được phân tích thành DOM để JavaScript và CSS có thể thao tác hoặc định kiểu giao diện.
+            duration: 10
+            order_index: 1
+          - type: "video"
+            title: "CS50W Lecture 0 - HTML and CSS"
+            file_url: "https://www.youtube.com/watch?v=zFZrkCIc2Oc"
+            duration: 108
+            order_index: 2
+          - type: "file"
+            title: "Lecture 0 Slides - HTML and CSS"
+            file_path_or_url: "https://cdn.cs50.net/web/2020/spring/lectures/0/lecture0.pdf"
+            duration: 5
+            order_index: 3
+      - title: "CSS, responsive design và Bootstrap"
+        description: "Tìm hiểu selector, specificity, responsive design, flexbox, grid, Bootstrap và Sass."
+        order_index: 2
+        contents:
+          - type: "text"
+            title: "CSS trong thiết kế giao diện"
+            content: |
+              CSS kiểm soát cách trang web được hiển thị: màu sắc, kích thước, khoảng cách, bố cục và khả năng thích ứng với nhiều kích thước màn hình.
+              Responsive design giúp giao diện hoạt động tốt trên desktop, tablet và mobile. Bootstrap cung cấp sẵn hệ thống grid và component để tăng tốc quá trình xây dựng UI.
+            duration: 10
+            order_index: 1
+          - type: "file"
+            title: "Source Code - Lecture 0"
+            file_path_or_url: "https://cdn.cs50.net/web/2020/spring/lectures/0/src0.zip"
+            duration: 5
+            order_index: 2
+
+  - title: "Tuần 2 - Git, GitHub và Python nền tảng"
+    order_index: 2
+    lessons:
+      - title: "Quản lý mã nguồn với Git"
+        description: "Nắm các thao tác clone, add, commit, branch, merge conflict, fork và pull request."
+        order_index: 1
+        contents:
+          - type: "text"
+            title: "Vai trò của Git trong dự án web"
+            content: |
+              Git giúp theo dõi lịch sử thay đổi của mã nguồn, thử nghiệm tính năng mới bằng branch và phối hợp với nhiều thành viên qua remote repository.
+              Trong môi trường làm web, GitHub thường được dùng để review code, tạo pull request, quản lý issue và triển khai tài liệu qua GitHub Pages.
+            duration: 10
+            order_index: 1
+          - type: "video"
+            title: "CS50W Lecture 1 - Git"
+            file_url: "https://www.youtube.com/watch?v=NcoBAfJ6l2Q"
+            duration: 70
+            order_index: 2
+          - type: "file"
+            title: "Lecture 1 Slides - Git"
+            file_path_or_url: "https://cdn.cs50.net/web/2020/spring/lectures/1/lecture1.pdf"
+            duration: 5
+            order_index: 3
+      - title: "Python cho lập trình web"
+        description: "Ôn biến, điều kiện, vòng lặp, hàm, module, OOP, functional programming và exception."
+        order_index: 2
+        contents:
+          - type: "text"
+            title: "Python làm backend"
+            content: |
+              Python thường được dùng ở backend vì cú pháp rõ ràng, thư viện phong phú và có framework mạnh như Django hoặc Flask.
+              Các khái niệm như function, class, module và exception giúp tổ chức code rõ ràng hơn trước khi xây dựng ứng dụng web hoàn chỉnh.
+            duration: 10
+            order_index: 1
+          - type: "video"
+            title: "CS50W Lecture 2 - Python"
+            file_url: "https://www.youtube.com/watch?v=EOLPQdVj5Ac"
+            duration: 65
+            order_index: 2
+          - type: "file"
+            title: "Lecture 2 Slides - Python"
+            file_path_or_url: "https://cdn.cs50.net/web/2020/spring/lectures/2/lecture2.pdf"
+            duration: 5
+            order_index: 3
+
+  - title: "Tuần 3 - Django và kiến trúc ứng dụng web"
+    order_index: 3
+    lessons:
+      - title: "HTTP, route và view trong Django"
+        description: "Hiểu request/response, URL routing, view function và cách Django xử lý một request."
+        order_index: 1
+        contents:
+          - type: "text"
+            title: "Luồng request trong Django"
+            content: |
+              Một ứng dụng Django thường nhận HTTP request, khớp URL với route, gọi view tương ứng, xử lý dữ liệu rồi trả về HTTP response.
+              Cách tổ chức này giúp tách logic xử lý, template hiển thị và dữ liệu, làm ứng dụng dễ bảo trì hơn khi chức năng tăng dần.
+            duration: 10
+            order_index: 1
+          - type: "video"
+            title: "CS50W Lecture 3 - Django"
+            file_url: "https://www.youtube.com/watch?v=w8q0C-C1js4"
+            duration: 78
+            order_index: 2
+          - type: "file"
+            title: "Lecture 3 Slides - Django"
+            file_path_or_url: "https://cdn.cs50.net/web/2020/spring/lectures/3/lecture3.pdf"
+            duration: 5
+            order_index: 3
+      - title: "Template, form và session"
+        description: "Sử dụng template để render HTML động, form để nhận dữ liệu và session để lưu trạng thái người dùng."
+        order_index: 2
+        contents:
+          - type: "text"
+            title: "Template và session"
+            content: |
+              Template cho phép backend truyền dữ liệu vào HTML để tạo giao diện động. Form giúp người dùng gửi dữ liệu về server thông qua GET hoặc POST.
+              Session lưu trạng thái giữa nhiều request, ví dụ người dùng đã đăng nhập hay giỏ hàng hiện tại gồm những sản phẩm nào.
+            duration: 10
+            order_index: 1
+
+  - title: "Tuần 4 - SQL, models và migrations"
+    order_index: 4
+    lessons:
+      - title: "Cơ sở dữ liệu quan hệ và SQL"
+        description: "Làm việc với table, khóa chính, khóa ngoại, quan hệ và câu lệnh truy vấn dữ liệu."
+        order_index: 1
+        contents:
+          - type: "text"
+            title: "SQL trong ứng dụng web"
+            content: |
+              Phần lớn ứng dụng web cần lưu dữ liệu lâu dài như tài khoản, bài học, đơn hàng hoặc bài nộp. SQL giúp truy vấn, lọc, nhóm và cập nhật dữ liệu trong cơ sở dữ liệu quan hệ.
+              Thiết kế bảng tốt giúp giảm trùng lặp dữ liệu, đảm bảo toàn vẹn và làm API dễ mở rộng hơn.
+            duration: 10
+            order_index: 1
+          - type: "video"
+            title: "CS50W Lecture 4 - SQL, Models and Migrations"
+            file_url: "https://www.youtube.com/watch?v=YzP164YANAU"
+            duration: 111
+            order_index: 2
+          - type: "file"
+            title: "Lecture 4 Slides - SQL, Models, and Migrations"
+            file_path_or_url: "https://cdn.cs50.net/web/2020/spring/lectures/4/lecture4.pdf"
+            duration: 5
+            order_index: 3
+      - title: "Django Models và migrations"
+        description: "Ánh xạ bảng dữ liệu sang model class và quản lý thay đổi schema bằng migration."
+        order_index: 2
+        contents:
+          - type: "text"
+            title: "Models và migrations"
+            content: |
+              Django model biểu diễn dữ liệu bằng class Python, sau đó ORM chuyển thao tác trên object thành truy vấn SQL.
+              Migration ghi lại thay đổi schema theo từng bước, giúp nhiều môi trường như máy dev, staging và production có thể đồng bộ cấu trúc database.
+            duration: 10
+            order_index: 1
+
+  - title: "Tuần 5 - JavaScript, UI và kiểm thử"
+    order_index: 5
+    lessons:
+      - title: "JavaScript và thao tác DOM"
+        description: "Tạo tương tác frontend bằng event, DOM manipulation, local storage và API."
+        order_index: 1
+        contents:
+          - type: "text"
+            title: "JavaScript trong frontend"
+            content: |
+              JavaScript chạy trong trình duyệt và cho phép trang web phản hồi hành động của người dùng mà không cần tải lại toàn bộ trang.
+              Các thao tác thường gặp gồm lắng nghe event, thay đổi DOM, lưu dữ liệu nhỏ bằng localStorage và gọi API để lấy dữ liệu từ backend.
+            duration: 10
+            order_index: 1
+          - type: "video"
+            title: "CS50W Lecture 5 - JavaScript"
+            file_url: "https://www.youtube.com/watch?v=x5trGVMKTdY"
+            duration: 83
+            order_index: 2
+          - type: "file"
+            title: "Lecture 5 Slides - JavaScript"
+            file_path_or_url: "https://cdn.cs50.net/web/2020/spring/lectures/5/lecture5.pdf"
+            duration: 5
+            order_index: 3
+      - title: "Single-page app, React và kiểm thử"
+        description: "Tổng quan SPA, React, animation, infinite scroll, unit testing, Selenium, CI/CD và Docker."
+        order_index: 2
+        contents:
+          - type: "text"
+            title: "UI hiện đại và kiểm thử"
+            content: |
+              Single-page application giảm số lần tải lại trang bằng cách cập nhật từng phần giao diện. React hỗ trợ xây dựng UI theo component, giúp tái sử dụng và quản lý trạng thái tốt hơn.
+              Kiểm thử và CI/CD giúp phát hiện lỗi sớm. Với ứng dụng web, test có thể bao gồm unit test, test giao diện bằng Selenium và pipeline tự động bằng GitHub Actions.
+            duration: 10
+            order_index: 1
+          - type: "video"
+            title: "CS50W Lecture 6 - User Interfaces"
+            file_url: "https://www.youtube.com/watch?v=jrBhi8wbzPw"
+            duration: 78
+            order_index: 2
+          - type: "video"
+            title: "CS50W Lecture 7 - Testing and CI/CD"
+            file_url: "https://www.youtube.com/watch?v=WbRDkJ4lPdY"
+            duration: 81
+            order_index: 3
+          - type: "file"
+            title: "Lecture 6 Slides - User Interfaces"
+            file_path_or_url: "https://cdn.cs50.net/web/2020/spring/lectures/6/lecture6.pdf"
+            duration: 5
+            order_index: 4
+
+resource_folders:
+  - name: "Slide bài giảng"
+    resources:
+      - title: "Lecture 0 - HTML and CSS"
+        file_path_or_url: "https://cdn.cs50.net/web/2020/spring/lectures/0/lecture0.pdf"
+        description: "Slide về HTML, DOM, CSS, responsive design, Bootstrap và Sass."
+      - title: "Lecture 1 - Git"
+        file_path_or_url: "https://cdn.cs50.net/web/2020/spring/lectures/1/lecture1.pdf"
+        description: "Slide về Git, GitHub, branch, merge conflict, fork và pull request."
+      - title: "Lecture 3 - Django"
+        file_path_or_url: "https://cdn.cs50.net/web/2020/spring/lectures/3/lecture3.pdf"
+        description: "Slide về Django, route, template, form và session."
+      - title: "Lecture 4 - SQL, Models, and Migrations"
+        file_path_or_url: "https://cdn.cs50.net/web/2020/spring/lectures/4/lecture4.pdf"
+        description: "Slide về SQL, database, model, relationship, migration và Django Admin."
+  - name: "Tài liệu tham khảo"
+    resources:
+      - title: "CS50W OpenCourseWare"
+        file_path_or_url: "https://cs50.harvard.edu/web/"
+        description: "Trang chính thức của khóa CS50's Web Programming with Python and JavaScript."
+      - title: "Week 0 - HTML and CSS"
+        file_path_or_url: "https://cs50.harvard.edu/web/weeks/0/"
+        description: "Trang tuần học chính thức, gồm notes, slides, source code, transcript và video."
+      - title: "Week 3 - Django"
+        file_path_or_url: "https://cs50.harvard.edu/web/weeks/3/"
+        description: "Trang tuần học về Django và kiến trúc ứng dụng web."
+      - title: "Week 4 - SQL, Models, and Migrations"
+        file_path_or_url: "https://cs50.harvard.edu/web/weeks/4/"
+        description: "Trang tuần học về cơ sở dữ liệu và Django ORM."
+
+quiz:
+  title: "Quiz tổng quan lập trình web với Python và JavaScript"
+  description: "Kiểm tra nhanh các khái niệm nền tảng về HTML/CSS, Git, Django, SQL và JavaScript."
+  time_limit_minutes: 15
+  questions:
+    - question_text: "DOM trong trình duyệt biểu diễn điều gì?"
+      options:
+        - "Cấu trúc cây của tài liệu HTML"
+        - "Một cơ sở dữ liệu quan hệ"
+        - "Một file cấu hình Git"
+        - "Một giao thức truyền file"
+      correct_option_index: 0
+      explanation: "DOM là cấu trúc cây mà trình duyệt tạo ra từ HTML để JavaScript và CSS có thể thao tác."
+    - question_text: "Lệnh Git nào thường dùng để lưu một mốc thay đổi vào lịch sử repository?"
+      options:
+        - "git commit"
+        - "git render"
+        - "git migrate"
+        - "git listen"
+      correct_option_index: 0
+      explanation: "git commit tạo một snapshot của thay đổi đã được đưa vào staging area."
+    - question_text: "Trong Django, URL routing thường dùng để làm gì?"
+      options:
+        - "Ánh xạ URL đến view xử lý request"
+        - "Tối ưu kích thước ảnh"
+        - "Tạo khóa chính cho database"
+        - "Biên dịch JavaScript thành CSS"
+      correct_option_index: 0
+      explanation: "Route quyết định view nào sẽ được gọi khi request khớp với một URL nhất định."
+    - question_text: "Migration trong Django có vai trò chính là gì?"
+      options:
+        - "Quản lý thay đổi schema database theo phiên bản"
+        - "Tạo event click trên frontend"
+        - "Nén video bài giảng"
+        - "Thay thế hoàn toàn SQL bằng HTML"
+      correct_option_index: 0
+      explanation: "Migration ghi lại thay đổi model/schema và áp dụng chúng vào database một cách có kiểm soát."
+    - question_text: "JavaScript phía trình duyệt thường được dùng để làm gì?"
+      options:
+        - "Tạo tương tác giao diện và gọi API"
+        - "Cấp phát RAM cho hệ điều hành"
+        - "Thiết kế quan hệ khóa ngoại"
+        - "Quản lý branch trong Git"
+      correct_option_index: 0
+      explanation: "JavaScript giúp xử lý event, thao tác DOM, lưu dữ liệu cục bộ và gọi API từ frontend."
+
+discussions:
+  - title: "Thắc mắc về kiến trúc client-server"
+    messages:
+      - author: "teacher"
+        content: "Trong tuần này, các bạn hãy phân biệt rõ vai trò của frontend, backend và database trong một ứng dụng web."
+      - author: "student"
+        content: "Thưa thầy, khi người dùng bấm nút gửi form thì dữ liệu đi qua những bước nào trước khi được lưu vào database?"
+      - author: "student_2"
+        content: "Theo em, frontend validate dữ liệu trước, sau đó gọi API backend bằng HTTP request."
+      - author: "student_3"
+        content: "Backend sẽ kiểm tra quyền, validate lại dữ liệu, xử lý nghiệp vụ rồi mới ghi vào database."
+      - author: "student_4"
+        content: "Nếu backend trả lỗi 400 hoặc 401 thì frontend nên hiển thị thông báo cụ thể thay vì chỉ báo thất bại chung."
+      - author: "student_5"
+        content: "Em hiểu luồng đầy đủ là form -> frontend state -> API request -> controller/service -> database -> response về UI."
+      - author: "teacher"
+        content: "Đúng hướng. Các bạn lưu ý phần validate ở frontend chỉ hỗ trợ trải nghiệm, backend vẫn là lớp bắt buộc phải kiểm tra dữ liệu và phân quyền."
+
+assignment:
+  title: "Project 0 - Thiết kế trang web tĩnh bằng HTML/CSS"
+  description: |
+    Sinh viên xây dựng một website tĩnh gồm nhiều trang HTML, sử dụng CSS để định kiểu và áp dụng responsive design.
+    Bài nộp cần có cấu trúc thư mục rõ ràng, liên kết giữa các trang và giao diện hiển thị tốt trên nhiều kích thước màn hình.
+  due_date: "2026-06-15T23:59:00+07:00"
+  attachments:
+    - file_path_or_url: "https://cs50.harvard.edu/web/projects/0/"
+  sample_submission:
+    student_file_path_or_url: ""
+    content: "Demo submission: em đã hoàn thành website tĩnh với 4 trang gồm Home, About, Projects và Contact."

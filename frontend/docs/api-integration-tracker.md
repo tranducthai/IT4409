@@ -1,0 +1,583 @@
+# API Integration Tracker
+
+File nay la tracker chinh cho viec noi API frontend/backend. Moi lan hoan thanh mot endpoint hoac mot batch nho, cap nhat tick/status trong file nay truoc khi chuyen sang batch tiep theo.
+
+## Git Snapshot
+
+- Working branch: `feat/p0-api-integration`
+- Base branch: `origin/dev`
+- Local `dev`: da dong bo voi `origin/dev`
+- Real API mode:
+
+```env
+VITE_API_BASE_URL=http://127.0.0.1:3000/api
+VITE_USE_MOCK_DATA=false
+```
+
+## Status Legend
+
+- Done: da co backend, frontend da goi, UI da co state co ban.
+- Partial: da co mot phan nhung con rui ro contract, performance, guard, hoac UI chua dung du lieu.
+- Missing: chua noi hoac chua co endpoint.
+- Verify: can chay real mode de test lai bang data that.
+
+## API Contract Checklist
+
+| Area | API contract | Backend | Frontend | Status | Notes |
+|---|---|---:|---:|---|---|
+| Auth | `POST /auth/login` | Yes | Yes | Done | Backend tra `access_token`, `refresh_token`; frontend map sang `accessToken`, `refreshToken`. |
+| Auth | `POST /auth/register` | Yes | Yes | Done | Contract dung `full_name`; frontend da normalize tu `full_name`/`name`. |
+| Auth | `POST /auth/refresh` | Yes | Yes | Done | Frontend retry 1 lan khi 401, gui `refresh_token`. |
+| Auth | `GET /auth/me` | Yes | Yes | Done | Frontend hydrate user khi reload co token nhung mat `currentUser`. |
+| Auth | `PATCH /auth/change-password` | Yes | Yes | Done | Co UI account management. |
+| Class members | `GET /class-members/me/student-classes` | Yes | Yes | Done | Student dashboard da goi API khi mock off. |
+| Class members | `GET /class-members/me/teacher-classes` | Yes | Yes | Done | Teacher dashboard da goi API khi mock off. |
+| Class members | `GET /class-members/classes/:classId/pending` | Yes | Yes | Done | UI hien request id/class id/status; co the can enrich student info sau. |
+| Class members | `PATCH /class-members/:id/approve` | Yes | Yes | Done | Teacher approve flow da goi API. |
+| Class members | `POST /class-members` | Yes | Yes | Done | Direct add student van duoc giu, nhung backend da co JWT guard va verify teacher owns class; student/teacher sai scope bi chan. |
+| Classes | `POST /classes` | Yes | Yes | Done | Frontend normalize class payload va gui `teacher_id`. |
+| Classes | `PATCH /classes/:id` | Yes | Yes | Done | Frontend gui partial payload. |
+| Classes | `DELETE /classes/:id` | Yes | Yes | Done | Client chap nhan response co body hoac 204. |
+| Course detail | `GET /classes/:id` | Yes | Yes | Done | CourseDetail da load class detail. |
+| Course detail | `GET /sections/class/:classId` | Yes | Yes | Done | CourseDetail da load sections. |
+| Course detail | `GET /lessons/section/:sectionId` | Yes | Yes | Done | CourseDetail load lessons theo tung section. |
+| Course detail | `GET /lesson-contents` | Yes | Yes | Done | Da chuyen sang `GET /lesson-contents/class/:classId`; backend doc tu `lessons` table sau khi merge schema, frontend chi load data cua class hien tai. |
+| Course detail | `GET /quizzes/class/:classId` | Yes | Yes | Done | Resource tab hien quiz cua lop. |
+| Course detail | `POST /quizzes` | Yes | Yes | Done | Teacher tao quiz tu CourseDetail. |
+| Course detail | `GET /assignments/class/:classId` | Yes | Yes | Done | Assignment tab da dung API. |
+| Course detail | `GET /discussions/class/:classId` | Yes | No | Missing | Backend co endpoint, CourseDetail chua load discussions tu API. |
+| Quiz taking | `GET /quiz/:quizId` | Yes | Yes | Done | FE render cau hoi/options, teacher preview, va student mode theo quiz detail. |
+| Quiz taking | `POST /quiz/:quizId/start` | Yes | Yes | Done | FE co start attempt, luu attempt state, va resume attempt dang mo. |
+| Quiz taking | `POST /quiz/:quizId/submit` | Yes | Yes | Done | FE block submit rong, gui answers A/B/C/D, va hien summary sau submit. |
+| Quiz taking | `GET /quiz/:quizId/attempts/me` | Yes | Yes | Done | FE load lich su lam bai va auto hydrate attempt dang mo / result moi nhat. |
+| Quiz taking | `GET /quiz/attempts/:attemptId` | Yes | Yes | Done | FE co view result chi tiet cho mot attempt da nop. |
+| Lesson progress | `POST /lessons/:lessonId/progress/me` | Yes | Yes | Done | BE co table `lesson_progresses`; CourseDetail co nut danh dau da hoc cho student. |
+| Progress | `GET /classes/:id/progress/me` or equivalent | Yes | Yes | Done | CourseDetail load progress that va suy ra status lesson tu completed lesson ids. |
+| Errors | NestJS error shape | Yes | Partial | Partial | Client chua normalize `message` dang array. |
+| Tokens | Authorization header | Yes | Partial | Partial | Refresh da luu user neu backend tra ve; service van truyen token thu cong o nhieu cho. |
+
+## Fix Priority Order
+
+Thu tu de fix khuyen nghi, sap xep theo muc do anh huong va do phu thuoc:
+
+1. P0 - Batch 2: API client cleanup - done, real API verified
+  - Anh huong toan bo request, bao gom normalize error, token header, va FormData.
+  - Nen tang da on de sang P1 khong bi loi hidden do client.
+2. P0 - Batch 3: Course discussions - done enough for real API, UI polish con browser verify
+  - Tab discussions da noi duoc API that va pass access control tren backend.
+  - Con browser reload / UI polish neu muon verify them sau.
+3. P1 - Batch 4: Lesson contents scoped endpoint - done
+  - Giai quyet van de lay du lieu qua rong va co nguy co leak content.
+4. P1 - Batch 5: Class member security and flow - backend security done, UI flow can verify further
+  - Co yeu to security/role guard, can cham som truoc khi mo rong flow add/approve.
+5. P2 - Batch 6: Quiz taking
+  - La luong chuc nang lon, can them state attempt, submit, history va ket qua.
+6. P2 - Batch 7: Lesson completion and progress - done
+  - Da co contract progress that va CourseDetail khong con hardcode lesson status = `todo`.
+7. P3 - Batch 8: Real mode verification
+  - Chot sau cung de xac nhan toan bo contract va UI hoat dong tren data that.
+
+## P1 Kickoff Notes
+
+Muc tieu sau P0:
+
+- Batch 4 lam lesson contents scoped endpoint truoc, vi day la van de contract/data scope ro nhat va co nguy co leak neu de bulk load.
+- Batch 5 lam class member security and flow ngay sau do, vi dashboard giang vien can dung scope, khong nen render theo kieu course list cua sinh vien.
+- Khi bat dau P1, giu `Batch 6-8` chua dong vao state moi.
+
+## P2 Kickoff Notes
+
+Muc tieu sau P1:
+
+- Batch 6 lam quiz taking truoc, vi `QuizDetail.jsx` da co san khung start/submit/attempt history va day la phan co contract backend ro nhat trong P2.
+- Batch 7 da hoan thanh lesson progress, bao gom table luu completion va UI student mark done.
+- Batch 8 giu cho real-mode verification, chi dung de chot toan bo P2 sau khi quiz/progress da on dinh.
+- Neu co rui ro contract, uu tien chot service/api truoc, sau do moi cham vao UI.
+
+## Demo Seed Data
+
+Backend co script seed demo idempotent:
+
+```bash
+cd backend
+npm run seed:demo
+```
+
+Password chung cho tat ca account demo:
+
+```text
+Password123!
+```
+
+Demo accounts:
+
+| Email | Role | Notes |
+|---|---|---|
+| `demo.admin@7study.local` | ADMIN | Dung de test route/admin UI neu can. |
+| `demo.teacher.linh@7study.local` | TEACHER | Day `SEED-REACT`, `SEED-AI`. |
+| `demo.teacher.khoa@7study.local` | TEACHER | Day `SEED-DB`. |
+| `demo.student.anh@7study.local` | STUDENT | Active trong `SEED-REACT`, `SEED-DB`. |
+| `demo.student.bao@7study.local` | STUDENT | Active trong `SEED-REACT`, `SEED-AI`; pending trong `SEED-DB`. |
+| `demo.student.chi@7study.local` | STUDENT | Active trong `SEED-REACT`, `SEED-AI`. |
+| `demo.student.dung@7study.local` | STUDENT | Active trong `SEED-DB`, `SEED-AI`. |
+| `demo.student.pending@7study.local` | STUDENT | Pending trong `SEED-REACT`. |
+
+Seeded classes:
+
+| Join code | Class | Teacher | Content |
+|---|---|---|---|
+| `SEED-REACT` | Lap trinh giao dien voi React | `demo.teacher.linh@7study.local` | Sections, lessons, quiz, questions, assignments, discussion/messages. |
+| `SEED-DB` | Co so du lieu ung dung | `demo.teacher.khoa@7study.local` | Sections, lessons, quiz, questions, assignments, discussion/messages. |
+| `SEED-AI` | Nhap mon tri tue nhan tao | `demo.teacher.linh@7study.local` | Sections, lessons, quiz, questions, assignments, discussion/messages. |
+
+Known seed caveat:
+
+- DB hien tai chua co table `lesson_contents`, nen endpoint lesson contents da doc truc tiep tu `lessons` sau khi merge schema. Seed script van skip table nay an toan.
+
+## UI Fix Tracker
+
+UI fixes da lam sau Batch 1 API:
+
+- [x] Them hover/focus/active effect chung qua `.action-btn`, ap dung cho cac nut hanh dong chinh.
+- [x] Dua quan ly tai khoan ra route rieng `/account`, khong de card doi mat khau nam trong dashboard.
+- [x] Them route `/profile` co form cap nhat `full_name` va `avatar_url`.
+- [x] Sua layout dashboard/course detail/quiz detail de noi dung co width dong bo hon.
+- [x] Sua form doi mat khau sang stack doc va them validate FE: bat buoc, confirm match, min 6 ky tu, mat khau moi khac mat khau cu.
+- [x] Sua account menu tren header: trigger la button co aria, co active state, co thong tin user, dong khi bam ngoai/Escape, bo item trung lap "Tiep tuc khoa hoc gan nhat".
+- [x] Sua login/register dark mode label/input, bo link quen mat khau dang tro `#`, them hover/focus chung cho link phu.
+- [x] Sua CourseCard hover/focus va mau border/text dong bo voi theme moi.
+- [x] Sua Footer mobile padding/gap de khong bi chat ngang tren man hinh nho.
+- [x] Tach Profile va Account thanh cac panel ngang hang, tranh form/card bi long trong card lon.
+
+UI verification:
+
+- [x] `npm run lint` trong `frontend`.
+- [x] `npm run build` trong `frontend`.
+- [x] `git diff --check`.
+- [ ] Browser visual review chua chay tu agent vi moi truong hien khong expose shared VS Code browser/Playwright.
+
+## Integration Plan
+
+### Batch 1: Auth/session hydration
+
+Goal: reload trang khong mat role routing khi van con access token.
+
+Scope:
+
+- Frontend only.
+- Khong doi backend vi `GET /auth/me` da co trong `AuthController`.
+- Khong doi UI lon; chi them state can thiet de route guard cho hydrate session.
+
+Files expected:
+
+- `frontend/src/services/api/auth.service.js`
+- `frontend/src/services/api/client.js`
+- `frontend/src/services/api/session.js`
+- `frontend/src/components/RouteGuards.jsx`
+- Co the them helper nho trong `frontend/src/services/api/authState.js` neu can.
+
+Implementation steps:
+
+- [x] Them `getCurrentUserFromApi()` vao `auth.service.js`.
+  - Goi `apiRequest('/auth/me', { method: 'GET' })`.
+  - Neu thanh cong thi `setCurrentUser(user)` va return user.
+  - Neu loi 401/403 thi clear auth state.
+- [x] Cap nhat refresh flow trong `client.js`.
+  - Hien tai `tryRefreshToken()` chi luu token.
+  - Neu response refresh co `user`, luu user vao session storage.
+  - Giu fallback cu neu backend khong tra user.
+- [x] Thiet ke hydrate session cho route guard.
+  - Neu co token va co `currentUser`: cho vao route nhu hien tai.
+  - Neu khong co token: redirect login.
+  - Neu co token nhung chua co `currentUser`: goi `/auth/me` truoc khi quyet dinh redirect.
+  - Trong luc hydrate, hien loading nho de tranh redirect sai.
+- [x] Tranh clear session qua som.
+  - Hien tai `RequireAuth` clear auth state ngay khi thieu user.
+  - Can doi logic nay de thu hydrate truoc.
+- [x] Kiem tra `RequireGuest`.
+  - Neu co token nhung chua co user, thu hydrate.
+  - Neu hydrate thanh cong: redirect `/dashboard`.
+  - Neu hydrate fail: clear session va cho vao login/register.
+- [x] Kiem tra `RequireRole` va `DashboardRoute`.
+  - Role phai normalize uppercase.
+  - Sau hydrate, role routing van dung `TEACHER`, `STUDENT`, `ADMIN`.
+
+Manual test cases:
+
+- [ ] Login student thanh cong, reload `/dashboard/student`, van o dashboard student.
+- [ ] Login teacher thanh cong, reload `/dashboard/teacher`, van o dashboard teacher.
+- [ ] Login teacher, vao `/courses/:courseId`, reload trang, khong bi day ve login.
+- [ ] Xoa only `it4409_current_user` trong localStorage, giu access token, reload dashboard, frontend goi `/auth/me` va khoi phuc user.
+- [ ] Xoa/lam hong access token, reload protected route, frontend clear auth state va redirect login.
+- [ ] Logout xong back/refresh protected route khong vao lai duoc.
+
+Automated/check commands:
+
+- [x] `npm run lint` trong `frontend`.
+- [x] `npm run build` trong `frontend`.
+- [x] `VITE_USE_MOCK_DATA=false VITE_API_BASE_URL=http://127.0.0.1:3000/api npm run build` trong `frontend`.
+
+Real API/module verification:
+
+- [x] Backend start duoc voi Neon/Postgres khi chay ngoai sandbox network.
+- [x] API thật: register student, `/auth/me`, refresh, `/auth/me` sau refresh, login deu pass.
+- [x] API thật: register teacher, `/auth/me`, refresh, `/auth/me` sau refresh, login deu pass.
+- [x] Negative API: `/auth/me` khong token tra 401.
+- [x] Negative API: `/auth/me` token hong tra 401.
+- [x] Negative API: `/auth/refresh` refresh token hong tra 401.
+- [x] Frontend real-mode server start duoc va SPA fallback `/dashboard` tra HTML.
+- [x] Vite SSR module test: `getCurrentUserFromApi()` goi backend that va persist `currentUser`.
+- [x] Vite SSR module test: `apiRequest()` gap 401 thi refresh token, retry request, thay access token, va persist `user`.
+- [x] Vite SSR module test: invalid refresh clear stale auth state.
+- [ ] Browser automation reload test chua chay vi moi truong hien khong co Playwright/Chromium/jsdom.
+
+Post-test review:
+
+- Result: Batch 1 code du de giu. Khong thay blocking issue trong hydrate/session flow.
+- API response verified: `register`, `login`, `refresh`, `/auth/me` deu tra user khong leak `password`.
+- Route guard behavior verified at module/API level, chua verified bang browser reload that.
+
+Risk ranking:
+
+| Rank | Risk | Impact | Proposal |
+|---:|---|---|---|
+| 1 | Chua test browser reload that vi thieu Playwright/Chromium/jsdom | Co the con bug chi xay ra trong runtime browser, vi module test khong cover full React Router navigation/reload | Khi co browser tool, test lai 6 manual cases ben tren; neu can thi install Playwright rieng cho frontend test. |
+| 2 | Test da tao user tam trong DB that | DB se co them account `batch1.*@example.com` va `hydration.module.*@example.com` | Them cleanup script/API admin sau, hoac dung email prefix rieng va xoa bang DB khi chot integration. |
+| 3 | Hydration hook nam rieng trong moi route guard | Parent/child guard co the moi guard khoi tao hook rieng, nhung hien parent guard hydrate truoc nen rui ro thap | Neu sau nay routing phuc tap hon, nen dua session hydration len provider/global auth context. |
+| 4 | `apiRequest()` van hardcode `Content-Type: application/json` | Se gay loi khi Batch sau co upload `FormData` | Xu ly o Batch 2 API client cleanup: chi set JSON content type khi body khong phai `FormData`. |
+
+Review checklist:
+
+- [x] Khong tao vong lap hydrate lien tuc khi `/auth/me` fail.
+- [x] Khong fetch `/auth/me` moi lan render neu da co user.
+- [x] Khong clear valid refresh token truoc khi co co hoi refresh/hydrate.
+- [x] Mock mode van hoat dong nhu cu.
+- [x] Khong lam thay doi contract login/register hien co.
+
+### Batch 2: API client cleanup
+
+Goal: client on dinh truoc khi noi them man hinh.
+
+Files expected:
+
+- `frontend/src/services/api/client.js`
+- `frontend/src/services/api/auth.service.js`
+- `frontend/src/services/api/discussions.service.js`
+- `frontend/src/services/api/course-detail.service.js`
+- `frontend/src/services/api/submissions.service.js`
+- `frontend/src/services/api/lessons.service.js`
+- `frontend/src/services/api/sections.service.js`
+
+Implementation steps:
+
+- [x] Normalize error shape trong `client.js`.
+  - Neu `data.message` la array, join thanh 1 chuoi doc duoc truoc khi throw `ApiError`.
+  - Giu nguyen `status` va `payload` de cac man hinh co the parse lai neu can.
+- [x] Tach logic header theo loai body.
+  - Chi gan `Content-Type: application/json` khi body la JSON string / plain object.
+  - Khong set `Content-Type` khi gui `FormData` hoac upload file.
+- [x] Loai header Authorization thu cong o service layer.
+  - Kiem tra cac service dang tu gan `Authorization` khong can thiet.
+  - De `apiRequest()`/`apiUpload()` la no i duy nhat gan bearer token.
+- [ ] Giu refresh flow on dinh.
+  - Khi refresh token het han, clear auth state va khong retry vo han.
+  - Khi refresh thanh cong, van persist `currentUser` neu backend tra user.
+- [ ] Chot contract loi cho UI.
+  - Login sai mat khau, 403/401, va refresh token hong phai ra message de doc duoc.
+  - Khong doi shape response thanh cong.
+
+Manual test cases:
+
+- [ ] Dang nhap sai password va kiem tra message hien ro.
+- [ ] Goi request yeu cau auth khi access token het han de test refresh/retry.
+- [ ] Test refresh token het han de dam bao auth state bi clear dung luc.
+- [ ] Neu co upload file trong luong lien quan, xac minh FormData khong bi gan JSON content-type.
+
+Review checklist:
+
+- [ ] Public API cua service khong doi ngoai viec loi de doc hon.
+- [ ] Khong lam hong mock mode.
+- [ ] Khong tao regression voi request co body JSON thong thuong.
+
+### Batch 3: Course discussions
+
+Goal: tab Thao luan dung API that.
+
+Files expected:
+
+- `frontend/src/pages/CourseDetail.jsx`
+- `frontend/src/services/api/discussions.service.js`
+- `frontend/src/services/api/course-detail.service.js`
+- `backend/src/modules/discussions/discussions.controller.ts`
+- `backend/src/modules/discussions/discussions.service.ts`
+
+Implementation steps:
+
+- [ ] Dung `GET /discussions/class/:classId` lam nguon data chinh cho tab Thao luan.
+  - Reuse `getDiscussionsByClass(classId)` trong service hien co.
+  - Khong load discussions bang cach khac neu co classId ro rang.
+- [ ] Normalize data discussions ve 1 shape UI on dinh.
+  - Dam bao `title`, `content`, `createdAt`, `author`, `classId` luon co gia tri fallback.
+  - Giu mapping tu API sang UI o 1 cho de de fix ve sau.
+- [ ] Tach state loading/empty/error cho discussions.
+  - Loading khong nen block toan bo course detail.
+  - Empty state phai phan biet giua "chua co bai dang" va "khong tai duoc du lieu".
+- [ ] Dam bao chi doc khi user co quyen.
+  - Backend da co guard trong `DiscussionsService.ensureClassAccess`, nen frontend chi can gui request co Bearer token.
+  - Neu 401/403, hien warning ro rang thay vi fail ngam.
+- [ ] Hook vao UI course detail.
+  - Tab Thao luan phai nhan duoc data, warning va refresh state ma khong lam den cac tab khac.
+
+Manual test cases:
+
+- [ ] Student mo course detail va xem duoc danh sach discussions cua lop minh.
+- [ ] Teacher mo course detail va xem discussions cua lop minh.
+- [ ] User khong thuoc lop khong xem duoc discussions.
+- [ ] Test tab discussions khi API loi de kiem tra warning va empty state.
+
+Review checklist:
+
+- [ ] Discussions chi tai dung scope theo classId.
+- [ ] Khong lam cham toan bo course detail khi discussions loi.
+- [ ] UI co loading/empty/error phan biet ro rang.
+
+### Batch 4: Lesson contents scoped endpoint
+
+Goal: tranh goi `/lesson-contents` lay toan bo data.
+
+Current gap:
+
+- Frontend da load scoped contents theo classId.
+- Backend route `/lesson-contents/class/:classId` dang doc tu schema `lessons` sau khi merge.
+- Con lai browser visual review va empty-state polish neu muon chot UI, nhung contract data scope da on.
+
+Files expected:
+
+- `backend/src/modules/lesson-contents/lesson-contents.controller.ts`
+- `backend/src/modules/lesson-contents/lesson-contents.service.ts`
+- `backend/src/modules/lesson-contents/repositories/lesson-contents.repository.ts`
+- `backend/src/modules/lesson-contents/entities/lesson-content.entity.ts`
+- `frontend/src/services/api/course-detail.service.js`
+- `frontend/src/pages/CourseDetail.jsx`
+
+Implementation steps:
+
+- [x] Chon contract chinh: `GET /lesson-contents/class/:classId`.
+  - Uu tien class-scoped truoc vi `CourseDetail` load theo class va can gom tat ca lesson content cua mot lop.
+  - Neu sau nay can toi uu tiep, co the mo rong them lesson-scoped cho cac man hinh chi tiet hon.
+- [x] Them backend endpoint scoped trong `lesson-contents.controller.ts` va `lesson-contents.service.ts`.
+  - Endpoint chi tra contents cua class duoc request, khong tra toan bo bang.
+  - Dinh dang response giu on dinh de frontend group theo lesson id.
+- [x] Bo logic load toan bo trong `frontend/src/services/api/course-detail.service.js`.
+  - Doi sang goi scoped endpoint theo classId.
+  - Frontend van group content theo lesson, nhung chi tren data cua class hien tai.
+- [ ] Cap nhat `CourseDetail.jsx` de doc scoped contents.
+  - Dam bao resource/lesson counts van dung khi class co nhieu sections va lessons.
+  - Empty state phai ro khi class khong co lesson content nao.
+- [ ] Chot contract an toan du lieu.
+  - Khong tra content cua class khac.
+  - Khong lam thay doi contract upload/open file hien co.
+
+Manual test cases:
+
+- [x] Mo course co nhieu section/lesson va kiem tra resource content chi lay trong class do.
+- [ ] Kiem tra lesson khong co content van hien empty state ro rang, khong crash UI.
+- [x] Kiem tra file open/quiz link van dung sau khi doi sang endpoint scoped.
+
+Review checklist:
+
+- [x] Khong con fetch toan bo `/lesson-contents` nua.
+- [x] Data scope bam theo classId, khong leak cross-class.
+- [x] Frontend render duoc voi class co nhieu lesson/content.
+
+### Batch 5: Class member security and flow
+
+Goal: dong bo flow them/duyet sinh vien.
+
+Current gap:
+
+- Backend `POST /class-members` da co guard/auth va verify ownership cua giang vien voi lop dang them.
+- Frontend `TeacherDashboard` van co form direct-add, nhung no da duoc bao ve boi API va co the duoc review UI sau.
+- Luong duyet pending da co, nhung browser visual verification cho dashboard teacher van con treo.
+
+Files expected:
+
+- `backend/src/modules/class-members/class-members.controller.ts`
+- `backend/src/modules/class-members/class-members.service.ts`
+- `backend/src/modules/class-members/repositories/class-members.repository.ts`
+- `backend/src/modules/class-members/entities/class-member.entity.ts`
+- `backend/src/modules/classes/classes.service.ts`
+- `frontend/src/pages/Dashboard.jsx`
+- `frontend/src/pages/dashboard/TeacherDashboard.jsx`
+
+Implementation steps:
+
+- [x] Xac nhan business rule: direct-add con duoc phep, nhung phai co guard/auth va verify teacher owns class.
+  - Neu con direct-add, phai co guard/auth va verify teacher owns class.
+  - Neu chi request-join, bo toan bo flow add student truc tiep tren UI.
+- [x] Be backend `POST /class-members` trong `class-members.controller.ts` va `class-members.service.ts`.
+  - Teacher chi duoc them vao lop minh phu trach.
+  - Student khong duoc tao membership tuy y.
+- [ ] Dong bo `Dashboard.jsx` voi permission moi.
+  - Teacher dashboard chi load lop phu trach va pending request.
+  - Student dashboard khong bi render nham sang giao dien course list cua teacher.
+- [ ] To chuc lai `TeacherDashboard.jsx`.
+  - Neu direct-add bi loai bo, cat form them sinh vien.
+  - Neu direct-add duoc giu lai, hien form chi khi guard/backend da chac chan.
+- [x] Dam bao approve flow van on dinh.
+  - `GET /class-members/classes/:classId/pending` va `PATCH /class-members/:id/approve` van la flow chinh de giang vien duyet hoc vien.
+
+Manual test cases:
+
+- [ ] Teacher mo dashboard chi thay lop minh day va danh sach pending request.
+- [ ] Teacher khong the them student vao lop khong phu trach.
+- [ ] Student khong co quyen dung dashboard teacher/add member API.
+- [ ] Pending request van duoc duyet va student thay lop sau khi refresh.
+
+Review checklist:
+
+- [x] Khong con de route/UI nao cho phep membership tao tuy y.
+- [ ] Dashboard teacher khong bi render theo kieu student course list.
+- [x] Approval flow van hoat dong tren lop that.
+
+### Batch 6: Quiz taking
+
+Goal: quiz trac nghiem co the lam va nop bai bang endpoint BE hien co.
+
+FE-only scope neu BE giu contract hien tai:
+
+- [x] Xac nhan contract quiz attempt voi backend trong `backend/src/modules/quiz/quiz.controller.ts` va `backend/src/modules/quiz/quiz.service.ts`.
+  - `POST /quiz/:quizId/start` tra `attempt_id`, `start_time`, `expires_at`, `time_limit`, `time_limit_unit`.
+  - `POST /quiz/:quizId/submit` nhan payload answers array, tra score/result summary.
+  - `GET /quiz/:quizId/attempts/me` tra history theo attempt states va `expires_at`.
+  - `GET /quiz/attempts/:attemptId` tra ket qua chi tiet de hien history/result.
+- [x] Dong bo service layer trong `frontend/src/services/api/quiz-detail.service.js` va `frontend/src/services/dataSource.js`.
+  - Da normalize attempt, submit result, va attempt history sang camelCase.
+  - `QuizDetail.jsx` khong can biet raw snake_case response nua.
+- [x] To chuc lai `frontend/src/pages/QuizDetail.jsx` theo cac che do ro rang.
+  - `not-started`, `in-progress`, `submitted`, `expired`, `read-only`.
+  - Teacher chi preview/read-only; student co luong start/submit va history/result.
+  - Dap an A/B/C/D dang duoc ghi state theo tung cau hoi.
+- [x] Bo sung timer va submit state.
+  - Timer dua tren `expires_at` va disable submit khi het gio hoac dang gui.
+  - Co feedback ro khi start/submit fail va chan nop rong.
+- [x] Hien ket qua va lich su lam quiz.
+  - Sau submit, render score, so cau dung/tong cau, dap an da chon, va lich su attempt.
+  - Student reload van thay attempt dang mo / ket qua moi nhat neu backend tra ve.
+- [x] Review an toan thong tin dap an.
+  - Khong show `correct_answer` truoc khi submit.
+  - Teacher preview khong bien thanh che do lam bai.
+
+Out of FE scope:
+
+- Free-text/self-written quiz answer chua co BE support; contract hien tai chi chap nhan `A`, `B`, `C`, `D`.
+
+Manual test cases:
+
+- [x] Student mo quiz, start attempt, chon dap an, submit, va thay ket qua.
+- [x] Student reload trang quiz van thay attempt history.
+- [x] Teacher mo quiz chi thay preview/read-only, khong co nút submit student flow.
+- [x] Quiz het han khong cho submit nua va hien message ro rang.
+
+Review checklist:
+
+- [x] Khong lo dap an dung truoc khi submit.
+- [x] Khong the submit neu chua start attempt.
+- [x] Khong the submit trong luc dang submit hoac khi attempt da het han.
+- [x] UI chi co mot source of truth cho quiz attempt state.
+
+Validation note:
+
+- Da validate voi live API bang quiz tam co time_limit lon va temp student; start, submit, result, history deu pass.
+
+### Batch 7: Lesson completion and progress
+
+Goal: tab Tien do khong con hardcode 0 khi real mode.
+
+Implementation:
+
+- [x] Backend co `POST /lessons/:lessonId/progress/me` va `GET /classes/:classId/progress/me`.
+- [x] CourseDetail load progress that, cap nhat progress percent, va suy ra `done` / `in-progress` / `todo` tu completed lesson ids.
+- [x] Student co nut danh dau da hoc; teacher van read-only.
+
+Files expected:
+
+- `backend/src/modules/lessons/*`
+- `backend/src/modules/classes/*`
+- `frontend/src/services/api/course-detail.service.js`
+- `frontend/src/pages/CourseDetail.jsx`
+- `frontend/src/pages/dashboard/*` neu dashboard can hien progress summary.
+
+Implementation steps:
+
+- [x] Chot contract progress backend.
+  - Response toi thieu: completed count, total count, progress percent, completed lesson ids.
+- [x] Cap nhat service frontend sau khi contract on dinh.
+  - Course detail goi progress endpoint khi real mode, fallback im lang neu teacher khong lay duoc own progress.
+- [x] Lam ro state hien thi trong `frontend/src/pages/CourseDetail.jsx`.
+  - Student co nut "Danh dau da hoc"; teacher thi read-only.
+  - Empty/loading/error state tach biet voi resource list.
+- [x] Dong bo dashboard summary neu co endpoint tong hop.
+  - Progress hien tren course detail va teacher summary van giu rieng.
+- [x] Kiem tra khong gãy resource/lesson rendering hien co.
+  - Progress khong lam mat sections, lessons, quiz, discussions.
+  - Course detail van load duoc khi progress endpoint fail.
+
+Manual test cases:
+
+- [x] Student mo course co progress thi thay state lesson thay doi ro rang.
+- [x] Student danh dau bai hoc xong reload van con state.
+- [x] Teacher mo course khong bi crash neu progress data chua co hoac fallback.
+- [x] Khi progress endpoint fail, course detail van hien noi dung chinh.
+
+Review checklist:
+
+- [x] Khong hardcode toan bo lesson status = `todo` nua.
+- [x] Khong de progress loi lam crash course detail.
+- [x] Contract progress co default ro rang cho user chua co activity.
+- [x] UI progress co loading/empty/error state rieng.
+
+Validation note:
+
+- Da validate tren live API voi `demo.student.anh@7study.local`: progress truoc `completed=0`, sau khi mark lesson dau tien thi `completed=1`, `progress_percent=33`, `todo=1`.
+
+### Batch 8: Real mode verification
+
+Goal: chot batch integration dau tien co the demo.
+
+Current gap:
+
+- P2 da co smoke test backend/frontend o muc API, nhung chua co checklist demo day-du cho UI/browser.
+- Can mot lap verify sau cung de bao dam quiz taking va progress khong chi pass o terminal.
+
+Implementation steps:
+
+- [ ] Tao/cap nhat `.env.local` frontend cho real API mode.
+- [ ] Chay backend va frontend trong real mode.
+- [ ] Test student flow end-to-end: login, dashboard, course detail, quiz taking, resource open, discussions, assignment view.
+- [ ] Test teacher flow end-to-end: login, dashboard, direct-add/pending approve, quiz preview/management, course detail, resource scope.
+- [ ] Chay `npm run lint`, `npm run build`, va P2 smoke test `npm run test:p1` trong frontend.
+- [ ] Neu sua backend trong P2, chay build/test lien quan cua backend.
+
+Manual test cases:
+
+- [ ] Student start quiz, submit, reload, va thay history/ket qua.
+- [ ] Teacher mo quiz chi preview, khong bi dua vao flow student.
+- [ ] Course detail khong crash khi progress chua co data.
+- [ ] Real API mode khong con goi mock data o cac man hinh P2.
+
+Review checklist:
+
+- [ ] Frontend real mode khong can mock fallback cho quiz/progress.
+- [ ] Bao cao/failure message ro rang neu mot trong cac endpoint P2 loi.
+- [ ] Build, lint, va smoke test deu pass truoc khi dong P2.
+
+## Update Rule
+
+Khi hoan thanh mot viec:
+
+1. Doi status trong bang `API Contract Checklist`.
+2. Tick checkbox trong batch tuong ung.
+3. Ghi them note ngan neu contract thay doi.
+4. Chay test/lint phu hop voi batch.
+5. Review diff truoc khi sang batch moi.
